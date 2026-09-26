@@ -1,47 +1,127 @@
 package dev.yycodes.paymentsimulator.payout;
 
+import dev.yycodes.paymentsimulator.audit.PayoutEvent;
+import dev.yycodes.paymentsimulator.audit.PayoutEventRepository;
+import dev.yycodes.paymentsimulator.audit.PayoutEventType;
+import dev.yycodes.paymentsimulator.provider.ProviderResult;
+import dev.yycodes.paymentsimulator.provider.ProviderStatus;
+import dev.yycodes.paymentsimulator.reconciliation.*;
+import dev.yycodes.paymentsimulator.shared.ConflictException;
 import dev.yycodes.paymentsimulator.shared.NotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.UUID;
 
 @Service
 public class PayoutStateService {
-    private final PayoutRepository repository;
-    public PayoutStateService(PayoutRepository repository) { this.repository = repository; }
+
+    private final PayoutRepository payouts;
+    private final PayoutEventRepository events;
+    private final ReconciliationAttemptRepository reconciliationAttempts;
+
+    public PayoutStateService(
+            PayoutRepository payouts,
+            PayoutEventRepository events,
+            ReconciliationAttemptRepository reconciliationAttempts) {
+        this.payouts = payouts;
+        this.events = events;
+        this.reconciliationAttempts = reconciliationAttempts;
+    }
 
     @Transactional
     public Payout markProcessing(UUID id) {
-        Payout p = require(id);
-        p.startProcessing();
-        return repository.saveAndFlush(p);
+        Payout payout = require(id);
+        PayoutStatus from = payout.getStatus();
+        payout.startProcessing();
+        payouts.saveAndFlush(payout);
+        events.save(new PayoutEvent(id, PayoutEventType.PROCESSING_STARTED, from, payout.getStatus()));
+        return payout;
     }
 
     @Transactional
-    public Payout markSucceeded(UUID id, String ref) {
-        Payout p = require(id);
-        p.markSucceeded(ref);
-        return repository.saveAndFlush(p);
+    public Payout markProviderSucceeded(UUID id, String providerReference) {
+        return transitionSucceeded(id, providerReference, PayoutEventType.PROVIDER_SUCCEEDED);
     }
 
     @Transactional
-    public Payout markFailed(UUID id, String ref) {
-        Payout p = require(id);
-        p.markFailed(ref);
-        return repository.saveAndFlush(p);
+    public Payout markProviderFailed(UUID id, String providerReference) {
+        Payout payout = require(id);
+        PayoutStatus from = payout.getStatus();
+        payout.markFailed(providerReference);
+        payouts.saveAndFlush(payout);
+        events.save(new PayoutEvent(id, PayoutEventType.PROVIDER_DECLINED, from, payout.getStatus()));
+        return payout;
     }
 
     @Transactional
-    public Payout markUnknown(UUID id) {
-        Payout p = require(id);
-        p.markUnknown();
-        return repository.saveAndFlush(p);
+    public Payout markUnknownAfterTimeout(UUID id) {
+        Payout payout = require(id);
+        PayoutStatus from = payout.getStatus();
+        payout.markUnknown();
+        payouts.saveAndFlush(payout);
+        events.save(new PayoutEvent(id, PayoutEventType.PROVIDER_TIMEOUT, from, payout.getStatus()));
+        return payout;
+    }
+
+    @Transactional
+    public ReconciliationResolution recordUnresolvedReconciliation(UUID id) {
+        Payout payout = requireUnknown(id);
+        ReconciliationOutcome outcome = ReconciliationOutcome.STILL_UNKNOWN;
+        reconciliationAttempts.save(new ReconciliationAttempt(id, false, null, outcome));
+        return new ReconciliationResolution(payout, outcome);
+    }
+
+    @Transactional
+    public ReconciliationResolution resolveReconciliation(UUID id, ProviderResult providerResult) {
+        Payout payout = requireUnknown(id);
+        PayoutStatus from = payout.getStatus();
+
+        ReconciliationOutcome outcome;
+        PayoutEventType eventType;
+
+        if (providerResult.status() == ProviderStatus.SUCCEEDED) {
+            payout.markSucceeded(providerResult.providerReference());
+            outcome = ReconciliationOutcome.RESOLVED_SUCCEEDED;
+            eventType = PayoutEventType.RECONCILIATION_SUCCEEDED;
+        } else {
+            payout.markFailed(providerResult.providerReference());
+            outcome = ReconciliationOutcome.RESOLVED_FAILED;
+            eventType = PayoutEventType.RECONCILIATION_FAILED;
+        }
+
+        payouts.saveAndFlush(payout);
+        events.save(new PayoutEvent(id, eventType, from, payout.getStatus()));
+        reconciliationAttempts.save(new ReconciliationAttempt(
+                id, true, providerResult.status(), outcome));
+
+        return new ReconciliationResolution(payout, outcome);
     }
 
     @Transactional(readOnly = true)
-    public Payout get(UUID id) { return require(id); }
+    public Payout get(UUID id) {
+        return require(id);
+    }
+
+    private Payout transitionSucceeded(UUID id, String providerReference, PayoutEventType eventType) {
+        Payout payout = require(id);
+        PayoutStatus from = payout.getStatus();
+        payout.markSucceeded(providerReference);
+        payouts.saveAndFlush(payout);
+        events.save(new PayoutEvent(id, eventType, from, payout.getStatus()));
+        return payout;
+    }
+
+    private Payout requireUnknown(UUID id) {
+        Payout payout = require(id);
+        if (payout.getStatus() != PayoutStatus.UNKNOWN) {
+            throw new ConflictException("Only UNKNOWN payouts require reconciliation");
+        }
+        return payout;
+    }
 
     private Payout require(UUID id) {
-        return repository.findById(id).orElseThrow(() -> new NotFoundException("Payout " + id + " was not found"));
+        return payouts.findById(id)
+                .orElseThrow(() -> new NotFoundException("Payout " + id + " was not found"));
     }
 }
