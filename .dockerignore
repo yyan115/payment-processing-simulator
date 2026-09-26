@@ -5,3 +5,7 @@ target
 .vscode
 *.iml
 .env
+*.p12
+*.pfx
+*.pem
+*.key

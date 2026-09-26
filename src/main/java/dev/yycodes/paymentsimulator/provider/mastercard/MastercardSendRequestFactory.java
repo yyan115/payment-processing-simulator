@@ -2,6 +2,7 @@ package dev.yycodes.paymentsimulator.provider.mastercard;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -13,6 +14,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 @Component
+@ConditionalOnProperty(name = "payments.provider", havingValue = "mastercard")
 public class MastercardSendRequestFactory {
 
     private static final DateTimeFormatter LOCAL_DATE_TIME_FORMAT =
@@ -29,6 +31,8 @@ public class MastercardSendRequestFactory {
             @Value("${payments.mastercard.sender-account-uri}") String senderAccountUri,
             @Value("${payments.mastercard.recipient-account-uri}") String recipientAccountUri) {
         this(mapper, senderAccountUri, recipientAccountUri, Clock.systemUTC());
+        requireConfigured("payments.mastercard.sender-account-uri", senderAccountUri);
+        requireConfigured("payments.mastercard.recipient-account-uri", recipientAccountUri);
     }
 
     MastercardSendRequestFactory(
@@ -92,5 +96,12 @@ public class MastercardSendRequestFactory {
         wrapper.set("payment_disbursement", payment);
 
         return mapper.writeValueAsString(wrapper);
+    }
+
+    private static void requireConfigured(String property, String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException(
+                    property + " must be configured when PAYMENTS_PROVIDER=mastercard");
+        }
     }
 }

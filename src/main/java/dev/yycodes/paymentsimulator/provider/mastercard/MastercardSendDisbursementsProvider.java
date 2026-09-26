@@ -53,6 +53,7 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
                 consumerKey,
                 loadSigningKey(p12Path, keyAlias, keyPassword)
         );
+        requireSandboxBaseUrl(this.baseUrl);
     }
 
     MastercardSendDisbursementsProvider(
@@ -207,6 +208,17 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
                 keyAlias,
                 keyPassword
         );
+    }
+
+    static void requireSandboxBaseUrl(URI baseUrl) {
+        String host = baseUrl.getHost();
+        boolean allowed = "sandbox.api.move.mastercard.com".equalsIgnoreCase(host)
+                || "sandbox.api.mastercard.com".equalsIgnoreCase(host);
+
+        if (!"https".equalsIgnoreCase(baseUrl.getScheme()) || !allowed) {
+            throw new IllegalStateException(
+                    "This project intentionally supports Mastercard sandbox endpoints only");
+        }
     }
 
     private static String encodePath(String value) {

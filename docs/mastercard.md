@@ -44,7 +44,9 @@ MASTERCARD_KEY_PASSWORD=...
 
 Do not put those values in Git.
 
-The repository contains only public sandbox example account URIs from Mastercard's reference material. Override them if your project supplies different sandbox data.
+Sender and recipient account URIs are deliberately not stored in the repository. Configure the sandbox values supplied for your Mastercard Developers project.
+
+The adapter rejects non-sandbox Mastercard hosts even if a production URL is supplied. This repository is not intended to move production money.
 
 ## Verification boundary
 
