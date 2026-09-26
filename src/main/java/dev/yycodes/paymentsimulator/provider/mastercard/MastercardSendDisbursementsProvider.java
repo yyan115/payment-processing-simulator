@@ -1,13 +1,13 @@
 package dev.yycodes.paymentsimulator.provider.mastercard;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mastercard.developer.oauth.OAuth;
 import com.mastercard.developer.utils.AuthenticationUtils;
 import dev.yycodes.paymentsimulator.provider.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -26,7 +26,7 @@ import java.util.UUID;
 @ConditionalOnProperty(name = "payments.provider", havingValue = "mastercard")
 public class MastercardSendDisbursementsProvider implements PaymentProvider {
 
-    private final ObjectMapper mapper;
+    private final JsonMapper mapper;
     private final MastercardSendResponseParser parser;
     private final HttpClient httpClient;
     private final URI baseUrl;
@@ -37,7 +37,7 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
     private final PrivateKey signingKey;
 
     public MastercardSendDisbursementsProvider(
-            ObjectMapper mapper,
+            JsonMapper mapper,
             MastercardSendResponseParser parser,
             @Value("${payments.mastercard.base-url}") String baseUrl,
             @Value("${payments.mastercard.partner-id}") String partnerId,
@@ -90,7 +90,10 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
                     currency
             ));
         } catch (IOException serializationFailure) {
-            throw new IllegalStateException("Could not serialize Mastercard Send request", serializationFailure);
+            throw new IllegalStateException(
+                    "Could not serialize Mastercard Send request",
+                    serializationFailure
+            );
         }
 
         HttpRequest request = signedRequest(

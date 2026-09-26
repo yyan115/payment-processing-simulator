@@ -1,10 +1,10 @@
 package dev.yycodes.paymentsimulator.provider.mastercard;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.yycodes.paymentsimulator.provider.ProviderResult;
 import dev.yycodes.paymentsimulator.provider.ProviderStatus;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -12,9 +12,9 @@ import java.util.Optional;
 @Component
 public class MastercardSendResponseParser {
 
-    private final ObjectMapper mapper;
+    private final JsonMapper mapper;
 
-    public MastercardSendResponseParser(ObjectMapper mapper) {
+    public MastercardSendResponseParser(JsonMapper mapper) {
         this.mapper = mapper;
     }
 

@@ -1,15 +1,15 @@
 package dev.yycodes.paymentsimulator.provider.mastercard;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.yycodes.paymentsimulator.provider.ProviderStatus;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class MastercardSendResponseParserTest {
 
     private final MastercardSendResponseParser parser =
-            new MastercardSendResponseParser(new ObjectMapper());
+            new MastercardSendResponseParser(JsonMapper.builder().build());
 
     @Test
     void parsesApprovedCreateResponse() throws Exception {
