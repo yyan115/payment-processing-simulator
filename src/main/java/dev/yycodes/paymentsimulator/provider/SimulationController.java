@@ -2,6 +2,7 @@ package dev.yycodes.paymentsimulator.provider;
 
 import dev.yycodes.paymentsimulator.payout.PayoutService;
 import jakarta.validation.Valid;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -9,6 +10,11 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/simulation/payouts")
+@ConditionalOnProperty(
+        name = "payments.provider",
+        havingValue = "simulated",
+        matchIfMissing = true
+)
 public class SimulationController {
 
     private final PayoutService payouts;

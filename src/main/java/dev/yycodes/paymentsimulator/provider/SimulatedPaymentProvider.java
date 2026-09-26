@@ -1,5 +1,6 @@
 package dev.yycodes.paymentsimulator.provider;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -7,6 +8,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
+@ConditionalOnProperty(
+        name = "payments.provider",
+        havingValue = "simulated",
+        matchIfMissing = true
+)
 public class SimulatedPaymentProvider implements PaymentProvider {
 
     private final SimulatedProviderStore store;
@@ -39,9 +45,12 @@ public class SimulatedPaymentProvider implements PaymentProvider {
             throw new ProviderTimeoutException("Provider did not return a response before processing began");
         }
 
-        ProviderStatus status = outcome == SimulatedOutcome.DECLINED
-                ? ProviderStatus.DECLINED
-                : ProviderStatus.SUCCEEDED;
+        ProviderStatus status = switch (outcome) {
+            case DECLINED -> ProviderStatus.DECLINED;
+            case UNKNOWN -> ProviderStatus.UNKNOWN;
+            case PENDING -> ProviderStatus.PENDING;
+            default -> ProviderStatus.SUCCEEDED;
+        };
 
         ProviderResult result = store.record(clientReference, amount, currency, status);
 

@@ -45,7 +45,11 @@ class PayoutFlowIntegrationTest {
 
     @Test
     void repeatedCreateWithSameIdempotencyKeyReturnsSamePayout() {
-        CreatePayoutRequest request = new CreatePayoutRequest("seller-42", new BigDecimal("100.00"), "sgd");
+        CreatePayoutRequest request = new CreatePayoutRequest(
+                "seller-42",
+                new BigDecimal("100.00"),
+                "sgd"
+        );
 
         PayoutCreationResult first = payouts.create("demo-key", request);
         PayoutCreationResult retry = payouts.create("demo-key", request);
@@ -62,9 +66,14 @@ class PayoutFlowIntegrationTest {
                 "seller-42", new BigDecimal("100.00"), "SGD"
         ));
 
-        assertThatThrownBy(() -> payouts.create("demo-key", new CreatePayoutRequest(
-                "seller-42", new BigDecimal("101.00"), "SGD"
-        ))).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> payouts.create(
+                "demo-key",
+                new CreatePayoutRequest(
+                        "seller-42",
+                        new BigDecimal("101.00"),
+                        "SGD"
+                )
+        )).isInstanceOf(ConflictException.class);
     }
 
     @Test
@@ -75,6 +84,25 @@ class PayoutFlowIntegrationTest {
 
         assertThat(result.getStatus()).isEqualTo(PayoutStatus.SUCCEEDED);
         assertBalancedLedger(id, new BigDecimal("100.00"));
+    }
+
+    @Test
+    void providerUnknownRemainsUnknownUntilReconciliation() {
+        UUID id = create("provider-unknown");
+        scenarios.configure(id, SimulatedOutcome.UNKNOWN);
+
+        Payout result = processor.process(id);
+
+        assertThat(result.getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
+        assertThat(result.getProviderReference()).startsWith("sim_");
+        assertThat(ledgerTransactions.findByPayoutId(id)).isEmpty();
+
+        var reconciliation = processor.reconcile(id);
+
+        assertThat(reconciliation.outcome())
+                .isEqualTo(ReconciliationOutcome.STILL_UNKNOWN);
+        assertThat(reconciliation.payout().getStatus())
+                .isEqualTo(PayoutStatus.UNKNOWN);
     }
 
     @Test
@@ -158,22 +186,37 @@ class PayoutFlowIntegrationTest {
     }
 
     private void assertBalancedLedger(UUID payoutId, BigDecimal amount) {
-        LedgerTransaction transaction = ledgerTransactions.findByPayoutId(payoutId).orElseThrow();
-        var entries = ledgerEntries.findByTransactionIdOrderByCreatedAtAsc(transaction.getId());
+        LedgerTransaction transaction = ledgerTransactions
+                .findByPayoutId(payoutId)
+                .orElseThrow();
+
+        var entries = ledgerEntries
+                .findByTransactionIdOrderByCreatedAtAsc(transaction.getId());
 
         assertThat(entries).hasSize(2);
-        assertThat(entries).extracting(LedgerEntry::getDirection)
-                .containsExactlyInAnyOrder(LedgerDirection.DEBIT, LedgerDirection.CREDIT);
+        assertThat(entries)
+                .extracting(LedgerEntry::getDirection)
+                .containsExactlyInAnyOrder(
+                        LedgerDirection.DEBIT,
+                        LedgerDirection.CREDIT
+                );
+
         assertThat(entries).allSatisfy(entry -> {
             assertThat(entry.getAmount()).isEqualByComparingTo(amount);
             assertThat(entry.getCurrency()).isEqualTo("SGD");
         });
+
         assertThat(ledgerTransactions.count()).isEqualTo(1);
     }
 
     private UUID create(String key) {
-        return payouts.create(key, new CreatePayoutRequest(
-                "seller-42", new BigDecimal("100.00"), "SGD"
-        )).payout().getId();
+        return payouts.create(
+                key,
+                new CreatePayoutRequest(
+                        "seller-42",
+                        new BigDecimal("100.00"),
+                        "SGD"
+                )
+        ).payout().getId();
     }
 }

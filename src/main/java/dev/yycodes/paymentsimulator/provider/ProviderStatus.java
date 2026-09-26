@@ -1,2 +1,8 @@
 package dev.yycodes.paymentsimulator.provider;
-public enum ProviderStatus { SUCCEEDED, DECLINED }
+
+public enum ProviderStatus {
+    SUCCEEDED,
+    DECLINED,
+    UNKNOWN,
+    PENDING
+}

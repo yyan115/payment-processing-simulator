@@ -1,5 +1,6 @@
 package dev.yycodes.paymentsimulator.payout;
 
+import dev.yycodes.paymentsimulator.audit.PayoutEventType;
 import dev.yycodes.paymentsimulator.observability.PaymentMetrics;
 import dev.yycodes.paymentsimulator.provider.*;
 import dev.yycodes.paymentsimulator.reconciliation.ReconciliationResolution;
@@ -63,16 +64,7 @@ public class PayoutProcessor {
             );
 
             metrics.providerResult(result.status());
-
-            if (result.status() == ProviderStatus.SUCCEEDED) {
-                log.info("payout_retry_succeeded payoutId={} providerReference={}",
-                        id, result.providerReference());
-                return states.markRetrySucceeded(id, result.providerReference());
-            }
-
-            log.info("payout_retry_declined payoutId={} providerReference={}",
-                    id, result.providerReference());
-            return states.markRetryFailed(id, result.providerReference());
+            return finishRetry(id, result);
         } catch (ProviderTimeoutException timeout) {
             metrics.unknownOutcome();
             log.warn("payout_retry_timeout payoutId={} outcome=unknown", id);
@@ -88,7 +80,7 @@ public class PayoutProcessor {
 
         ReconciliationResolution resolution = provider.findByClientReference(id)
                 .map(result -> states.resolveReconciliation(id, result))
-                .orElseGet(() -> states.recordUnresolvedReconciliation(id));
+                .orElseGet(() -> states.recordUnresolvedReconciliation(id, null));
 
         metrics.reconciliation(resolution.outcome());
         log.info("payout_reconciled payoutId={} outcome={}", id, resolution.outcome());
@@ -96,14 +88,40 @@ public class PayoutProcessor {
     }
 
     private Payout finishOriginal(UUID id, ProviderResult result) {
-        if (result.status() == ProviderStatus.SUCCEEDED) {
-            log.info("payout_provider_succeeded payoutId={} providerReference={}",
-                    id, result.providerReference());
-            return states.markProviderSucceeded(id, result.providerReference());
-        }
+        return switch (result.status()) {
+            case SUCCEEDED -> {
+                log.info("payout_provider_succeeded payoutId={} providerReference={}",
+                        id, result.providerReference());
+                yield states.markProviderSucceeded(id, result.providerReference());
+            }
+            case DECLINED -> {
+                log.info("payout_provider_declined payoutId={} providerReference={}",
+                        id, result.providerReference());
+                yield states.markProviderFailed(id, result.providerReference());
+            }
+            case UNKNOWN -> {
+                metrics.unknownOutcome();
+                yield states.markProviderUncertain(
+                        id, result.providerReference(), PayoutEventType.PROVIDER_UNKNOWN);
+            }
+            case PENDING -> {
+                yield states.markProviderUncertain(
+                        id, result.providerReference(), PayoutEventType.PROVIDER_PENDING);
+            }
+        };
+    }
 
-        log.info("payout_provider_declined payoutId={} providerReference={}",
-                id, result.providerReference());
-        return states.markProviderFailed(id, result.providerReference());
+    private Payout finishRetry(UUID id, ProviderResult result) {
+        return switch (result.status()) {
+            case SUCCEEDED -> states.markRetrySucceeded(id, result.providerReference());
+            case DECLINED -> states.markRetryFailed(id, result.providerReference());
+            case UNKNOWN -> {
+                metrics.unknownOutcome();
+                yield states.markRetryUncertain(
+                        id, result.providerReference(), PayoutEventType.PROVIDER_RETRY_UNKNOWN);
+            }
+            case PENDING -> states.markRetryUncertain(
+                    id, result.providerReference(), PayoutEventType.PROVIDER_RETRY_PENDING);
+        };
     }
 }

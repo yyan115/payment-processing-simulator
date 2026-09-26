@@ -13,9 +13,19 @@ spring:
     enabled: true
 
 payments:
+  provider: ${PAYMENTS_PROVIDER:simulated}
   reconciliation:
     enabled: ${RECONCILIATION_ENABLED:true}
     interval-ms: ${RECONCILIATION_INTERVAL_MS:30000}
+  mastercard:
+    base-url: ${MASTERCARD_BASE_URL:https://sandbox.api.mastercard.com}
+    partner-id: ${MASTERCARD_PARTNER_ID:}
+    consumer-key: ${MASTERCARD_CONSUMER_KEY:}
+    p12-path: ${MASTERCARD_P12_PATH:}
+    key-alias: ${MASTERCARD_KEY_ALIAS:keyalias}
+    key-password: ${MASTERCARD_KEY_PASSWORD:keystorepassword}
+    sender-account-uri: ${MASTERCARD_SENDER_ACCOUNT_URI:raw:12345678901234567890}
+    recipient-account-uri: ${MASTERCARD_RECIPIENT_ACCOUNT_URI:pan:5013040000000018;exp=2077-05}
 
 management:
   endpoints:

@@ -54,13 +54,21 @@ public class PayoutStateService {
     }
 
     @Transactional
-    public Payout markUnknownAfterTimeout(UUID id) {
+    public Payout markProviderUncertain(
+            UUID id,
+            String providerReference,
+            PayoutEventType eventType) {
         Payout payout = require(id);
         PayoutStatus from = payout.getStatus();
-        payout.markUnknown();
+        payout.markUnknown(providerReference);
         payouts.saveAndFlush(payout);
-        events.save(new PayoutEvent(id, PayoutEventType.PROVIDER_TIMEOUT, from, payout.getStatus()));
+        events.save(new PayoutEvent(id, eventType, from, payout.getStatus()));
         return payout;
+    }
+
+    @Transactional
+    public Payout markUnknownAfterTimeout(UUID id) {
+        return markProviderUncertain(id, null, PayoutEventType.PROVIDER_TIMEOUT);
     }
 
     @Transactional
@@ -74,27 +82,50 @@ public class PayoutStateService {
     }
 
     @Transactional
-    public Payout recordRetryTimeout(UUID id) {
+    public Payout markRetryUncertain(
+            UUID id,
+            String providerReference,
+            PayoutEventType eventType) {
         Payout payout = requireUnknown(id);
-        events.save(new PayoutEvent(
-                id,
-                PayoutEventType.PROVIDER_RETRY_TIMEOUT,
-                PayoutStatus.UNKNOWN,
-                PayoutStatus.UNKNOWN
-        ));
+        payout.markUnknown(providerReference);
+        payouts.saveAndFlush(payout);
+        events.save(new PayoutEvent(id, eventType, PayoutStatus.UNKNOWN, PayoutStatus.UNKNOWN));
         return payout;
     }
 
     @Transactional
-    public ReconciliationResolution recordUnresolvedReconciliation(UUID id) {
+    public Payout recordRetryTimeout(UUID id) {
+        return markRetryUncertain(id, null, PayoutEventType.PROVIDER_RETRY_TIMEOUT);
+    }
+
+    @Transactional
+    public ReconciliationResolution recordUnresolvedReconciliation(
+            UUID id,
+            ProviderResult providerResult) {
         Payout payout = requireUnknown(id);
+        if (providerResult != null) {
+            payout.markUnknown(providerResult.providerReference());
+            payouts.saveAndFlush(payout);
+        }
+
+        ProviderStatus providerStatus = providerResult == null ? null : providerResult.status();
         ReconciliationOutcome outcome = ReconciliationOutcome.STILL_UNKNOWN;
-        reconciliationAttempts.save(new ReconciliationAttempt(id, false, null, outcome));
+        reconciliationAttempts.save(new ReconciliationAttempt(
+                id,
+                providerResult != null,
+                providerStatus,
+                outcome
+        ));
         return new ReconciliationResolution(payout, outcome);
     }
 
     @Transactional
     public ReconciliationResolution resolveReconciliation(UUID id, ProviderResult providerResult) {
+        if (providerResult.status() == ProviderStatus.UNKNOWN
+                || providerResult.status() == ProviderStatus.PENDING) {
+            return recordUnresolvedReconciliation(id, providerResult);
+        }
+
         Payout payout = requireUnknown(id);
         PayoutStatus from = payout.getStatus();
 
@@ -115,7 +146,11 @@ public class PayoutStateService {
         payouts.saveAndFlush(payout);
         events.save(new PayoutEvent(id, eventType, from, payout.getStatus()));
         reconciliationAttempts.save(new ReconciliationAttempt(
-                id, true, providerResult.status(), outcome));
+                id,
+                true,
+                providerResult.status(),
+                outcome
+        ));
 
         return new ReconciliationResolution(payout, outcome);
     }
@@ -146,7 +181,8 @@ public class PayoutStateService {
 
     private Payout requireUnknownOrProcessing(UUID id) {
         Payout payout = require(id);
-        if (payout.getStatus() != PayoutStatus.UNKNOWN && payout.getStatus() != PayoutStatus.PROCESSING) {
+        if (payout.getStatus() != PayoutStatus.UNKNOWN
+                && payout.getStatus() != PayoutStatus.PROCESSING) {
             throw new ConflictException(
                     "Payout " + id + " must be PROCESSING or UNKNOWN, but was " + payout.getStatus());
         }

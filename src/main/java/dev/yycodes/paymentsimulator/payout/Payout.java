@@ -10,32 +10,51 @@ import java.util.UUID;
 @Entity
 @Table(name = "payouts")
 public class Payout {
-    @Id private UUID id;
+
+    @Id
+    private UUID id;
+
     @Column(name = "idempotency_key", nullable = false, unique = true, updatable = false)
     private String idempotencyKey;
+
     @Column(name = "request_fingerprint", nullable = false, updatable = false, length = 64)
     private String requestFingerprint;
+
     @Column(name = "recipient_reference", nullable = false, updatable = false)
     private String recipientReference;
+
     @Column(nullable = false, precision = 19, scale = 4, updatable = false)
     private BigDecimal amount;
+
     @Column(nullable = false, length = 3, updatable = false)
     private String currency;
-    @Enumerated(EnumType.STRING) @Column(nullable = false)
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private PayoutStatus status;
+
     @Column(name = "provider_reference")
     private String providerReference;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
-    @Version @Column(nullable = false)
+
+    @Version
+    @Column(nullable = false)
     private long version;
 
-    protected Payout() {}
+    protected Payout() {
+    }
 
-    public Payout(String idempotencyKey, String requestFingerprint, String recipientReference,
-                  BigDecimal amount, String currency) {
+    public Payout(
+            String idempotencyKey,
+            String requestFingerprint,
+            String recipientReference,
+            BigDecimal amount,
+            String currency) {
         this.id = UUID.randomUUID();
         this.idempotencyKey = idempotencyKey;
         this.requestFingerprint = requestFingerprint;
@@ -52,7 +71,10 @@ public class Payout {
         updatedAt = now;
     }
 
-    @PreUpdate void onUpdate() { updatedAt = Instant.now(); }
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = Instant.now();
+    }
 
     public void startProcessing() {
         requireStatus(PayoutStatus.CREATED);
@@ -71,14 +93,19 @@ public class Payout {
         status = PayoutStatus.FAILED;
     }
 
-    public void markUnknown() {
-        requireStatus(PayoutStatus.PROCESSING);
+    public void markUnknown(String providerReference) {
+        requireStatus(PayoutStatus.PROCESSING, PayoutStatus.UNKNOWN);
+        if (providerReference != null) {
+            this.providerReference = providerReference;
+        }
         status = PayoutStatus.UNKNOWN;
     }
 
     private void requireStatus(PayoutStatus... allowed) {
         for (PayoutStatus candidate : allowed) {
-            if (status == candidate) return;
+            if (status == candidate) {
+                return;
+            }
         }
         throw new ConflictException("Payout " + id + " cannot transition from " + status);
     }
