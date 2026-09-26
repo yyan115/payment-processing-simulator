@@ -11,6 +11,7 @@ The project is built around several invariants:
 5. Every posted payout creates equal debit and credit ledger entries.
 6. A payout is posted to the ledger at most once.
 7. Concurrent workers cannot create duplicate provider or ledger transactions.
+8. A provider success cannot be lost merely because the local finalization write fails.
 
 ## Ambiguous outcomes
 
@@ -90,9 +91,11 @@ Concurrent processors may both begin from the same snapshot, but only one can co
 
 The integration suite covers concurrent payout creation, processing, and retry paths and verifies that one external provider transaction and one two-line ledger transaction survive.
 
-## Reconciliation
+## Reconciliation and crash recovery
 
 Reconciliation queries the provider using the payout UUID as the stable client reference.
+
+The scheduled worker handles both `UNKNOWN` payouts and stale `PROCESSING` payouts. The latter covers the crash window where the external provider completed a request but the application died or failed to persist the final local state. Fresh `PROCESSING` payouts are left alone until the configured stale threshold expires.
 
 - provider reports `SUCCEEDED`: resolve to `SUCCEEDED` and post the ledger
 - provider reports `DECLINED`: resolve to `FAILED`

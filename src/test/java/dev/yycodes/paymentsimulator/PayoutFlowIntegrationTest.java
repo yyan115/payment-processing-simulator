@@ -24,6 +24,8 @@ class PayoutFlowIntegrationTest {
 
     @Autowired private PayoutService payouts;
     @Autowired private PayoutProcessor processor;
+    @Autowired private PayoutStateService states;
+    @Autowired private PaymentProvider provider;
     @Autowired private PayoutRepository payoutRepository;
     @Autowired private ProviderTransactionRepository providerRepository;
     @Autowired private PayoutEventRepository eventRepository;
@@ -103,6 +105,73 @@ class PayoutFlowIntegrationTest {
                 .isEqualTo(ReconciliationOutcome.STILL_UNKNOWN);
         assertThat(reconciliation.payout().getStatus())
                 .isEqualTo(PayoutStatus.UNKNOWN);
+    }
+
+    @Test
+    void providerSuccessCanBeRecoveredAfterLocalFinalizeCrashWindow() {
+        UUID id = create("crash-after-provider-success");
+
+        Payout processing = states.markProcessing(id);
+        ProviderResult providerResult = provider.submit(
+                processing.getId(),
+                processing.getAmount(),
+                processing.getCurrency(),
+                SubmissionMode.ORIGINAL
+        );
+
+        assertThat(providerResult.status()).isEqualTo(ProviderStatus.SUCCEEDED);
+        assertThat(payoutRepository.findById(id).orElseThrow().getStatus())
+                .isEqualTo(PayoutStatus.PROCESSING);
+        assertThat(providerRepository.count()).isEqualTo(1);
+        assertThat(ledgerTransactions.count()).isZero();
+
+        var recovered = processor.reconcile(id);
+
+        assertThat(recovered.outcome())
+                .isEqualTo(ReconciliationOutcome.RESOLVED_SUCCEEDED);
+        assertThat(recovered.payout().getStatus())
+                .isEqualTo(PayoutStatus.SUCCEEDED);
+        assertBalancedLedger(id, new BigDecimal("100.00"));
+    }
+
+    @Test
+    void staleProcessingWithNoProviderRecordBecomesUnknown() {
+        UUID id = create("crash-before-provider-call");
+
+        states.markProcessing(id);
+
+        var recovered = processor.reconcile(id);
+
+        assertThat(recovered.outcome())
+                .isEqualTo(ReconciliationOutcome.STILL_UNKNOWN);
+        assertThat(recovered.payout().getStatus())
+                .isEqualTo(PayoutStatus.UNKNOWN);
+        assertThat(providerRepository.count()).isZero();
+        assertThat(ledgerTransactions.count()).isZero();
+
+        assertThat(eventRepository.findByPayoutIdOrderByCreatedAtAsc(id))
+                .extracting(event -> event.getEventType())
+                .containsExactly(
+                        PayoutEventType.PROCESSING_STARTED,
+                        PayoutEventType.RECONCILIATION_UNRESOLVED
+                );
+    }
+
+    @Test
+    void maximumRecipientLengthCanStillPostLedger() {
+        String recipient = "r".repeat(255);
+        UUID id = payouts.create(
+                "long-recipient",
+                new CreatePayoutRequest(
+                        recipient,
+                        new BigDecimal("100.00"),
+                        "SGD"
+                )
+        ).payout().getId();
+
+        assertThat(processor.process(id).getStatus())
+                .isEqualTo(PayoutStatus.SUCCEEDED);
+        assertBalancedLedger(id, new BigDecimal("100.00"));
     }
 
     @Test

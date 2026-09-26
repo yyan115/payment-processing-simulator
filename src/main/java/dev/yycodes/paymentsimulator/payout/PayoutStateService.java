@@ -119,13 +119,26 @@ public class PayoutStateService {
     public ReconciliationResolution recordUnresolvedReconciliation(
             UUID id,
             ProviderResult providerResult) {
-        Payout payout = requireUnknown(id);
-        if (providerResult != null) {
-            payout.markUnknown(providerResult.providerReference());
-            payouts.saveAndFlush(payout);
+        Payout payout = requireUnknownOrProcessing(id);
+        PayoutStatus from = payout.getStatus();
+
+        payout.markUnknown(
+                providerResult == null ? null : providerResult.providerReference()
+        );
+        payouts.saveAndFlush(payout);
+
+        if (from == PayoutStatus.PROCESSING) {
+            events.save(new PayoutEvent(
+                    id,
+                    PayoutEventType.RECONCILIATION_UNRESOLVED,
+                    from,
+                    PayoutStatus.UNKNOWN
+            ));
         }
 
-        ProviderStatus providerStatus = providerResult == null ? null : providerResult.status();
+        ProviderStatus providerStatus =
+                providerResult == null ? null : providerResult.status();
+
         ReconciliationOutcome outcome = ReconciliationOutcome.STILL_UNKNOWN;
         reconciliationAttempts.save(new ReconciliationAttempt(
                 id,
@@ -143,7 +156,7 @@ public class PayoutStateService {
             return recordUnresolvedReconciliation(id, providerResult);
         }
 
-        Payout payout = requireUnknown(id);
+        Payout payout = requireUnknownOrProcessing(id);
         PayoutStatus from = payout.getStatus();
 
         ReconciliationOutcome outcome;

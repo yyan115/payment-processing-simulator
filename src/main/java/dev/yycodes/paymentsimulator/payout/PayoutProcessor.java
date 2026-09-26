@@ -82,8 +82,10 @@ public class PayoutProcessor {
 
     public ReconciliationResolution reconcile(UUID id) {
         Payout payout = states.get(id);
-        if (payout.getStatus() != PayoutStatus.UNKNOWN) {
-            throw new ConflictException("Only UNKNOWN payouts require reconciliation");
+        if (payout.getStatus() != PayoutStatus.UNKNOWN
+                && payout.getStatus() != PayoutStatus.PROCESSING) {
+            throw new ConflictException(
+                    "Only UNKNOWN or PROCESSING payouts require reconciliation");
         }
 
         ReconciliationResolution resolution = provider.findByClientReference(id)
