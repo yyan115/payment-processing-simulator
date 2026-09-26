@@ -1,0 +1,155 @@
+package dev.yycodes.paymentsimulator;
+
+import dev.yycodes.paymentsimulator.audit.PayoutEventRepository;
+import dev.yycodes.paymentsimulator.ledger.LedgerEntryRepository;
+import dev.yycodes.paymentsimulator.ledger.LedgerTransactionRepository;
+import dev.yycodes.paymentsimulator.payout.PayoutRepository;
+import dev.yycodes.paymentsimulator.provider.ProviderTransactionRepository;
+import dev.yycodes.paymentsimulator.reconciliation.ReconciliationAttemptRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
+import tools.jackson.databind.json.JsonMapper;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "payments.reconciliation.enabled=false"
+)
+class PayoutApiIntegrationTest {
+
+    @Value("${local.server.port}")
+    private int port;
+
+    @Autowired private PayoutRepository payouts;
+    @Autowired private ProviderTransactionRepository providerTransactions;
+    @Autowired private PayoutEventRepository events;
+    @Autowired private ReconciliationAttemptRepository reconciliationAttempts;
+    @Autowired private LedgerTransactionRepository ledgerTransactions;
+    @Autowired private LedgerEntryRepository ledgerEntries;
+
+    private final HttpClient client = HttpClient.newHttpClient();
+    private final JsonMapper json = JsonMapper.builder().build();
+
+    @BeforeEach
+    void cleanDatabase() {
+        ledgerEntries.deleteAll();
+        ledgerTransactions.deleteAll();
+        reconciliationAttempts.deleteAll();
+        events.deleteAll();
+        providerTransactions.deleteAll();
+        payouts.deleteAll();
+    }
+
+    @Test
+    void idempotentReplayReturnsOriginalPayout() throws Exception {
+        String body = """
+                {
+                  "recipientReference": "seller-42",
+                  "amount": 100.00,
+                  "currency": "SGD"
+                }
+                """;
+
+        HttpResponse<String> created = postPayout("api-idempotency", body);
+        HttpResponse<String> replay = postPayout("api-idempotency", body);
+
+        assertThat(created.statusCode()).isEqualTo(201);
+        assertThat(replay.statusCode()).isEqualTo(200);
+
+        String createdId = json.readTree(created.body()).path("id").asText();
+        String replayId = json.readTree(replay.body()).path("id").asText();
+
+        assertThat(replayId).isEqualTo(createdId);
+        assertThat(payouts.count()).isEqualTo(1);
+    }
+
+    @Test
+    void idempotencyKeyReuseWithDifferentIntentReturnsConflict() throws Exception {
+        postPayout(
+                "api-conflict",
+                """
+                {
+                  "recipientReference": "seller-42",
+                  "amount": 100.00,
+                  "currency": "SGD"
+                }
+                """
+        );
+
+        HttpResponse<String> conflict = postPayout(
+                "api-conflict",
+                """
+                {
+                  "recipientReference": "seller-42",
+                  "amount": 101.00,
+                  "currency": "SGD"
+                }
+                """
+        );
+
+        assertThat(conflict.statusCode()).isEqualTo(409);
+    }
+
+    @Test
+    void invalidMoneyPrecisionIsRejectedBeforePersistence() throws Exception {
+        HttpResponse<String> response = postPayout(
+                "api-invalid-money",
+                """
+                {
+                  "recipientReference": "seller-42",
+                  "amount": 100.00001,
+                  "currency": "SGD"
+                }
+                """
+        );
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(payouts.count()).isZero();
+    }
+
+    @Test
+    void missingIdempotencyKeyIsRejected() throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(api("/api/v1/payouts"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("""
+                        {
+                          "recipientReference": "seller-42",
+                          "amount": 100.00,
+                          "currency": "SGD"
+                        }
+                        """))
+                .build();
+
+        HttpResponse<String> response = client.send(
+                request,
+                HttpResponse.BodyHandlers.ofString()
+        );
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(payouts.count()).isZero();
+    }
+
+    private HttpResponse<String> postPayout(String idempotencyKey, String body)
+            throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(api("/api/v1/payouts"))
+                .header("Content-Type", "application/json")
+                .header("Idempotency-Key", idempotencyKey)
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+
+        return client.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private URI api(String path) {
+        return URI.create("http://localhost:" + port + path);
+    }
+}
