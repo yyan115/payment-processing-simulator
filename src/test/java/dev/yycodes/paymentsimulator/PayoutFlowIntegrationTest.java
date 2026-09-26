@@ -63,9 +63,7 @@ class PayoutFlowIntegrationTest {
 
     @Test
     void timeoutAfterProviderSuccessBecomesUnknownThenReconcilesToSucceeded() {
-        UUID id = payouts.create("timeout-key", new CreatePayoutRequest(
-                "seller-42", new BigDecimal("100.00"), "SGD"
-        )).payout().getId();
+        UUID id = create("timeout-after-success");
 
         Payout uncertain = processor.process(id, SimulatedOutcome.TIMEOUT_AFTER_SUCCESS);
 
@@ -95,14 +93,40 @@ class PayoutFlowIntegrationTest {
     }
 
     @Test
+    void timeoutBeforeProviderProcessingRemainsUnknownAfterReconciliation() {
+        UUID id = create("timeout-before-processing");
+
+        Payout uncertain = processor.process(id, SimulatedOutcome.TIMEOUT_BEFORE_PROCESSING);
+
+        assertThat(uncertain.getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
+        assertThat(providerRepository.findByClientReference(id)).isEmpty();
+
+        var reconciled = processor.reconcile(id);
+
+        assertThat(reconciled.outcome()).isEqualTo(ReconciliationOutcome.STILL_UNKNOWN);
+        assertThat(reconciled.payout().getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
+
+        assertThat(reconciliationRepository.findByPayoutIdOrderByCreatedAtAsc(id))
+                .singleElement()
+                .satisfies(attempt -> {
+                    assertThat(attempt.isProviderRecordFound()).isFalse();
+                    assertThat(attempt.getOutcome()).isEqualTo(ReconciliationOutcome.STILL_UNKNOWN);
+                });
+    }
+
+    @Test
     void providerDeclineBecomesFailed() {
-        UUID id = payouts.create("decline-key", new CreatePayoutRequest(
-                "seller-9", new BigDecimal("25.00"), "SGD"
-        )).payout().getId();
+        UUID id = create("decline-key");
 
         Payout result = processor.process(id, SimulatedOutcome.DECLINED);
 
         assertThat(result.getStatus()).isEqualTo(PayoutStatus.FAILED);
         assertThat(result.getProviderReference()).startsWith("sim_");
+    }
+
+    private UUID create(String key) {
+        return payouts.create(key, new CreatePayoutRequest(
+                "seller-42", new BigDecimal("100.00"), "SGD"
+        )).payout().getId();
     }
 }
