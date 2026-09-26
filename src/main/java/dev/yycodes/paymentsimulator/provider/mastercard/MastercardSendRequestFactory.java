@@ -1,5 +1,6 @@
 package dev.yycodes.paymentsimulator.provider.mastercard;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
@@ -22,6 +23,7 @@ public class MastercardSendRequestFactory {
     private final String recipientAccountUri;
     private final Clock clock;
 
+    @Autowired
     public MastercardSendRequestFactory(
             JsonMapper mapper,
             @Value("${payments.mastercard.sender-account-uri}") String senderAccountUri,
