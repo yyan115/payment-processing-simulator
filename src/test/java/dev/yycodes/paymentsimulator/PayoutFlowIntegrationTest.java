@@ -2,6 +2,7 @@ package dev.yycodes.paymentsimulator;
 
 import dev.yycodes.paymentsimulator.audit.PayoutEventRepository;
 import dev.yycodes.paymentsimulator.audit.PayoutEventType;
+import dev.yycodes.paymentsimulator.ledger.*;
 import dev.yycodes.paymentsimulator.payout.*;
 import dev.yycodes.paymentsimulator.provider.*;
 import dev.yycodes.paymentsimulator.reconciliation.ReconciliationAttemptRepository;
@@ -28,10 +29,14 @@ class PayoutFlowIntegrationTest {
     @Autowired private PayoutEventRepository eventRepository;
     @Autowired private ReconciliationAttemptRepository reconciliationRepository;
     @Autowired private SimulationScenarioRegistry scenarios;
+    @Autowired private LedgerTransactionRepository ledgerTransactions;
+    @Autowired private LedgerEntryRepository ledgerEntries;
 
     @BeforeEach
     void cleanDatabase() {
         scenarios.clear();
+        ledgerEntries.deleteAll();
+        ledgerTransactions.deleteAll();
         reconciliationRepository.deleteAll();
         eventRepository.deleteAll();
         providerRepository.deleteAll();
@@ -63,6 +68,16 @@ class PayoutFlowIntegrationTest {
     }
 
     @Test
+    void directSuccessPostsBalancedLedgerExactlyOnce() {
+        UUID id = create("direct-success");
+
+        Payout result = processor.process(id);
+
+        assertThat(result.getStatus()).isEqualTo(PayoutStatus.SUCCEEDED);
+        assertBalancedLedger(id, new BigDecimal("100.00"));
+    }
+
+    @Test
     void timeoutAfterProviderSuccessBecomesUnknownThenReconcilesToSucceeded() {
         UUID id = create("timeout-after-success");
         scenarios.configure(id, SimulatedOutcome.TIMEOUT_AFTER_SUCCESS);
@@ -70,12 +85,13 @@ class PayoutFlowIntegrationTest {
         Payout uncertain = processor.process(id);
 
         assertThat(uncertain.getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
-        assertThat(providerRepository.findByClientReference(id)).isPresent();
+        assertThat(ledgerTransactions.findByPayoutId(id)).isEmpty();
 
         var reconciled = processor.reconcile(id);
 
         assertThat(reconciled.outcome()).isEqualTo(ReconciliationOutcome.RESOLVED_SUCCEEDED);
         assertThat(reconciled.payout().getStatus()).isEqualTo(PayoutStatus.SUCCEEDED);
+        assertBalancedLedger(id, new BigDecimal("100.00"));
 
         assertThat(eventRepository.findByPayoutIdOrderByCreatedAtAsc(id))
                 .extracting(event -> event.getEventType())
@@ -87,19 +103,16 @@ class PayoutFlowIntegrationTest {
     }
 
     @Test
-    void timeoutBeforeProviderProcessingRemainsUnknownAfterReconciliation() {
+    void timeoutBeforeProviderProcessingRemainsUnknownWithoutLedgerPosting() {
         UUID id = create("timeout-before-processing");
         scenarios.configure(id, SimulatedOutcome.TIMEOUT_BEFORE_PROCESSING);
 
-        Payout uncertain = processor.process(id);
-
-        assertThat(uncertain.getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
-        assertThat(providerRepository.findByClientReference(id)).isEmpty();
+        assertThat(processor.process(id).getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
 
         var reconciled = processor.reconcile(id);
 
         assertThat(reconciled.outcome()).isEqualTo(ReconciliationOutcome.STILL_UNKNOWN);
-        assertThat(reconciled.payout().getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
+        assertThat(ledgerTransactions.findByPayoutId(id)).isEmpty();
     }
 
     @Test
@@ -109,18 +122,13 @@ class PayoutFlowIntegrationTest {
 
         assertThat(processor.process(id).getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
         assertThat(providerRepository.count()).isEqualTo(1);
+        assertThat(ledgerTransactions.count()).isZero();
 
         Payout retried = processor.retry(id);
 
         assertThat(retried.getStatus()).isEqualTo(PayoutStatus.SUCCEEDED);
         assertThat(providerRepository.count()).isEqualTo(1);
-        assertThat(eventRepository.findByPayoutIdOrderByCreatedAtAsc(id))
-                .extracting(event -> event.getEventType())
-                .containsExactly(
-                        PayoutEventType.PROCESSING_STARTED,
-                        PayoutEventType.PROVIDER_TIMEOUT,
-                        PayoutEventType.PROVIDER_RETRY_SUCCEEDED
-                );
+        assertBalancedLedger(id, new BigDecimal("100.00"));
     }
 
     @Test
@@ -135,17 +143,32 @@ class PayoutFlowIntegrationTest {
 
         assertThat(retried.getStatus()).isEqualTo(PayoutStatus.SUCCEEDED);
         assertThat(providerRepository.count()).isEqualTo(1);
+        assertBalancedLedger(id, new BigDecimal("100.00"));
     }
 
     @Test
-    void providerDeclineBecomesFailed() {
+    void providerDeclineDoesNotPostLedger() {
         UUID id = create("decline-key");
         scenarios.configure(id, SimulatedOutcome.DECLINED);
 
         Payout result = processor.process(id);
 
         assertThat(result.getStatus()).isEqualTo(PayoutStatus.FAILED);
-        assertThat(result.getProviderReference()).startsWith("sim_");
+        assertThat(ledgerTransactions.findByPayoutId(id)).isEmpty();
+    }
+
+    private void assertBalancedLedger(UUID payoutId, BigDecimal amount) {
+        LedgerTransaction transaction = ledgerTransactions.findByPayoutId(payoutId).orElseThrow();
+        var entries = ledgerEntries.findByTransactionIdOrderByCreatedAtAsc(transaction.getId());
+
+        assertThat(entries).hasSize(2);
+        assertThat(entries).extracting(LedgerEntry::getDirection)
+                .containsExactlyInAnyOrder(LedgerDirection.DEBIT, LedgerDirection.CREDIT);
+        assertThat(entries).allSatisfy(entry -> {
+            assertThat(entry.getAmount()).isEqualByComparingTo(amount);
+            assertThat(entry.getCurrency()).isEqualTo("SGD");
+        });
+        assertThat(ledgerTransactions.count()).isEqualTo(1);
     }
 
     private UUID create(String key) {

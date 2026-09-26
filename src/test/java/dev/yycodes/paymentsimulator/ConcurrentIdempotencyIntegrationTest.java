@@ -1,6 +1,8 @@
 package dev.yycodes.paymentsimulator;
 
 import dev.yycodes.paymentsimulator.audit.PayoutEventRepository;
+import dev.yycodes.paymentsimulator.ledger.LedgerEntryRepository;
+import dev.yycodes.paymentsimulator.ledger.LedgerTransactionRepository;
 import dev.yycodes.paymentsimulator.payout.CreatePayoutRequest;
 import dev.yycodes.paymentsimulator.payout.PayoutCreationResult;
 import dev.yycodes.paymentsimulator.payout.PayoutRepository;
@@ -28,9 +30,13 @@ class ConcurrentIdempotencyIntegrationTest {
     @Autowired private ProviderTransactionRepository providerRepository;
     @Autowired private PayoutEventRepository eventRepository;
     @Autowired private ReconciliationAttemptRepository reconciliationRepository;
+    @Autowired private LedgerTransactionRepository ledgerTransactions;
+    @Autowired private LedgerEntryRepository ledgerEntries;
 
     @BeforeEach
     void cleanDatabase() {
+        ledgerEntries.deleteAll();
+        ledgerTransactions.deleteAll();
         reconciliationRepository.deleteAll();
         eventRepository.deleteAll();
         providerRepository.deleteAll();

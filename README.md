@@ -4,7 +4,7 @@
 
 A Java/Spring Boot payment backend that explores a deceptively hard problem: **what should a financial system do when an external payment may have succeeded, but the response never arrives?**
 
-The project models idempotent payout creation, strict lifecycle transitions, ambiguous external outcomes, safe retries, automated reconciliation, concurrency protection, audit history, and operational monitoring.
+The project models idempotent payout creation, strict lifecycle transitions, ambiguous external outcomes, safe retries, automated reconciliation, concurrency protection, double-entry financial records, audit history, and operational monitoring.
 
 ## The failure this project is built around
 
@@ -36,6 +36,8 @@ flowchart LR
     SIM --> DB
     FI[Failure Injection API] --> SIM
     R[Reconciliation Worker] --> S
+    S --> L[Double-entry Ledger]
+    L --> DB
     A[Audit Trail] --> DB
     M[Micrometer / Actuator] --> PR[Prometheus]
 ```
@@ -51,6 +53,8 @@ Failure injection is deliberately separated from the business payout API. The pr
 - **Unknown is not failed:** transport timeouts preserve uncertainty instead of inventing a business outcome.
 - **Safe retry:** a repeated provider submission can return the original provider transaction instead of creating another payout.
 - **Reconciliation:** uncertain payouts are checked against durable provider records.
+- **Double-entry posting:** successful payouts atomically create equal debit and credit ledger entries.
+- **No premature posting:** failed and unresolved payouts create no financial journal entry.
 - **Auditability:** state transitions and reconciliation attempts are persisted.
 - **Operational visibility:** logs, Prometheus metrics, health checks, and an alert for unresolved unknown payouts are included.
 
@@ -72,14 +76,35 @@ RETRY submission
 
 Source: [Mastercard Send Release Notes 25.2](https://static.developer.mastercard.com/content/mastercard-send/release-notes/mastercard-send-release-notes-25.2.pdf)
 
+## Financial journal
+
+A payout does not enter the ledger until its external outcome is known to be successful.
+
+A S$100 settlement creates one immutable journal transaction:
+
+```text
+DEBIT   SELLER_PAYABLE:seller-42   SGD 100
+CREDIT  CASH_CLEARING              SGD 100
+```
+
+The payout state transition and ledger posting share one database transaction. If the financial posting fails, the payout cannot commit as `SUCCEEDED`.
+
+The payout ID is unique in `ledger_transactions`, preventing the same payout from being financially posted twice.
+
+Inspect a settled payout:
+
+```bash
+curl http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/ledger
+```
+
 ## Failure scenarios
 
-| Simulated provider outcome | Provider record | Local result after processing | Reconciliation / retry |
-| --- | --- | --- | --- |
-| `SUCCESS` | `SUCCEEDED` | `SUCCEEDED` | Not needed |
-| `DECLINED` | `DECLINED` | `FAILED` | Not needed |
-| `TIMEOUT_AFTER_SUCCESS` | `SUCCEEDED` | `UNKNOWN` | Resolves or safely retries to `SUCCEEDED` |
-| `TIMEOUT_BEFORE_PROCESSING` | none | `UNKNOWN` | Reconciliation remains unknown; retry processes once |
+| Simulated provider outcome | Provider record | Local result after processing | Financial posting | Reconciliation / retry |
+| --- | --- | --- | --- | --- |
+| `SUCCESS` | `SUCCEEDED` | `SUCCEEDED` | debit + credit | Not needed |
+| `DECLINED` | `DECLINED` | `FAILED` | none | Not needed |
+| `TIMEOUT_AFTER_SUCCESS` | `SUCCEEDED` | `UNKNOWN` | none until resolved | Resolves or safely retries to `SUCCEEDED` |
+| `TIMEOUT_BEFORE_PROCESSING` | none | `UNKNOWN` | none | Reconciliation remains unknown; retry processes once |
 
 ## Stack
 
@@ -133,28 +158,29 @@ curl -i -X PUT http://localhost:8080/api/v1/simulation/payouts/<PAYOUT_ID>/next-
 curl -X POST http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/process
 ```
 
-The local payout becomes `UNKNOWN`, while the simulated provider has already persisted a successful transaction.
+The local payout becomes `UNKNOWN`. No ledger entry is created because the application does not yet know the business outcome.
 
-### 4A. Reconcile
+### 4. Resolve the ambiguity
+
+Reconcile:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/reconcile
 ```
 
-or:
-
-### 4B. Safely retry the original provider submission
+or safely repeat the provider submission:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/retry
 ```
 
-For `TIMEOUT_AFTER_SUCCESS`, retry returns the already-created provider transaction and does not create a second one.
+The payout becomes `SUCCEEDED` and exactly one balanced ledger transaction is posted.
 
-### 5. Inspect the audit trail
+### 5. Inspect evidence
 
 ```bash
 curl http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/events
+curl http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/ledger
 ```
 
 ## Testing
@@ -163,17 +189,7 @@ curl http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/events
 mvn verify
 ```
 
-Integration tests verify:
-
-- repeat requests do not create duplicate payouts
-- concurrent requests using the same idempotency key create exactly one payout
-- an idempotency key cannot be reused for different request intent
-- provider declines become failures
-- timeout after provider success resolves through reconciliation
-- timeout before provider processing remains explicitly unresolved
-- safe retry after lost success does not create a duplicate provider transaction
-- safe retry after pre-processing timeout creates exactly one provider transaction
-- audit and reconciliation records match state transitions
+Integration tests verify idempotency, concurrent creation, legal failure semantics, reconciliation, safe repeats, balanced ledger posting, and absence of financial postings for failed or unresolved payouts.
 
 CI runs the suite on every push and pull request.
 
@@ -185,6 +201,6 @@ Prometheus configuration lives under `ops/prometheus/`. The included `UnknownPay
 
 ## Mastercard sandbox integration
 
-The intended external adapter is Mastercard Send Disbursements. Mastercard's developer platform currently lists the Send Disbursements sandbox, and Mastercard's official Java OAuth 1.0a signing library uses a Developers project, consumer key, and private request-signing key.
+Mastercard's current Send Disbursements documentation provides an open dynamic sandbox and try-it-now functionality, while authenticated integration uses Mastercard developer credentials and request signing.
 
-The repository does **not** claim a live Mastercard integration until sandbox credentials are configured and an end-to-end request is verified. The simulator remains useful after that integration because it can deterministically reproduce failure cases an external sandbox may not expose.
+The repository does **not** claim an authenticated Mastercard integration until an end-to-end request is verified. The simulator remains useful after that integration because it can deterministically reproduce failure cases an external sandbox may not expose.

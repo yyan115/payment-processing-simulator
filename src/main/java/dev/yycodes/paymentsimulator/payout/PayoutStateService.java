@@ -3,6 +3,7 @@ package dev.yycodes.paymentsimulator.payout;
 import dev.yycodes.paymentsimulator.audit.PayoutEvent;
 import dev.yycodes.paymentsimulator.audit.PayoutEventRepository;
 import dev.yycodes.paymentsimulator.audit.PayoutEventType;
+import dev.yycodes.paymentsimulator.ledger.LedgerPostingService;
 import dev.yycodes.paymentsimulator.provider.ProviderResult;
 import dev.yycodes.paymentsimulator.provider.ProviderStatus;
 import dev.yycodes.paymentsimulator.reconciliation.*;
@@ -19,14 +20,17 @@ public class PayoutStateService {
     private final PayoutRepository payouts;
     private final PayoutEventRepository events;
     private final ReconciliationAttemptRepository reconciliationAttempts;
+    private final LedgerPostingService ledger;
 
     public PayoutStateService(
             PayoutRepository payouts,
             PayoutEventRepository events,
-            ReconciliationAttemptRepository reconciliationAttempts) {
+            ReconciliationAttemptRepository reconciliationAttempts,
+            LedgerPostingService ledger) {
         this.payouts = payouts;
         this.events = events;
         this.reconciliationAttempts = reconciliationAttempts;
+        this.ledger = ledger;
     }
 
     @Transactional
@@ -99,6 +103,7 @@ public class PayoutStateService {
 
         if (providerResult.status() == ProviderStatus.SUCCEEDED) {
             payout.markSucceeded(providerResult.providerReference());
+            ledger.recordPayoutSettlement(payout);
             outcome = ReconciliationOutcome.RESOLVED_SUCCEEDED;
             eventType = PayoutEventType.RECONCILIATION_SUCCEEDED;
         } else {
@@ -124,6 +129,7 @@ public class PayoutStateService {
         Payout payout = requireUnknownOrProcessing(id);
         PayoutStatus from = payout.getStatus();
         payout.markSucceeded(providerReference);
+        ledger.recordPayoutSettlement(payout);
         payouts.saveAndFlush(payout);
         events.save(new PayoutEvent(id, eventType, from, payout.getStatus()));
         return payout;
