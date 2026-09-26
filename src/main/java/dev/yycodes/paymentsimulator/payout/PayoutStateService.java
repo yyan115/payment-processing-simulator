@@ -54,6 +54,11 @@ public class PayoutStateService {
     }
 
     @Transactional
+    public Payout markProviderRejected(UUID id) {
+        return transitionFailed(id, null, PayoutEventType.PROVIDER_REJECTED);
+    }
+
+    @Transactional
     public Payout markProviderUncertain(
             UUID id,
             String providerReference,
@@ -96,6 +101,18 @@ public class PayoutStateService {
     @Transactional
     public Payout recordRetryTimeout(UUID id) {
         return markRetryUncertain(id, null, PayoutEventType.PROVIDER_RETRY_TIMEOUT);
+    }
+
+    @Transactional
+    public Payout recordRetryRejected(UUID id) {
+        Payout payout = requireUnknown(id);
+        events.save(new PayoutEvent(
+                id,
+                PayoutEventType.PROVIDER_RETRY_REJECTED,
+                PayoutStatus.UNKNOWN,
+                PayoutStatus.UNKNOWN
+        ));
+        return payout;
     }
 
     @Transactional

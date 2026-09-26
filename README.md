@@ -199,8 +199,10 @@ The application publishes payment-specific metrics through Actuator, including p
 
 Prometheus configuration lives under `ops/prometheus/`. The included `UnknownPayoutStuck` rule fires when an ambiguous payout remains unresolved.
 
-## Mastercard sandbox integration
+## Mastercard Send adapter
 
-Mastercard's current Send Disbursements documentation provides an open dynamic sandbox and try-it-now functionality, while authenticated integration uses Mastercard developer credentials and request signing.
+The project includes a selectable Mastercard Send Disbursements adapter using Mastercard's official OAuth 1.0a Java signer, the current RNTZ sandbox domain, lookup by client reference for reconciliation, and `repeat-flag` support for safe repeats.
 
-The repository does **not** claim an authenticated Mastercard integration until an end-to-end request is verified. The simulator remains useful after that integration because it can deterministically reproduce failure cases an external sandbox may not expose.
+See [Mastercard Send integration](docs/mastercard.md) for configuration and the verification boundary.
+
+The deterministic simulator remains the default because it can reproduce failure cases that an external sandbox may not expose.

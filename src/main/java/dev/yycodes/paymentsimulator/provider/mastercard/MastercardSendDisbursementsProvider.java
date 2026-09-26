@@ -19,6 +19,9 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -173,7 +176,8 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
             }
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException(
+                throw new ProviderRejectedException(
+                        response.statusCode(),
                         "Mastercard Send rejected request with HTTP " + response.statusCode());
             }
 
@@ -202,6 +206,12 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
         payment.put("recipient_account_uri", recipientAccountUri);
         payment.put("funding_source", "DEPOSIT_ACCOUNT");
         payment.put("payment_origination_country", "USA");
+        payment.put(
+                "transaction_local_date_time",
+                OffsetDateTime.now(ZoneOffset.UTC)
+                        .withNano(0)
+                        .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        );
 
         ObjectNode sender = payment.putObject("sender");
         sender.put("first_name", "Sandbox");

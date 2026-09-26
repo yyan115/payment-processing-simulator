@@ -44,6 +44,10 @@ public class PayoutProcessor {
             metrics.unknownOutcome();
             log.warn("payout_provider_timeout payoutId={} outcome=unknown", id);
             return states.markUnknownAfterTimeout(id);
+        } catch (ProviderRejectedException rejected) {
+            log.warn("payout_provider_rejected payoutId={} statusCode={}",
+                    id, rejected.getStatusCode());
+            return states.markProviderRejected(id);
         }
     }
 
@@ -69,6 +73,10 @@ public class PayoutProcessor {
             metrics.unknownOutcome();
             log.warn("payout_retry_timeout payoutId={} outcome=unknown", id);
             return states.recordRetryTimeout(id);
+        } catch (ProviderRejectedException rejected) {
+            log.warn("payout_retry_rejected payoutId={} statusCode={} outcome=still_unknown",
+                    id, rejected.getStatusCode());
+            return states.recordRetryRejected(id);
         }
     }
 

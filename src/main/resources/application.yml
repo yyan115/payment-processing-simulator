@@ -18,7 +18,7 @@ payments:
     enabled: ${RECONCILIATION_ENABLED:true}
     interval-ms: ${RECONCILIATION_INTERVAL_MS:30000}
   mastercard:
-    base-url: ${MASTERCARD_BASE_URL:https://sandbox.api.mastercard.com}
+    base-url: ${MASTERCARD_BASE_URL:https://sandbox.api.move.mastercard.com}
     partner-id: ${MASTERCARD_PARTNER_ID:}
     consumer-key: ${MASTERCARD_CONSUMER_KEY:}
     p12-path: ${MASTERCARD_P12_PATH:}
