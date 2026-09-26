@@ -6,8 +6,6 @@ import dev.yycodes.paymentsimulator.provider.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
-import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -19,9 +17,6 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.time.Duration;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,47 +24,55 @@ import java.util.UUID;
 @ConditionalOnProperty(name = "payments.provider", havingValue = "mastercard")
 public class MastercardSendDisbursementsProvider implements PaymentProvider {
 
-    private final JsonMapper mapper;
+    private final MastercardSendRequestFactory requestFactory;
     private final MastercardSendResponseParser parser;
     private final HttpClient httpClient;
     private final URI baseUrl;
     private final String partnerId;
     private final String consumerKey;
-    private final String senderAccountUri;
-    private final String recipientAccountUri;
     private final PrivateKey signingKey;
 
     public MastercardSendDisbursementsProvider(
-            JsonMapper mapper,
+            MastercardSendRequestFactory requestFactory,
             MastercardSendResponseParser parser,
             @Value("${payments.mastercard.base-url}") String baseUrl,
             @Value("${payments.mastercard.partner-id}") String partnerId,
             @Value("${payments.mastercard.consumer-key}") String consumerKey,
             @Value("${payments.mastercard.p12-path}") String p12Path,
             @Value("${payments.mastercard.key-alias}") String keyAlias,
-            @Value("${payments.mastercard.key-password}") String keyPassword,
-            @Value("${payments.mastercard.sender-account-uri}") String senderAccountUri,
-            @Value("${payments.mastercard.recipient-account-uri}") String recipientAccountUri
+            @Value("${payments.mastercard.key-password}") String keyPassword
     ) throws Exception {
+        this(
+                requestFactory,
+                parser,
+                HttpClient.newBuilder()
+                        .connectTimeout(Duration.ofSeconds(5))
+                        .build(),
+                URI.create(baseUrl),
+                partnerId,
+                consumerKey,
+                loadSigningKey(p12Path, keyAlias, keyPassword)
+        );
+    }
+
+    MastercardSendDisbursementsProvider(
+            MastercardSendRequestFactory requestFactory,
+            MastercardSendResponseParser parser,
+            HttpClient httpClient,
+            URI baseUrl,
+            String partnerId,
+            String consumerKey,
+            PrivateKey signingKey) {
         requireConfigured("payments.mastercard.partner-id", partnerId);
         requireConfigured("payments.mastercard.consumer-key", consumerKey);
-        requireConfigured("payments.mastercard.p12-path", p12Path);
 
-        this.mapper = mapper;
+        this.requestFactory = requestFactory;
         this.parser = parser;
-        this.baseUrl = URI.create(baseUrl);
+        this.httpClient = httpClient;
+        this.baseUrl = baseUrl;
         this.partnerId = partnerId;
         this.consumerKey = consumerKey;
-        this.senderAccountUri = senderAccountUri;
-        this.recipientAccountUri = recipientAccountUri;
-        this.signingKey = AuthenticationUtils.loadSigningKey(
-                p12Path,
-                keyAlias,
-                keyPassword
-        );
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5))
-                .build();
+        this.signingKey = signingKey;
     }
 
     @Override
@@ -85,19 +88,21 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
                         + "/disbursements/payment"
         );
 
-        String payload = mapper.writeValueAsString(buildRequest(
+        String payload = requestFactory.createPayload(
                 clientReference,
                 amount,
                 currency
-        ));
+        );
 
         HttpRequest request = signedRequest(
                 uri,
                 "POST",
                 payload,
                 HttpRequest.BodyPublishers.ofString(payload)
-        ).header("repeat-flag", mode == SubmissionMode.RETRY ? "true" : "false")
-                .build();
+        ).header(
+                "repeat-flag",
+                mode == SubmissionMode.RETRY ? "true" : "false"
+        ).build();
 
         String body = execute(request);
 
@@ -192,55 +197,16 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
         }
     }
 
-    private ObjectNode buildRequest(
-            UUID clientReference,
-            BigDecimal amount,
-            String currency) {
-
-        ObjectNode payment = mapper.createObjectNode();
-        payment.put("disbursement_reference", clientReference.toString());
-        payment.put("amount", amount.toPlainString());
-        payment.put("currency", currency);
-        payment.put("payment_type", "BDB");
-        payment.put("sender_account_uri", senderAccountUri);
-        payment.put("recipient_account_uri", recipientAccountUri);
-        payment.put("funding_source", "DEPOSIT_ACCOUNT");
-        payment.put("payment_origination_country", "USA");
-        payment.put(
-                "transaction_local_date_time",
-                OffsetDateTime.now(ZoneOffset.UTC)
-                        .withNano(0)
-                        .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+    private static PrivateKey loadSigningKey(
+            String p12Path,
+            String keyAlias,
+            String keyPassword) throws Exception {
+        requireConfigured("payments.mastercard.p12-path", p12Path);
+        return AuthenticationUtils.loadSigningKey(
+                p12Path,
+                keyAlias,
+                keyPassword
         );
-
-        ObjectNode sender = payment.putObject("sender");
-        sender.put("first_name", "Sandbox");
-        sender.put("last_name", "Business");
-        ObjectNode senderAddress = sender.putObject("address");
-        senderAddress.put("line1", "123 Corporate Drive");
-        senderAddress.put("city", "Chicago");
-        senderAddress.put("country_subdivision", "IL");
-        senderAddress.put("postal_code", "60618");
-        senderAddress.put("country", "USA");
-
-        ObjectNode recipient = payment.putObject("recipient");
-        recipient.put("first_name", "Sandbox");
-        recipient.put("last_name", "Recipient");
-        ObjectNode recipientAddress = recipient.putObject("address");
-        recipientAddress.put("line1", "1 Main St");
-        recipientAddress.put("city", "OFallon");
-        recipientAddress.put("country_subdivision", "MO");
-        recipientAddress.put("postal_code", "63368");
-        recipientAddress.put("country", "USA");
-
-        ObjectNode participant = payment.putObject("participant");
-        participant.put("merchant_category_code", "4121");
-        participant.put("card_acceptor_id", "PaymentSimulator");
-        participant.put("customer_service_contact_info", "18005559999");
-
-        ObjectNode wrapper = mapper.createObjectNode();
-        wrapper.set("payment_disbursement", payment);
-        return wrapper;
     }
 
     private static String encodePath(String value) {
