@@ -72,6 +72,8 @@ class MastercardSendProviderContractTest {
 
         assertThat(payment.path("disbursement_reference").asText())
                 .isEqualTo(reference.toString());
+        assertThat(payment.path("amount").asText()).isEqualTo("10000");
+        assertThat(payment.path("currency").asText()).isEqualTo("SGD");
         assertThat(payment.path("transaction_local_date_time").asText())
                 .isEqualTo("2026-09-26T17:00:00-05:00");
     }

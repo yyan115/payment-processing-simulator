@@ -3,6 +3,7 @@ package dev.yycodes.paymentsimulator.payout;
 import dev.yycodes.paymentsimulator.shared.BadRequestException;
 import dev.yycodes.paymentsimulator.shared.ConflictException;
 import dev.yycodes.paymentsimulator.shared.NotFoundException;
+import dev.yycodes.paymentsimulator.shared.MoneyAmounts;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -11,7 +12,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
-import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -22,8 +22,14 @@ public class PayoutService {
     public PayoutCreationResult create(String idempotencyKey, CreatePayoutRequest request) {
         String key = normalizeKey(idempotencyKey);
         String recipient = request.recipientReference().trim();
-        String currency = request.currency().toUpperCase(Locale.ROOT);
-        BigDecimal amount = request.amount().stripTrailingZeros();
+        final String currency;
+        final BigDecimal amount;
+        try {
+            currency = MoneyAmounts.normalizeCurrencyCode(request.currency());
+            amount = MoneyAmounts.normalizeMajorUnits(request.amount(), currency);
+        } catch (IllegalArgumentException invalidMoney) {
+            throw new BadRequestException(invalidMoney.getMessage());
+        }
         String fingerprint = fingerprint(recipient, amount, currency);
 
         var existing = repository.findByIdempotencyKey(key);

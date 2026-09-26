@@ -117,6 +117,40 @@ class PayoutApiIntegrationTest {
     }
 
     @Test
+    void rejectsUnknownIsoCurrencyBeforePersistence() throws Exception {
+        HttpResponse<String> response = postPayout(
+                "api-invalid-currency",
+                """
+                {
+                  "recipientReference": "seller-42",
+                  "amount": 100.00,
+                  "currency": "AAA"
+                }
+                """
+        );
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(payouts.count()).isZero();
+    }
+
+    @Test
+    void rejectsFractionalPrecisionNotSupportedByCurrency() throws Exception {
+        HttpResponse<String> response = postPayout(
+                "api-invalid-sgd-precision",
+                """
+                {
+                  "recipientReference": "seller-42",
+                  "amount": 100.001,
+                  "currency": "SGD"
+                }
+                """
+        );
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(payouts.count()).isZero();
+    }
+
+    @Test
     void missingIdempotencyKeyIsRejected() throws Exception {
         HttpRequest request = HttpRequest.newBuilder(api("/api/v1/payouts"))
                 .header("Content-Type", "application/json")

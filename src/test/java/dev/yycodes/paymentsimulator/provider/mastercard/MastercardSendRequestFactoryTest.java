@@ -40,7 +40,7 @@ class MastercardSendRequestFactoryTest {
 
         assertThat(payment.path("disbursement_reference").asText())
                 .isEqualTo(reference.toString());
-        assertThat(payment.path("amount").asText()).isEqualTo("100.00");
+        assertThat(payment.path("amount").asText()).isEqualTo("10000");
         assertThat(payment.path("currency").asText()).isEqualTo("SGD");
         assertThat(payment.path("payment_type").asText()).isEqualTo("BDB");
         assertThat(payment.path("payment_origination_country").asText())
@@ -51,5 +51,36 @@ class MastercardSendRequestFactoryTest {
                 .isEqualTo("raw:sender");
         assertThat(payment.path("recipient_account_uri").asText())
                 .isEqualTo("pan:recipient;exp=2077-05");
+    }
+
+    @Test
+    void convertsCurrenciesUsingTheirIsoMinorUnitExponent() throws Exception {
+        Clock clock = Clock.fixed(
+                Instant.parse("2026-09-26T22:00:00Z"),
+                ZoneId.of("America/Chicago")
+        );
+
+        MastercardSendRequestFactory factory = new MastercardSendRequestFactory(
+                mapper,
+                "raw:sender",
+                "pan:recipient;exp=2077-05",
+                "USA",
+                clock
+        );
+
+        var jpy = mapper.readTree(factory.createPayload(
+                UUID.randomUUID(),
+                new BigDecimal("100"),
+                "JPY"
+        )).path("payment_disbursement");
+
+        var kwd = mapper.readTree(factory.createPayload(
+                UUID.randomUUID(),
+                new BigDecimal("1.234"),
+                "KWD"
+        )).path("payment_disbursement");
+
+        assertThat(jpy.path("amount").asText()).isEqualTo("100");
+        assertThat(kwd.path("amount").asText()).isEqualTo("1234");
     }
 }

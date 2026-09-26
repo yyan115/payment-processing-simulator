@@ -10,6 +10,7 @@ The implementation follows Mastercard's published Java tooling and Disbursements
 - Disbursement creation uses the Send Disbursements payment endpoint.
 - Reconciliation looks up a disbursement by the client-supplied `disbursement_reference`.
 - The payout UUID is used as that stable client reference.
+- Internal amounts use major currency units, while Mastercard Send requests are converted to the ISO 4217 currency's smallest unit. For example, `SGD 100.00` is sent as `"10000"`.
 - A deliberate repeat sends the Mastercard Send `repeat-flag: true` header.
 - `APPROVED`, `DECLINED`, `UNKNOWN`, `PENDING`, `ERROR`, `REVERSED`, and `CANCELLED` are mapped conservatively into the internal provider state model.
 

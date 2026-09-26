@@ -1,5 +1,6 @@
 package dev.yycodes.paymentsimulator.provider.mastercard;
 
+import dev.yycodes.paymentsimulator.shared.MoneyAmounts;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -65,7 +66,10 @@ public class MastercardSendRequestFactory {
 
         ObjectNode payment = mapper.createObjectNode();
         payment.put("disbursement_reference", clientReference.toString());
-        payment.put("amount", amount.toPlainString());
+        payment.put(
+                "amount",
+                MoneyAmounts.toMinorUnits(amount, currency)
+        );
         payment.put("currency", currency);
         payment.put("payment_type", "BDB");
         payment.put("sender_account_uri", senderAccountUri);
