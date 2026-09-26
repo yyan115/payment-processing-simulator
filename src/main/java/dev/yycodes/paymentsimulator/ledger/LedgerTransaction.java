@@ -35,7 +35,7 @@ public class LedgerTransaction {
     public LedgerTransaction(UUID payoutId, BigDecimal amount, String currency) {
         this.id = UUID.randomUUID();
         this.payoutId = payoutId;
-        this.transactionType = LedgerTransactionType.PAYOUT_SETTLED;
+        this.transactionType = LedgerTransactionType.PAYOUT_CONFIRMED;
         this.amount = amount;
         this.currency = currency;
         this.createdAt = Instant.now();
