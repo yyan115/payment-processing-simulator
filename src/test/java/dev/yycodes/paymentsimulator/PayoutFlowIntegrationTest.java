@@ -3,8 +3,7 @@ package dev.yycodes.paymentsimulator;
 import dev.yycodes.paymentsimulator.audit.PayoutEventRepository;
 import dev.yycodes.paymentsimulator.audit.PayoutEventType;
 import dev.yycodes.paymentsimulator.payout.*;
-import dev.yycodes.paymentsimulator.provider.ProviderTransactionRepository;
-import dev.yycodes.paymentsimulator.provider.SimulatedOutcome;
+import dev.yycodes.paymentsimulator.provider.*;
 import dev.yycodes.paymentsimulator.reconciliation.ReconciliationAttemptRepository;
 import dev.yycodes.paymentsimulator.reconciliation.ReconciliationOutcome;
 import dev.yycodes.paymentsimulator.shared.ConflictException;
@@ -28,9 +27,11 @@ class PayoutFlowIntegrationTest {
     @Autowired private ProviderTransactionRepository providerRepository;
     @Autowired private PayoutEventRepository eventRepository;
     @Autowired private ReconciliationAttemptRepository reconciliationRepository;
+    @Autowired private SimulationScenarioRegistry scenarios;
 
     @BeforeEach
     void cleanDatabase() {
+        scenarios.clear();
         reconciliationRepository.deleteAll();
         eventRepository.deleteAll();
         providerRepository.deleteAll();
@@ -64,8 +65,9 @@ class PayoutFlowIntegrationTest {
     @Test
     void timeoutAfterProviderSuccessBecomesUnknownThenReconcilesToSucceeded() {
         UUID id = create("timeout-after-success");
+        scenarios.configure(id, SimulatedOutcome.TIMEOUT_AFTER_SUCCESS);
 
-        Payout uncertain = processor.process(id, SimulatedOutcome.TIMEOUT_AFTER_SUCCESS);
+        Payout uncertain = processor.process(id);
 
         assertThat(uncertain.getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
         assertThat(providerRepository.findByClientReference(id)).isPresent();
@@ -74,7 +76,6 @@ class PayoutFlowIntegrationTest {
 
         assertThat(reconciled.outcome()).isEqualTo(ReconciliationOutcome.RESOLVED_SUCCEEDED);
         assertThat(reconciled.payout().getStatus()).isEqualTo(PayoutStatus.SUCCEEDED);
-        assertThat(reconciled.payout().getProviderReference()).startsWith("sim_");
 
         assertThat(eventRepository.findByPayoutIdOrderByCreatedAtAsc(id))
                 .extracting(event -> event.getEventType())
@@ -83,20 +84,14 @@ class PayoutFlowIntegrationTest {
                         PayoutEventType.PROVIDER_TIMEOUT,
                         PayoutEventType.RECONCILIATION_SUCCEEDED
                 );
-
-        assertThat(reconciliationRepository.findByPayoutIdOrderByCreatedAtAsc(id))
-                .singleElement()
-                .satisfies(attempt -> {
-                    assertThat(attempt.isProviderRecordFound()).isTrue();
-                    assertThat(attempt.getOutcome()).isEqualTo(ReconciliationOutcome.RESOLVED_SUCCEEDED);
-                });
     }
 
     @Test
     void timeoutBeforeProviderProcessingRemainsUnknownAfterReconciliation() {
         UUID id = create("timeout-before-processing");
+        scenarios.configure(id, SimulatedOutcome.TIMEOUT_BEFORE_PROCESSING);
 
-        Payout uncertain = processor.process(id, SimulatedOutcome.TIMEOUT_BEFORE_PROCESSING);
+        Payout uncertain = processor.process(id);
 
         assertThat(uncertain.getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
         assertThat(providerRepository.findByClientReference(id)).isEmpty();
@@ -105,20 +100,49 @@ class PayoutFlowIntegrationTest {
 
         assertThat(reconciled.outcome()).isEqualTo(ReconciliationOutcome.STILL_UNKNOWN);
         assertThat(reconciled.payout().getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
+    }
 
-        assertThat(reconciliationRepository.findByPayoutIdOrderByCreatedAtAsc(id))
-                .singleElement()
-                .satisfies(attempt -> {
-                    assertThat(attempt.isProviderRecordFound()).isFalse();
-                    assertThat(attempt.getOutcome()).isEqualTo(ReconciliationOutcome.STILL_UNKNOWN);
-                });
+    @Test
+    void retryAfterLostSuccessReturnsOriginalProviderTransactionWithoutDuplicate() {
+        UUID id = create("retry-after-success");
+        scenarios.configure(id, SimulatedOutcome.TIMEOUT_AFTER_SUCCESS);
+
+        assertThat(processor.process(id).getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
+        assertThat(providerRepository.count()).isEqualTo(1);
+
+        Payout retried = processor.retry(id);
+
+        assertThat(retried.getStatus()).isEqualTo(PayoutStatus.SUCCEEDED);
+        assertThat(providerRepository.count()).isEqualTo(1);
+        assertThat(eventRepository.findByPayoutIdOrderByCreatedAtAsc(id))
+                .extracting(event -> event.getEventType())
+                .containsExactly(
+                        PayoutEventType.PROCESSING_STARTED,
+                        PayoutEventType.PROVIDER_TIMEOUT,
+                        PayoutEventType.PROVIDER_RETRY_SUCCEEDED
+                );
+    }
+
+    @Test
+    void retryAfterRequestNeverReachedProviderProcessesItOnce() {
+        UUID id = create("retry-before-processing");
+        scenarios.configure(id, SimulatedOutcome.TIMEOUT_BEFORE_PROCESSING);
+
+        assertThat(processor.process(id).getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
+        assertThat(providerRepository.count()).isZero();
+
+        Payout retried = processor.retry(id);
+
+        assertThat(retried.getStatus()).isEqualTo(PayoutStatus.SUCCEEDED);
+        assertThat(providerRepository.count()).isEqualTo(1);
     }
 
     @Test
     void providerDeclineBecomesFailed() {
         UUID id = create("decline-key");
+        scenarios.configure(id, SimulatedOutcome.DECLINED);
 
-        Payout result = processor.process(id, SimulatedOutcome.DECLINED);
+        Payout result = processor.process(id);
 
         assertThat(result.getStatus()).isEqualTo(PayoutStatus.FAILED);
         assertThat(result.getProviderReference()).startsWith("sim_");

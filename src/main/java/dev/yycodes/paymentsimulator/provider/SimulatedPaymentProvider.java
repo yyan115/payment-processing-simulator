@@ -10,13 +10,31 @@ import java.util.UUID;
 public class SimulatedPaymentProvider implements PaymentProvider {
 
     private final SimulatedProviderStore store;
+    private final SimulationScenarioRegistry scenarios;
 
-    public SimulatedPaymentProvider(SimulatedProviderStore store) {
+    public SimulatedPaymentProvider(
+            SimulatedProviderStore store,
+            SimulationScenarioRegistry scenarios) {
         this.store = store;
+        this.scenarios = scenarios;
     }
 
     @Override
-    public ProviderResult submit(UUID clientReference, BigDecimal amount, String currency, SimulatedOutcome outcome) {
+    public ProviderResult submit(
+            UUID clientReference,
+            BigDecimal amount,
+            String currency,
+            SubmissionMode mode) {
+
+        if (mode == SubmissionMode.RETRY) {
+            Optional<ProviderResult> existing = store.find(clientReference);
+            if (existing.isPresent()) {
+                return existing.get();
+            }
+        }
+
+        SimulatedOutcome outcome = scenarios.consume(clientReference);
+
         if (outcome == SimulatedOutcome.TIMEOUT_BEFORE_PROCESSING) {
             throw new ProviderTimeoutException("Provider did not return a response before processing began");
         }

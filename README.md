@@ -4,7 +4,7 @@
 
 A Java/Spring Boot payment backend that explores a deceptively hard problem: **what should a financial system do when an external payment may have succeeded, but the response never arrives?**
 
-The project models idempotent payout creation, strict lifecycle transitions, ambiguous external outcomes, automated reconciliation, concurrency protection, audit history, and operational monitoring.
+The project models idempotent payout creation, strict lifecycle transitions, ambiguous external outcomes, safe retries, automated reconciliation, concurrency protection, audit history, and operational monitoring.
 
 ## The failure this project is built around
 
@@ -22,7 +22,7 @@ Payment service                         Provider
 
 A timeout does **not** prove the payout failed. Retrying blindly can pay the recipient twice.
 
-This simulator therefore records the local payout as `UNKNOWN`, preserves the provider-side result separately, and reconciles the two views before deciding the final state.
+This simulator therefore records the local payout as `UNKNOWN`, preserves the provider-side result separately, and supports either reconciliation or an explicitly marked repeat request.
 
 ## Architecture
 
@@ -34,12 +34,13 @@ flowchart LR
     S --> P[Payment Provider Interface]
     P --> SIM[Simulated Provider]
     SIM --> DB
+    FI[Failure Injection API] --> SIM
     R[Reconciliation Worker] --> S
     A[Audit Trail] --> DB
     M[Micrometer / Actuator] --> PR[Prometheus]
 ```
 
-The simulated provider is intentionally behind a `PaymentProvider` interface so an external provider adapter can replace it without moving payment-state rules into integration code.
+Failure injection is deliberately separated from the business payout API. The provider sits behind a `PaymentProvider` interface so a real external adapter can replace the simulator without moving payment-state rules into integration code.
 
 ## Correctness properties
 
@@ -48,22 +49,37 @@ The simulated provider is intentionally behind a `PaymentProvider` interface so 
 - **Legal state transitions:** payout state changes are enforced inside the domain model.
 - **Concurrent-write protection:** JPA optimistic locking prevents conflicting state updates.
 - **Unknown is not failed:** transport timeouts preserve uncertainty instead of inventing a business outcome.
+- **Safe retry:** a repeated provider submission can return the original provider transaction instead of creating another payout.
 - **Reconciliation:** uncertain payouts are checked against durable provider records.
 - **Auditability:** state transitions and reconciliation attempts are persisted.
 - **Operational visibility:** logs, Prometheus metrics, health checks, and an alert for unresolved unknown payouts are included.
 
 See [Design notes](docs/design.md) for the invariants and failure model.
 
+## Mastercard-specific alignment
+
+Mastercard Send added a `repeat-flag` request header for Disbursement, P2P Payment Transfer, and Funding APIs. Mastercard documents that a request can be resent with `repeat-flag: true` after no response or an `UNKNOWN` status so the repeated request can be identified and duplicate financial impact avoided.
+
+This simulator models that behavior explicitly:
+
+```text
+ORIGINAL submission -> provider may succeed -> response lost -> local UNKNOWN
+
+RETRY submission
+    -> provider already has client reference -> return original result
+    -> provider has no record              -> process once
+```
+
+Source: [Mastercard Send Release Notes 25.2](https://static.developer.mastercard.com/content/mastercard-send/release-notes/mastercard-send-release-notes-25.2.pdf)
+
 ## Failure scenarios
 
-| Simulated provider outcome | Provider record | Local result after processing | Reconciliation |
+| Simulated provider outcome | Provider record | Local result after processing | Reconciliation / retry |
 | --- | --- | --- | --- |
 | `SUCCESS` | `SUCCEEDED` | `SUCCEEDED` | Not needed |
 | `DECLINED` | `DECLINED` | `FAILED` | Not needed |
-| `TIMEOUT_AFTER_SUCCESS` | `SUCCEEDED` | `UNKNOWN` | Resolves to `SUCCEEDED` |
-| `TIMEOUT_BEFORE_PROCESSING` | none | `UNKNOWN` | Remains `STILL_UNKNOWN` |
-
-The two timeout cases deliberately look identical to the caller at first. Reconciliation is what distinguishes them.
+| `TIMEOUT_AFTER_SUCCESS` | `SUCCEEDED` | `UNKNOWN` | Resolves or safely retries to `SUCCEEDED` |
+| `TIMEOUT_BEFORE_PROCESSING` | none | `UNKNOWN` | Reconciliation remains unknown; retry processes once |
 
 ## Stack
 
@@ -90,13 +106,6 @@ Services:
 - Prometheus metrics: http://localhost:8080/actuator/prometheus
 - Prometheus UI: http://localhost:9090
 
-To run only PostgreSQL and start the application from Maven:
-
-```bash
-docker compose up -d postgres
-mvn spring-boot:run
-```
-
 ## Demo
 
 ### 1. Create an idempotent payout
@@ -110,41 +119,42 @@ curl -i -X POST http://localhost:8080/api/v1/payouts \
 
 Save the returned `id`.
 
-Repeating the exact request with the same idempotency key returns the same payout instead of creating another one.
-
-### 2. Simulate success with a lost response
+### 2. Configure the simulator to lose the response after provider success
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/process \
+curl -i -X PUT http://localhost:8080/api/v1/simulation/payouts/<PAYOUT_ID>/next-outcome \
   -H 'Content-Type: application/json' \
   -d '{"outcome":"TIMEOUT_AFTER_SUCCESS"}'
 ```
 
-The local payout becomes `UNKNOWN`. The provider has already persisted a successful transaction.
+### 3. Process the payout
 
-### 3. Reconcile
+```bash
+curl -X POST http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/process
+```
+
+The local payout becomes `UNKNOWN`, while the simulated provider has already persisted a successful transaction.
+
+### 4A. Reconcile
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/reconcile
 ```
 
-The response reports `RESOLVED_SUCCEEDED` and the payout becomes `SUCCEEDED`.
+or:
 
-Automatic reconciliation also runs periodically when enabled.
+### 4B. Safely retry the original provider submission
 
-### 4. Inspect the audit trail
+```bash
+curl -X POST http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/retry
+```
+
+For `TIMEOUT_AFTER_SUCCESS`, retry returns the already-created provider transaction and does not create a second one.
+
+### 5. Inspect the audit trail
 
 ```bash
 curl http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/events
-```
-
-For the timeout-after-success path, the state history is:
-
-```text
-CREATED
-  -> PROCESSING   PROCESSING_STARTED
-  -> UNKNOWN      PROVIDER_TIMEOUT
-  -> SUCCEEDED    RECONCILIATION_SUCCEEDED
 ```
 
 ## Testing
@@ -153,31 +163,28 @@ CREATED
 mvn verify
 ```
 
-Integration tests use PostgreSQL and verify:
+Integration tests verify:
 
 - repeat requests do not create duplicate payouts
 - concurrent requests using the same idempotency key create exactly one payout
 - an idempotency key cannot be reused for different request intent
 - provider declines become failures
-- a timeout after provider success reconciles correctly
-- a timeout before provider processing remains explicitly unresolved
-- audit and reconciliation records match the state transitions
+- timeout after provider success resolves through reconciliation
+- timeout before provider processing remains explicitly unresolved
+- safe retry after lost success does not create a duplicate provider transaction
+- safe retry after pre-processing timeout creates exactly one provider transaction
+- audit and reconciliation records match state transitions
 
 CI runs the suite on every push and pull request.
 
 ## Observability
 
-The application publishes payment-specific metrics through Actuator, including:
-
-- provider result counts
-- ambiguous timeout counts
-- reconciliation outcomes
-- current number of `UNKNOWN` payouts
+The application publishes payment-specific metrics through Actuator, including provider results, ambiguous timeouts, reconciliation outcomes, and the current count of `UNKNOWN` payouts.
 
 Prometheus configuration lives under `ops/prometheus/`. The included `UnknownPayoutStuck` rule fires when an ambiguous payout remains unresolved.
 
-## Mastercard integration
+## Mastercard sandbox integration
 
-The next external adapter is **Mastercard Send Disbursements**. Mastercard currently provides a sandbox for the API, and Mastercard's Java OAuth 1.0a signing library requires a Developers project, consumer key, and private request-signing key.
+The intended external adapter is Mastercard Send Disbursements. Mastercard's developer platform currently lists the Send Disbursements sandbox, and Mastercard's official Java OAuth 1.0a signing library uses a Developers project, consumer key, and private request-signing key.
 
-The repository does **not** claim a live Mastercard integration until those credentials are configured and an end-to-end sandbox request is verified. The simulator remains the deterministic failure-injection environment for cases that an external sandbox cannot reliably reproduce.
+The repository does **not** claim a live Mastercard integration until sandbox credentials are configured and an end-to-end request is verified. The simulator remains useful after that integration because it can deterministically reproduce failure cases an external sandbox may not expose.

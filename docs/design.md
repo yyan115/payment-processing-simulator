@@ -29,20 +29,35 @@ Invalid transitions are rejected by the `Payout` domain object instead of relyin
 
 Every create request supplies an `Idempotency-Key`.
 
-The service canonicalizes the request intent from:
+The service canonicalizes the request intent from recipient reference, normalized amount, and normalized ISO currency code, then stores its SHA-256 fingerprint with the key.
 
-- recipient reference
-- normalized amount
-- normalized ISO currency code
-
-and stores its SHA-256 fingerprint with the key.
-
-This creates two distinct behaviours:
+This creates two behaviours:
 
 - same key + same fingerprint: return the existing payout
 - same key + different fingerprint: reject with a conflict
 
 A unique database constraint is the final authority. The service also handles the race where two requests both observe that the key is absent before one wins the insert.
+
+## Provider repeats
+
+Application-level idempotency and provider-level duplicate protection solve different problems.
+
+The first prevents our API from creating multiple local payouts for one client request. The second prevents an ambiguous external submission from producing multiple external transfers.
+
+`SubmissionMode.ORIGINAL` represents the first provider request. `SubmissionMode.RETRY` represents a deliberate repeat after an ambiguous outcome.
+
+For a repeat, the simulated provider first looks up the stable client reference:
+
+- existing provider record: return it
+- no provider record: process the transfer once
+
+This mirrors the purpose of Mastercard Send's `repeat-flag`, which Mastercard documents for resending requests after no response or `UNKNOWN` status.
+
+## Failure injection
+
+Failure behavior is not an argument on the business processing endpoint.
+
+The simulation-only API configures the next provider outcome separately. This keeps the payout interface shaped like a real payment service and confines deterministic failure injection to the simulator.
 
 ## Concurrency
 
@@ -51,20 +66,6 @@ Each payout row contains a JPA `@Version` field.
 Two workers can read the same state, but they cannot both commit conflicting transitions against the same version. Depending on timing, the loser sees either an invalid current state or an optimistic-lock conflict.
 
 The integration suite separately exercises concurrent idempotent creation.
-
-## Provider model
-
-The simulator persists provider transactions independently from local payout state.
-
-`TIMEOUT_AFTER_SUCCESS` intentionally performs these steps in order:
-
-1. persist provider success,
-2. simulate loss of the response,
-3. let the payment service record `UNKNOWN`.
-
-That ordering creates the classic ambiguous-outcome problem.
-
-`TIMEOUT_BEFORE_PROCESSING` throws before a provider record exists. Both cases initially produce `UNKNOWN`, but reconciliation distinguishes them.
 
 ## Reconciliation
 
@@ -82,13 +83,7 @@ Every reconciliation attempt is stored separately from the state-transition audi
 
 ## Auditability
 
-State changes produce immutable `payout_events` records containing:
-
-- payout ID
-- event type
-- previous state
-- new state
-- timestamp
+State changes produce immutable `payout_events` records containing payout ID, event type, previous state, new state, and timestamp.
 
 No API exists to rewrite historical events.
 

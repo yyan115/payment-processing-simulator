@@ -46,12 +46,7 @@ public class PayoutStateService {
 
     @Transactional
     public Payout markProviderFailed(UUID id, String providerReference) {
-        Payout payout = require(id);
-        PayoutStatus from = payout.getStatus();
-        payout.markFailed(providerReference);
-        payouts.saveAndFlush(payout);
-        events.save(new PayoutEvent(id, PayoutEventType.PROVIDER_DECLINED, from, payout.getStatus()));
-        return payout;
+        return transitionFailed(id, providerReference, PayoutEventType.PROVIDER_DECLINED);
     }
 
     @Transactional
@@ -61,6 +56,28 @@ public class PayoutStateService {
         payout.markUnknown();
         payouts.saveAndFlush(payout);
         events.save(new PayoutEvent(id, PayoutEventType.PROVIDER_TIMEOUT, from, payout.getStatus()));
+        return payout;
+    }
+
+    @Transactional
+    public Payout markRetrySucceeded(UUID id, String providerReference) {
+        return transitionSucceeded(id, providerReference, PayoutEventType.PROVIDER_RETRY_SUCCEEDED);
+    }
+
+    @Transactional
+    public Payout markRetryFailed(UUID id, String providerReference) {
+        return transitionFailed(id, providerReference, PayoutEventType.PROVIDER_RETRY_DECLINED);
+    }
+
+    @Transactional
+    public Payout recordRetryTimeout(UUID id) {
+        Payout payout = requireUnknown(id);
+        events.save(new PayoutEvent(
+                id,
+                PayoutEventType.PROVIDER_RETRY_TIMEOUT,
+                PayoutStatus.UNKNOWN,
+                PayoutStatus.UNKNOWN
+        ));
         return payout;
     }
 
@@ -104,7 +121,7 @@ public class PayoutStateService {
     }
 
     private Payout transitionSucceeded(UUID id, String providerReference, PayoutEventType eventType) {
-        Payout payout = require(id);
+        Payout payout = requireUnknownOrProcessing(id);
         PayoutStatus from = payout.getStatus();
         payout.markSucceeded(providerReference);
         payouts.saveAndFlush(payout);
@@ -112,10 +129,28 @@ public class PayoutStateService {
         return payout;
     }
 
+    private Payout transitionFailed(UUID id, String providerReference, PayoutEventType eventType) {
+        Payout payout = requireUnknownOrProcessing(id);
+        PayoutStatus from = payout.getStatus();
+        payout.markFailed(providerReference);
+        payouts.saveAndFlush(payout);
+        events.save(new PayoutEvent(id, eventType, from, payout.getStatus()));
+        return payout;
+    }
+
+    private Payout requireUnknownOrProcessing(UUID id) {
+        Payout payout = require(id);
+        if (payout.getStatus() != PayoutStatus.UNKNOWN && payout.getStatus() != PayoutStatus.PROCESSING) {
+            throw new ConflictException(
+                    "Payout " + id + " must be PROCESSING or UNKNOWN, but was " + payout.getStatus());
+        }
+        return payout;
+    }
+
     private Payout requireUnknown(UUID id) {
         Payout payout = require(id);
         if (payout.getStatus() != PayoutStatus.UNKNOWN) {
-            throw new ConflictException("Only UNKNOWN payouts require reconciliation");
+            throw new ConflictException("Only UNKNOWN payouts can be retried or reconciled");
         }
         return payout;
     }

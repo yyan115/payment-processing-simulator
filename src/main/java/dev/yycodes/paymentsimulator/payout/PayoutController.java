@@ -1,7 +1,6 @@
 package dev.yycodes.paymentsimulator.payout;
 
 import dev.yycodes.paymentsimulator.audit.PayoutEventResponse;
-import dev.yycodes.paymentsimulator.provider.SimulatePayoutRequest;
 import dev.yycodes.paymentsimulator.reconciliation.ReconciliationResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -45,10 +44,13 @@ public class PayoutController {
     }
 
     @PostMapping("/{id}/process")
-    public PayoutResponse process(
-            @PathVariable UUID id,
-            @Valid @RequestBody SimulatePayoutRequest request) {
-        return PayoutResponse.from(processor.process(id, request.outcome()));
+    public PayoutResponse process(@PathVariable UUID id) {
+        return PayoutResponse.from(processor.process(id));
+    }
+
+    @PostMapping("/{id}/retry")
+    public PayoutResponse retry(@PathVariable UUID id) {
+        return PayoutResponse.from(processor.retry(id));
     }
 
     @PostMapping("/{id}/reconcile")
