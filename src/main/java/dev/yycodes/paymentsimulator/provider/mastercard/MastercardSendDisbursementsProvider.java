@@ -82,19 +82,11 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
                         + "/disbursements/payment"
         );
 
-        String payload;
-        try {
-            payload = mapper.writeValueAsString(buildRequest(
-                    clientReference,
-                    amount,
-                    currency
-            ));
-        } catch (IOException serializationFailure) {
-            throw new IllegalStateException(
-                    "Could not serialize Mastercard Send request",
-                    serializationFailure
-            );
-        }
+        String payload = mapper.writeValueAsString(buildRequest(
+                clientReference,
+                amount,
+                currency
+        ));
 
         HttpRequest request = signedRequest(
                 uri,
