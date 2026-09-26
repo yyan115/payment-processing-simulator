@@ -58,6 +58,9 @@ This mirrors the purpose of Mastercard Send's `repeat-flag`, documented for rese
 
 ## Double-entry ledger
 
+The internal `SUCCEEDED` state means the configured payment provider has returned a successful/approved outcome. It does not claim that downstream interbank settlement has already completed. The journal type is therefore `PAYOUT_CONFIRMED`, not `PAYOUT_SETTLED`.
+
+
 A successful payout creates:
 
 ```text

@@ -23,13 +23,13 @@ public class LedgerPostingService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public void recordPayoutSettlement(Payout payout) {
+    public void recordPayoutConfirmation(Payout payout) {
         UUID transactionId = UUID.randomUUID();
 
         int inserted = transactions.insertIfAbsent(
                 transactionId,
                 payout.getId(),
-                LedgerTransactionType.PAYOUT_SETTLED.name(),
+                LedgerTransactionType.PAYOUT_CONFIRMED.name(),
                 payout.getAmount(),
                 payout.getCurrency(),
                 Instant.now()

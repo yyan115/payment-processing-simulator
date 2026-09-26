@@ -46,7 +46,7 @@ public class MastercardSendResponseParser {
     static ProviderStatus mapStatus(String status) {
         return switch (status.toUpperCase()) {
             case "APPROVED" -> ProviderStatus.SUCCEEDED;
-            case "DECLINED", "REVERSED" -> ProviderStatus.DECLINED;
+            case "DECLINED", "REVERSED", "CANCELLED" -> ProviderStatus.DECLINED;
             case "PENDING" -> ProviderStatus.PENDING;
             case "UNKNOWN", "ERROR" -> ProviderStatus.UNKNOWN;
             default -> throw new IllegalArgumentException(

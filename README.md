@@ -81,7 +81,7 @@ Source: [Mastercard Send Release Notes 25.2](https://static.developer.mastercard
 
 A payout does not enter the ledger until its external outcome is known to be successful.
 
-A S$100 settlement creates one immutable journal transaction:
+A confirmed S$100 payout creates one immutable journal transaction:
 
 ```text
 DEBIT   SELLER_PAYABLE:seller-42   SGD 100

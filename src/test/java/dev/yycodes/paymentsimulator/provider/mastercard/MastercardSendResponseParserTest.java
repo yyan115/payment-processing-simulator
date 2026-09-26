@@ -54,6 +54,21 @@ class MastercardSendResponseParserTest {
     }
 
     @Test
+    void mapsCancelledAsTerminalFailure() throws Exception {
+        String body = """
+                {
+                  "disbursement": {
+                    "id": "dsb_cancelled",
+                    "status": "CANCELLED"
+                  }
+                }
+                """;
+
+        assertThat(parser.parseCreate(body).status())
+                .isEqualTo(ProviderStatus.DECLINED);
+    }
+
+    @Test
     void parsesLookupByClientReference() throws Exception {
         String body = """
                 {

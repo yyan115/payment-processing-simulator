@@ -151,7 +151,7 @@ public class PayoutStateService {
 
         if (providerResult.status() == ProviderStatus.SUCCEEDED) {
             payout.markSucceeded(providerResult.providerReference());
-            ledger.recordPayoutSettlement(payout);
+            ledger.recordPayoutConfirmation(payout);
             outcome = ReconciliationOutcome.RESOLVED_SUCCEEDED;
             eventType = PayoutEventType.RECONCILIATION_SUCCEEDED;
         } else {
@@ -181,7 +181,7 @@ public class PayoutStateService {
         Payout payout = requireUnknownOrProcessing(id);
         PayoutStatus from = payout.getStatus();
         payout.markSucceeded(providerReference);
-        ledger.recordPayoutSettlement(payout);
+        ledger.recordPayoutConfirmation(payout);
         payouts.saveAndFlush(payout);
         events.save(new PayoutEvent(id, eventType, from, payout.getStatus()));
         return payout;
