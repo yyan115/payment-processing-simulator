@@ -34,7 +34,9 @@ flowchart LR
     S --> DB[(PostgreSQL)]
     S --> P[Payment Provider Interface]
     P --> SIM[Simulated Provider]
+    P --> MC[Mastercard Send Adapter]
     SIM --> DB
+    MC --> MCS[Mastercard Send Sandbox]
     FI[Failure Injection API] --> SIM
     R[Reconciliation Worker] --> S
     S --> L[Double-entry Ledger]
@@ -75,7 +77,7 @@ RETRY submission
     -> provider has no record              -> process once
 ```
 
-Source: [Mastercard Send Release Notes 25.2](https://static.developer.mastercard.com/content/mastercard-send/release-notes/mastercard-send-release-notes-25.2.pdf)
+Source: [Mastercard Send Release Notes 25.1](https://static.developer.mastercard.com/content/mastercard-send/release-notes/mastercard-send-release-notes-25.1.pdf)
 
 ## Financial journal
 
@@ -92,7 +94,7 @@ The payout state transition and ledger posting share one database transaction. I
 
 The payout ID is unique in `ledger_transactions`, preventing the same payout from being financially posted twice.
 
-Inspect a settled payout:
+Inspect a confirmed payout:
 
 ```bash
 curl http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/ledger
@@ -104,6 +106,8 @@ curl http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/ledger
 | --- | --- | --- | --- | --- |
 | `SUCCESS` | `SUCCEEDED` | `SUCCEEDED` | debit + credit | Not needed |
 | `DECLINED` | `DECLINED` | `FAILED` | none | Not needed |
+| `UNKNOWN` | `UNKNOWN` | `UNKNOWN` | none | Remains uncertain until provider state changes |
+| `PENDING` | `PENDING` | `UNKNOWN` | none | Remains uncertain until provider state changes |
 | `TIMEOUT_AFTER_SUCCESS` | `SUCCEEDED` | `UNKNOWN` | none until resolved | Resolves or safely retries to `SUCCEEDED` |
 | `TIMEOUT_BEFORE_PROCESSING` | none | `UNKNOWN` | none | Reconciliation remains unknown; retry processes once |
 
@@ -117,6 +121,7 @@ curl http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/ledger
 - Micrometer + Prometheus
 - Docker Compose
 - Maven
+- Mastercard OAuth 1.0a signer
 - GitHub Actions
 
 ## Run everything
@@ -190,7 +195,7 @@ curl http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/ledger
 mvn verify
 ```
 
-Integration tests verify idempotency, concurrent creation, legal failure semantics, reconciliation, safe repeats, balanced ledger posting, and absence of financial postings for failed or unresolved payouts.
+Tests cover the public REST contract, idempotency and concurrent creation, failure semantics, reconciliation, safe repeats, balanced ledger posting, concurrent processing, and the Mastercard adapter's signed request contract.
 
 CI runs the suite on every push and pull request.
 
@@ -202,7 +207,7 @@ Prometheus configuration lives under `ops/prometheus/`. The included `UnknownPay
 
 ## Mastercard Send adapter
 
-The project includes a selectable Mastercard Send Disbursements adapter using Mastercard's official OAuth 1.0a Java signer, the current RNTZ sandbox domain, lookup by client reference for reconciliation, and `repeat-flag` support for safe repeats.
+The project includes a selectable Mastercard Send Disbursements adapter using Mastercard's official OAuth 1.0a Java signer, the current RNTZ sandbox domain, lookup by client reference for reconciliation, and `repeat-flag` support for safe repeats. CI contract-tests request signing, paths, payload structure, repeat headers, and response mapping against a local HTTP fixture.
 
 See [Mastercard Send integration](docs/mastercard.md) for configuration and the verification boundary.
 

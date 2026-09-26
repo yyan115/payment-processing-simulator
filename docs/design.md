@@ -96,6 +96,7 @@ Reconciliation queries the provider using the payout UUID as the stable client r
 
 - provider reports `SUCCEEDED`: resolve to `SUCCEEDED` and post the ledger
 - provider reports `DECLINED`: resolve to `FAILED`
+- provider reports `UNKNOWN` or `PENDING`: preserve `UNKNOWN`
 - provider has no record: preserve `UNKNOWN`
 
 Every reconciliation attempt is stored separately from the state-transition audit trail.
@@ -114,4 +115,4 @@ Application logs use payout IDs and provider references for correlation without 
 
 Secrets are not part of simulator configuration.
 
-A real Mastercard adapter will load credentials from external configuration and use Mastercard's official request-signing library. Private keys, consumer keys, PANs, and production payment data must never be committed to this repository.
+The Mastercard adapter loads credentials from external configuration and uses Mastercard's official request-signing library. It rejects production Mastercard hosts and intentionally supports sandbox endpoints only. Private keys, consumer keys, PANs, and production payment data must never be committed to this repository.
