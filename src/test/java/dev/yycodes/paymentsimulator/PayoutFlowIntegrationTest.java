@@ -19,7 +19,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SpringBootTest
+@SpringBootTest(properties = "payments.reconciliation.enabled=false")
 class PayoutFlowIntegrationTest {
 
     @Autowired private PayoutService payouts;

@@ -12,6 +12,11 @@ spring:
   flyway:
     enabled: true
 
+payments:
+  reconciliation:
+    enabled: ${RECONCILIATION_ENABLED:true}
+    interval-ms: ${RECONCILIATION_INTERVAL_MS:30000}
+
 management:
   endpoints:
     web:

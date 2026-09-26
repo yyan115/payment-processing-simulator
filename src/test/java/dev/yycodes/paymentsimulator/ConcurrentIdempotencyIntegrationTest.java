@@ -20,7 +20,7 @@ import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@SpringBootTest(properties = "payments.reconciliation.enabled=false")
 class ConcurrentIdempotencyIntegrationTest {
 
     @Autowired private PayoutService payouts;

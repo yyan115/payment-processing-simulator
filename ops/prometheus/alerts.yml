@@ -1,0 +1,11 @@
+groups:
+  - name: payment-processing
+    rules:
+      - alert: UnknownPayoutStuck
+        expr: payments_payout_unknown_current > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: A payout has remained in an unknown state
+          description: Reconciliation has not resolved at least one ambiguous payout outcome.

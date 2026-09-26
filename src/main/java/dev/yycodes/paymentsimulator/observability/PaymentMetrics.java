@@ -1,8 +1,11 @@
 package dev.yycodes.paymentsimulator.observability;
 
+import dev.yycodes.paymentsimulator.payout.PayoutRepository;
+import dev.yycodes.paymentsimulator.payout.PayoutStatus;
 import dev.yycodes.paymentsimulator.provider.ProviderStatus;
 import dev.yycodes.paymentsimulator.reconciliation.ReconciliationOutcome;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Component;
 
@@ -17,9 +20,9 @@ public class PaymentMetrics {
             new EnumMap<>(ReconciliationOutcome.class);
     private final Counter unknownOutcomes;
 
-    public PaymentMetrics(MeterRegistry registry) {
+    public PaymentMetrics(MeterRegistry registry, PayoutRepository payouts) {
         for (ProviderStatus status : ProviderStatus.values()) {
-            providerResults.put(status, Counter.builder("payments.payout.provider_results")
+            providerResults.put(status, Counter.builder("payments.payout.provider.results")
                     .tag("result", status.name().toLowerCase())
                     .register(registry));
         }
@@ -30,7 +33,14 @@ public class PaymentMetrics {
                     .register(registry));
         }
 
-        unknownOutcomes = Counter.builder("payments.payout.unknown_outcomes").register(registry);
+        unknownOutcomes = Counter.builder("payments.payout.unknown.outcomes").register(registry);
+
+        Gauge.builder(
+                        "payments.payout.unknown.current",
+                        payouts,
+                        repository -> repository.countByStatus(PayoutStatus.UNKNOWN))
+                .description("Current number of payouts with an ambiguous external outcome")
+                .register(registry);
     }
 
     public void providerResult(ProviderStatus status) {
