@@ -1,7 +1,7 @@
 CREATE TABLE payouts (
     id UUID PRIMARY KEY,
     idempotency_key VARCHAR(255) NOT NULL UNIQUE,
-    request_fingerprint CHAR(64) NOT NULL,
+    request_fingerprint VARCHAR(64) NOT NULL,
     recipient_reference VARCHAR(255) NOT NULL,
     amount NUMERIC(19, 4) NOT NULL CHECK (amount > 0),
     currency VARCHAR(3) NOT NULL,
