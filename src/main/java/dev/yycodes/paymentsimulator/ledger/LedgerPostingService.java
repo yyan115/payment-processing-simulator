@@ -5,7 +5,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class LedgerPostingService {
@@ -22,18 +24,23 @@ public class LedgerPostingService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void recordPayoutSettlement(Payout payout) {
-        if (transactions.existsByPayoutId(payout.getId())) {
+        UUID transactionId = UUID.randomUUID();
+
+        int inserted = transactions.insertIfAbsent(
+                transactionId,
+                payout.getId(),
+                LedgerTransactionType.PAYOUT_SETTLED.name(),
+                payout.getAmount(),
+                payout.getCurrency(),
+                Instant.now()
+        );
+
+        if (inserted == 0) {
             return;
         }
 
-        LedgerTransaction transaction = transactions.save(new LedgerTransaction(
-                payout.getId(),
-                payout.getAmount(),
-                payout.getCurrency()
-        ));
-
         LedgerEntry sellerPayable = new LedgerEntry(
-                transaction.getId(),
+                transactionId,
                 "SELLER_PAYABLE:" + payout.getRecipientReference(),
                 LedgerDirection.DEBIT,
                 payout.getAmount(),
@@ -41,7 +48,7 @@ public class LedgerPostingService {
         );
 
         LedgerEntry cashClearing = new LedgerEntry(
-                transaction.getId(),
+                transactionId,
                 "CASH_CLEARING",
                 LedgerDirection.CREDIT,
                 payout.getAmount(),

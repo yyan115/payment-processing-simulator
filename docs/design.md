@@ -10,6 +10,7 @@ The project is built around several invariants:
 4. A payout may be financially posted only after its outcome is known to be successful.
 5. Every posted payout creates equal debit and credit ledger entries.
 6. A payout is posted to the ledger at most once.
+7. Concurrent workers cannot create duplicate provider or ledger transactions.
 
 ## Ambiguous outcomes
 
@@ -51,11 +52,11 @@ For a repeat, the simulated provider first checks the stable client reference:
 - existing provider record: return it
 - no provider record: process the transfer once
 
+The provider table also has a unique client-reference constraint. Inserts use PostgreSQL `ON CONFLICT DO NOTHING`, so simultaneous retries cannot create duplicate provider transactions.
+
 This mirrors the purpose of Mastercard Send's `repeat-flag`, documented for resending after no response or `UNKNOWN` status.
 
 ## Double-entry ledger
-
-The ledger is append-only from the public API's perspective. There is no endpoint for mutating or deleting a journal entry.
 
 A successful payout creates:
 
@@ -66,9 +67,9 @@ CREDIT  CASH_CLEARING                amount currency
 
 Both lines belong to one `ledger_transaction`.
 
-The unique `payout_id` constraint ensures one journal transaction per payout. The debit and credit amounts and currencies are created from the same immutable payout fields.
+The unique `payout_id` constraint and duplicate-safe insert ensure one journal transaction per payout even when multiple workers race.
 
-Ledger posting occurs inside the same Spring database transaction that transitions the payout to `SUCCEEDED`. If journal persistence fails, the success transition is rolled back too.
+Ledger posting occurs inside the same database transaction that transitions the payout to `SUCCEEDED`. If journal persistence fails, the success transition rolls back too.
 
 Unknown and failed payouts are deliberately absent from the ledger.
 
@@ -82,7 +83,9 @@ The simulation-only API configures the next provider outcome separately. This ke
 
 Each payout row contains a JPA `@Version` field.
 
-Two workers can read the same state, but they cannot both commit conflicting transitions against the same version. The loser sees either an invalid state or an optimistic-lock conflict.
+Concurrent processors may both begin from the same snapshot, but only one can commit a conflicting payout state transition. The provider and ledger layers independently enforce uniqueness as additional safety boundaries.
+
+The integration suite covers concurrent payout creation, processing, and retry paths and verifies that one external provider transaction and one two-line ledger transaction survive.
 
 ## Reconciliation
 
