@@ -27,7 +27,7 @@ It can be overridden with `MASTERCARD_BASE_URL`.
 
 ## Transaction local time
 
-The adapter includes `transaction_local_date_time` in the `payment_disbursement` object. Mastercard added this field in 2026 for traceability and reconciliation reporting.
+The adapter includes `transaction_local_date_time` in the `payment_disbursement` object. Mastercard specifies that this must represent the actual local date and time at the point of transaction acceptance, including its UTC offset. The sandbox fixture therefore uses `USA` with the `America/Chicago` time zone; both are configurable and should be kept consistent.
 
 ## Credentials
 

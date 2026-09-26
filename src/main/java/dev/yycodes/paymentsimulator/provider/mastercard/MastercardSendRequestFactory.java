@@ -10,6 +10,7 @@ import tools.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
@@ -23,26 +24,37 @@ public class MastercardSendRequestFactory {
     private final JsonMapper mapper;
     private final String senderAccountUri;
     private final String recipientAccountUri;
+    private final String paymentOriginationCountry;
     private final Clock clock;
 
     @Autowired
     public MastercardSendRequestFactory(
             JsonMapper mapper,
             @Value("${payments.mastercard.sender-account-uri}") String senderAccountUri,
-            @Value("${payments.mastercard.recipient-account-uri}") String recipientAccountUri) {
-        this(mapper, senderAccountUri, recipientAccountUri, Clock.systemUTC());
-        requireConfigured("payments.mastercard.sender-account-uri", senderAccountUri);
-        requireConfigured("payments.mastercard.recipient-account-uri", recipientAccountUri);
+            @Value("${payments.mastercard.recipient-account-uri}") String recipientAccountUri,
+            @Value("${payments.mastercard.payment-origination-country:USA}")
+            String paymentOriginationCountry,
+            @Value("${payments.mastercard.transaction-time-zone:America/Chicago}")
+            String transactionTimeZone) {
+        this(
+                mapper,
+                senderAccountUri,
+                recipientAccountUri,
+                paymentOriginationCountry,
+                Clock.system(ZoneId.of(transactionTimeZone))
+        );
     }
 
     MastercardSendRequestFactory(
             JsonMapper mapper,
             String senderAccountUri,
             String recipientAccountUri,
+            String paymentOriginationCountry,
             Clock clock) {
         this.mapper = mapper;
         this.senderAccountUri = senderAccountUri;
         this.recipientAccountUri = recipientAccountUri;
+        this.paymentOriginationCountry = paymentOriginationCountry;
         this.clock = clock;
     }
 
@@ -59,7 +71,7 @@ public class MastercardSendRequestFactory {
         payment.put("sender_account_uri", senderAccountUri);
         payment.put("recipient_account_uri", recipientAccountUri);
         payment.put("funding_source", "DEPOSIT_ACCOUNT");
-        payment.put("payment_origination_country", "USA");
+        payment.put("payment_origination_country", paymentOriginationCountry);
         payment.put(
                 "transaction_local_date_time",
                 OffsetDateTime.now(clock)
@@ -96,12 +108,5 @@ public class MastercardSendRequestFactory {
         wrapper.set("payment_disbursement", payment);
 
         return mapper.writeValueAsString(wrapper);
-    }
-
-    private static void requireConfigured(String property, String value) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalStateException(
-                    property + " must be configured when PAYMENTS_PROVIDER=mastercard");
-        }
     }
 }

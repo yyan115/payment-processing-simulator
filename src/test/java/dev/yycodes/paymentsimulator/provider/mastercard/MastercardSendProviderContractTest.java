@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyPairGenerator;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -73,7 +73,7 @@ class MastercardSendProviderContractTest {
         assertThat(payment.path("disbursement_reference").asText())
                 .isEqualTo(reference.toString());
         assertThat(payment.path("transaction_local_date_time").asText())
-                .isEqualTo("2026-09-26T22:00:00+00:00");
+                .isEqualTo("2026-09-26T17:00:00-05:00");
     }
 
     @Test
@@ -112,9 +112,10 @@ class MastercardSendProviderContractTest {
                 mapper,
                 "raw:sender",
                 "pan:recipient;exp=2077-05",
+                "USA",
                 Clock.fixed(
                         Instant.parse("2026-09-26T22:00:00Z"),
-                        ZoneOffset.UTC
+                        ZoneId.of("America/Chicago")
                 )
         );
 

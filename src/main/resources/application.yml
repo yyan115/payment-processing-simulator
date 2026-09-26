@@ -27,6 +27,8 @@ payments:
     key-password: ${MASTERCARD_KEY_PASSWORD:keystorepassword}
     sender-account-uri: ${MASTERCARD_SENDER_ACCOUNT_URI:}
     recipient-account-uri: ${MASTERCARD_RECIPIENT_ACCOUNT_URI:}
+    payment-origination-country: ${MASTERCARD_PAYMENT_ORIGINATION_COUNTRY:USA}
+    transaction-time-zone: ${MASTERCARD_TRANSACTION_TIME_ZONE:America/Chicago}
 
 management:
   endpoints:
