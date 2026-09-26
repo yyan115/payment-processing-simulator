@@ -1,6 +1,7 @@
 # Payment Processing Simulator
 
 [![CI](https://github.com/yyan115/payment-processing-simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/yyan115/payment-processing-simulator/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/yyan115/payment-processing-simulator/actions/workflows/codeql.yml/badge.svg)](https://github.com/yyan115/payment-processing-simulator/actions/workflows/codeql.yml)
 
 A Java/Spring Boot payment backend that explores a deceptively hard problem: **what should a financial system do when an external payment may have succeeded, but the response never arrives?**
 
@@ -206,3 +207,9 @@ The project includes a selectable Mastercard Send Disbursements adapter using Ma
 See [Mastercard Send integration](docs/mastercard.md) for configuration and the verification boundary.
 
 The deterministic simulator remains the default because it can reproduce failure cases that an external sandbox may not expose.
+
+## Security
+
+The repository is designed for synthetic and sandbox payment data only. Provider credentials remain outside source control, application logs avoid recipient/payment details, CodeQL runs static security analysis, and Dependabot tracks dependencies.
+
+See [Security](SECURITY.md).
