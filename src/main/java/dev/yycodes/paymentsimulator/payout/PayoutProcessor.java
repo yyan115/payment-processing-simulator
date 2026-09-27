@@ -48,6 +48,10 @@ public class PayoutProcessor {
             log.warn("payout_provider_rejected payoutId={} statusCode={}",
                     id, rejected.getStatusCode());
             return states.markProviderRejected(id);
+        } catch (ProviderRequestException invalidRequest) {
+            log.warn("payout_provider_request_invalid payoutId={} reason={}",
+                    id, invalidRequest.getMessage());
+            return states.markProviderRejected(id);
         }
     }
 
@@ -76,6 +80,13 @@ public class PayoutProcessor {
         } catch (ProviderRejectedException rejected) {
             log.warn("payout_retry_rejected payoutId={} statusCode={} outcome=still_unknown",
                     id, rejected.getStatusCode());
+            return states.recordRetryRejected(id);
+        } catch (ProviderRequestException invalidRequest) {
+            log.warn(
+                    "payout_retry_request_invalid payoutId={} outcome=still_unknown reason={}",
+                    id,
+                    invalidRequest.getMessage()
+            );
             return states.recordRetryRejected(id);
         }
     }

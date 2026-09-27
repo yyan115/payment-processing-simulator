@@ -90,6 +90,30 @@ class MastercardSendRequestFactoryTest {
     }
 
     @Test
+    void rejectsAmountThatCannotBeRepresentedByMastercardSend() {
+        MastercardSendRequestFactory factory =
+                new MastercardSendRequestFactory(
+                        mapper,
+                        "",
+                        "pan:recipient;exp=2077-05",
+                        "BDB",
+                        "",
+                        "",
+                        null
+                );
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> factory.createPayload(
+                        UUID.randomUUID(),
+                        new BigDecimal("10000000000.00"),
+                        "SGD"
+                )
+        ).isInstanceOf(
+                dev.yycodes.paymentsimulator.provider.ProviderRequestException.class
+        );
+    }
+
+    @Test
     void convertsCurrenciesUsingTheirIsoMinorUnitExponent()
             throws Exception {
         MastercardSendRequestFactory factory = new MastercardSendRequestFactory(

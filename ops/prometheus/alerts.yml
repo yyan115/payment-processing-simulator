@@ -9,3 +9,12 @@ groups:
         annotations:
           summary: A payout has remained in an unknown state
           description: Reconciliation has not resolved at least one ambiguous payout outcome.
+
+      - alert: ProcessingPayoutStuck
+        expr: payments_payout_processing_stale_current > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: A payout is stuck in processing
+          description: At least one payout exceeded the processing recovery cutoff and should be reconciled.

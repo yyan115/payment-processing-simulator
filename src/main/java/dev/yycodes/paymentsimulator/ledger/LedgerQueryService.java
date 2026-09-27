@@ -23,7 +23,7 @@ public class LedgerQueryService {
     public LedgerTransactionResponse findByPayoutId(UUID payoutId) {
         LedgerTransaction transaction = transactions.findByPayoutId(payoutId)
                 .orElseThrow(() -> new NotFoundException(
-                        "No settled ledger transaction exists for payout " + payoutId));
+                        "No confirmed ledger transaction exists for payout " + payoutId));
 
         var lines = entries.findByTransactionIdOrderByCreatedAtAsc(transaction.getId()).stream()
                 .map(LedgerEntryResponse::from)

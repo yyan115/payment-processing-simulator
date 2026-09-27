@@ -60,7 +60,7 @@ Failure injection is deliberately separated from the business payout API. The pr
 - **Double-entry posting:** successful payouts atomically create equal debit and credit ledger entries.
 - **No premature posting:** failed and unresolved payouts create no financial journal entry.
 - **Auditability:** state transitions and reconciliation attempts are persisted.
-- **Operational visibility:** logs, Prometheus metrics, health checks, and an alert for unresolved unknown payouts are included.
+- **Operational visibility:** logs, Prometheus metrics, health checks, and alerts for unresolved `UNKNOWN` and stale `PROCESSING` payouts are included.
 
 See [Design notes](docs/design.md) for the invariants and failure model.
 
@@ -202,9 +202,9 @@ CI runs the suite on every push and pull request.
 
 ## Observability
 
-The application publishes payment-specific metrics through Actuator, including provider results, ambiguous timeouts, reconciliation outcomes, and the current count of `UNKNOWN` payouts.
+The application publishes payment-specific metrics through Actuator, including provider results, ambiguous timeouts, reconciliation outcomes, the current count of `UNKNOWN` payouts, and stale `PROCESSING` payouts that have crossed the recovery threshold.
 
-Prometheus configuration lives under `ops/prometheus/`. The included `UnknownPayoutStuck` rule fires when an ambiguous payout remains unresolved.
+Prometheus configuration lives under `ops/prometheus/`. The included `UnknownPayoutStuck` and `ProcessingPayoutStuck` rules surface unresolved ambiguity and crash-window recovery failures.
 
 ## Mastercard Send adapter
 

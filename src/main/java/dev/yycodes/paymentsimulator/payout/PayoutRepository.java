@@ -15,4 +15,8 @@ public interface PayoutRepository extends JpaRepository<Payout, UUID> {
             Instant cutoff
     );
     long countByStatus(PayoutStatus status);
+    long countByStatusAndUpdatedAtBefore(
+            PayoutStatus status,
+            Instant cutoff
+    );
 }

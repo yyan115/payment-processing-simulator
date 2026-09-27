@@ -88,10 +88,16 @@ public class MastercardSendRequestFactory {
 
         ObjectNode payment = mapper.createObjectNode();
         payment.put("disbursement_reference", clientReference.toString());
-        payment.put(
-                "amount",
-                MoneyAmounts.toMinorUnits(amount, currency)
-        );
+        final String minorUnits;
+        try {
+            minorUnits = MoneyAmounts.toMinorUnits(amount, currency);
+        } catch (IllegalArgumentException invalidAmount) {
+            throw new dev.yycodes.paymentsimulator.provider.ProviderRequestException(
+                    invalidAmount.getMessage()
+            );
+        }
+
+        payment.put("amount", minorUnits);
         payment.put("currency", currency);
         payment.put("recipient_account_uri", recipientAccountUri);
 
