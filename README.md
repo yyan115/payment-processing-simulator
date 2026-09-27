@@ -198,7 +198,7 @@ curl http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/ledger
 mvn verify
 ```
 
-Tests cover the public REST contract, idempotency and concurrent creation, asynchronous provider-state convergence, failure semantics, crash-window recovery, reconciliation, safe repeats, balanced ledger posting, maximum-length recipient handling, concurrent processing, and the Mastercard adapter's signed request contract.
+Tests cover the public REST contract, idempotency and concurrent creation, asynchronous provider-state convergence, failure semantics, crash-window recovery, concurrent reconciliation, safe repeats, balanced ledger posting, maximum-length recipient handling, concurrent processing, and the Mastercard adapter's signed request contract.
 
 CI runs the suite on every push and pull request.
 

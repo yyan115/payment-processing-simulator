@@ -4,10 +4,14 @@ import dev.yycodes.paymentsimulator.audit.PayoutEventRepository;
 import dev.yycodes.paymentsimulator.ledger.LedgerEntryRepository;
 import dev.yycodes.paymentsimulator.ledger.LedgerTransactionRepository;
 import dev.yycodes.paymentsimulator.payout.*;
+import dev.yycodes.paymentsimulator.provider.ProviderStatus;
 import dev.yycodes.paymentsimulator.provider.ProviderTransactionRepository;
 import dev.yycodes.paymentsimulator.provider.SimulatedOutcome;
+import dev.yycodes.paymentsimulator.provider.SimulatedProviderStore;
 import dev.yycodes.paymentsimulator.provider.SimulationScenarioRegistry;
 import dev.yycodes.paymentsimulator.reconciliation.ReconciliationAttemptRepository;
+import dev.yycodes.paymentsimulator.reconciliation.ReconciliationOutcome;
+import dev.yycodes.paymentsimulator.reconciliation.ReconciliationResolution;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +22,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -38,6 +43,7 @@ class ConcurrentProcessingIntegrationTest {
     @Autowired private LedgerEntryRepository ledgerEntries;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private SimulationScenarioRegistry scenarios;
+    @Autowired private SimulatedProviderStore providerStore;
 
     @BeforeEach
     void cleanDatabase() {
@@ -46,7 +52,8 @@ class ConcurrentProcessingIntegrationTest {
     }
 
     @Test
-    void concurrentProcessingCannotCreateTwoExternalOrLedgerTransactions() throws Exception {
+    void concurrentProcessingCannotCreateTwoExternalOrLedgerTransactions()
+            throws Exception {
         UUID id = create("concurrent-process");
 
         List<Payout> successes = runTogether(
@@ -55,18 +62,21 @@ class ConcurrentProcessingIntegrationTest {
         );
 
         assertThat(successes).hasSize(1);
-        assertThat(successes.getFirst().getStatus()).isEqualTo(PayoutStatus.SUCCEEDED);
+        assertThat(successes.getFirst().getStatus())
+                .isEqualTo(PayoutStatus.SUCCEEDED);
         assertThat(providerRepository.count()).isEqualTo(1);
         assertThat(ledgerTransactions.count()).isEqualTo(1);
         assertThat(ledgerEntries.count()).isEqualTo(2);
     }
 
     @Test
-    void concurrentRetriesAfterUnknownStillProduceOneExternalAndLedgerTransaction() throws Exception {
+    void concurrentRetriesAfterUnknownStillProduceOneExternalAndLedgerTransaction()
+            throws Exception {
         UUID id = create("concurrent-retry");
         scenarios.configure(id, SimulatedOutcome.TIMEOUT_BEFORE_PROCESSING);
 
-        assertThat(processor.process(id).getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
+        assertThat(processor.process(id).getStatus())
+                .isEqualTo(PayoutStatus.UNKNOWN);
         assertThat(providerRepository.count()).isZero();
 
         List<Payout> successes = runTogether(
@@ -75,21 +85,50 @@ class ConcurrentProcessingIntegrationTest {
         );
 
         assertThat(successes).hasSize(1);
-        assertThat(successes.getFirst().getStatus()).isEqualTo(PayoutStatus.SUCCEEDED);
+        assertThat(successes.getFirst().getStatus())
+                .isEqualTo(PayoutStatus.SUCCEEDED);
         assertThat(providerRepository.count()).isEqualTo(1);
         assertThat(ledgerTransactions.count()).isEqualTo(1);
         assertThat(ledgerEntries.count()).isEqualTo(2);
     }
 
-    private List<Payout> runTogether(
-            java.util.concurrent.Callable<Payout> first,
-            java.util.concurrent.Callable<Payout> second) throws Exception {
+    @Test
+    void concurrentReconciliationCannotDoubleFinalizeUnknownPayout()
+            throws Exception {
+        UUID id = create("concurrent-reconcile");
+        scenarios.configure(id, SimulatedOutcome.UNKNOWN);
+
+        assertThat(processor.process(id).getStatus())
+                .isEqualTo(PayoutStatus.UNKNOWN);
+
+        providerStore.updateStatus(id, ProviderStatus.SUCCEEDED);
+
+        List<ReconciliationResolution> successes = runTogether(
+                () -> processor.reconcile(id),
+                () -> processor.reconcile(id)
+        );
+
+        assertThat(successes).hasSize(1);
+        assertThat(successes.getFirst().outcome())
+                .isEqualTo(ReconciliationOutcome.RESOLVED_SUCCEEDED);
+        assertThat(payoutRepository.findById(id).orElseThrow().getStatus())
+                .isEqualTo(PayoutStatus.SUCCEEDED);
+        assertThat(providerRepository.count()).isEqualTo(1);
+        assertThat(ledgerTransactions.count()).isEqualTo(1);
+        assertThat(ledgerEntries.count()).isEqualTo(2);
+        assertThat(reconciliationRepository.findByPayoutIdOrderByCreatedAtAsc(id))
+                .hasSize(1);
+    }
+
+    private <T> List<T> runTogether(
+            Callable<T> first,
+            Callable<T> second) throws Exception {
 
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
 
         try (var executor = Executors.newFixedThreadPool(2)) {
-            List<Future<Payout>> futures = List.of(
+            List<Future<T>> futures = List.of(
                     executor.submit(() -> invokeTogether(ready, start, first)),
                     executor.submit(() -> invokeTogether(ready, start, second))
             );
@@ -97,32 +136,35 @@ class ConcurrentProcessingIntegrationTest {
             ready.await();
             start.countDown();
 
-            List<Payout> successes = new ArrayList<>();
-            for (Future<Payout> future : futures) {
+            List<T> successes = new ArrayList<>();
+            for (Future<T> future : futures) {
                 try {
                     successes.add(future.get());
                 } catch (ExecutionException expectedRaceLoser) {
-                    // The losing request must fail instead of producing a second financial effect.
+                    // A race loser must fail instead of creating a second effect.
                 }
             }
             return successes;
         }
     }
 
-    private Payout invokeTogether(
+    private <T> T invokeTogether(
             CountDownLatch ready,
             CountDownLatch start,
-            java.util.concurrent.Callable<Payout> action) throws Exception {
+            Callable<T> action) throws Exception {
         ready.countDown();
         start.await();
         return action.call();
     }
 
     private UUID create(String key) {
-        return payouts.create(key, new CreatePayoutRequest(
-                "seller-42",
-                new BigDecimal("100.00"),
-                "SGD"
-        )).payout().getId();
+        return payouts.create(
+                key,
+                new CreatePayoutRequest(
+                        "seller-42",
+                        new BigDecimal("100.00"),
+                        "SGD"
+                )
+        ).payout().getId();
     }
 }
