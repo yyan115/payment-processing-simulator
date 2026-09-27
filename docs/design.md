@@ -46,8 +46,8 @@ Every create request supplies an `Idempotency-Key`.
 
 The service canonicalizes recipient reference, amount, and currency, then stores a SHA-256 request fingerprint with the key.
 
-- same key + same fingerprint: return the existing payout
-- same key + different fingerprint: reject with a conflict
+- same key + same fingerprint + same provider: return the existing payout
+- same key + different fingerprint or provider: reject with a conflict
 
 A unique database constraint remains the final authority during concurrent requests. PostgreSQL also checks payout/provider state domains, ISO-shaped currency codes, SHA-256 fingerprint format, ledger directions/types, reconciliation outcomes, and the simulated provider's foreign-key link back to its payout.
 
@@ -84,7 +84,7 @@ The unique `payout_id` constraint and duplicate-safe insert ensure one journal t
 
 A deferred PostgreSQL constraint trigger independently verifies at commit that every journal transaction has exactly two entries, one debit and one credit, each equal to the transaction amount and using the transaction currency. An imbalanced journal is rejected even if application code bypasses `LedgerPostingService`.
 
-PostgreSQL also rejects UPDATE and DELETE operations on committed ledger transactions and entries. The journal is therefore append-only at the database boundary, not merely by application convention.
+PostgreSQL rejects UPDATE operations on all committed ledger transactions and entries, and DELETE operations on ordinary or active-workspace records. The only deletion exception is expired, explicitly temporary demo data, described below. The journal is therefore append-only at the database boundary, not merely by application convention.
 
 Ledger posting occurs inside the same database transaction that transitions the payout to `SUCCEEDED`. If journal persistence or the database balance invariant fails, the success transition rolls back too.
 
@@ -129,7 +129,7 @@ Supporting a reversal after local success would require a separate reversal life
 
 ## Auditability
 
-State changes produce immutable `payout_events` records containing payout ID, event type, previous state, new state, and timestamp. Reconciliation attempts form a separate append-only history. PostgreSQL rejects UPDATE and DELETE operations on both history tables, so audit immutability is enforced below the ORM layer.
+State changes produce immutable `payout_events` records containing payout ID, event type, previous state, new state, and timestamp. Reconciliation attempts form a separate append-only history. PostgreSQL rejects UPDATE operations and ordinary DELETE operations on both history tables. The same narrow expired-demo cleanup exception applies to history as to the ledger.
 
 ## Observability
 
@@ -142,3 +142,19 @@ Application logs use payout IDs and provider references for correlation without 
 Secrets are not part of simulator configuration.
 
 The Mastercard adapter loads credentials from external configuration and uses Mastercard's official request-signing library. It rejects production Mastercard hosts and intentionally supports sandbox endpoints only. Private keys, consumer keys, PANs, and production payment data must never be committed to this repository.
+
+## Two provider modes
+
+`RoutingPaymentProvider` chooses the adapter from each payout’s persisted `provider` field. The configured default is used only when a request omits its provider or for legacy rows created before provider selection existed. When upgrading an existing database, retain the previous default for legacy rows. New records always carry an explicit provider.
+
+The UI requests local snapshots at repeatable-read isolation, so payout status, journal and audit history describe a consistent database snapshot. Simulated provider evidence is returned from its separate durable table. Mastercard snapshots do not make external calls; the explicit lookup operation supplies external evidence.
+
+## Temporary workspaces
+
+Demo mode issues a random, HttpOnly, SameSite=Strict workspace cookie with a 15-minute lifetime. Every payout controller authorizes the decoded resource ID before reading or mutating a record. Payout lists are scoped at the database query, and idempotency keys are namespaced by workspace. Provider fault controls use the same authorization.
+
+A PostgreSQL trigger locks the session row before admitting a payout, enforcing its quota under concurrent requests. Session creation uses a transaction advisory lock and an active-session cap. Per-process request limits bound visitor traffic; a separate database budget bounds external Mastercard calls across restarts.
+
+Cleanup runs each minute and removes expired workspaces in bounded batches after a 60-second grace period. Database mutation guards permit deletion only when a record belongs to an explicitly expired demo session. Updates remain forbidden, as do deletions of permanent or active-workspace records. The normal ledger/audit invariant tests and separate cleanup tests exercise both sides of this exception.
+
+Reset ends one workspace and opens another; it does not undo an external sandbox request. Automatic reconciliation skips expired sessions. Non-demo mode keeps ordinary payment records indefinitely and does not expose a reset API for them.
