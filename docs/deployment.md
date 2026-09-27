@@ -40,7 +40,9 @@ The JDBC URL does not contain the username or password. Render stores those sepa
 7. Deploy. Render builds the frontend and backend together.
 8. Open the supplied `onrender.com` URL and run the lost-response walkthrough from the README.
 
-Alternatively, create a **Blueprint** from `render.yaml`; it defines the same Free service settings. Blueprint creation can request credit-card verification before repository selection, as observed during setup on 2026-09-28. The ordinary Web Service form provides a separate setup path. Account verification requirements remain under Render's control.
+Alternatively, create a **Blueprint** from `render.yaml`; it defines the same Free service settings.
+
+Render may require card verification even for a Free web service. During setup on 2026-09-28, the tested account was prompted before Blueprint configuration and again when submitting the ordinary Web Service form with **Free ($0/month)** selected. The dialog described a temporary US$1 authorization. The manual flow therefore does not establish a card-free deployment route. Account verification requirements remain under Render's control.
 
 A service created from a public repository URL may require manual deployments for later commits. Confirm its auto-deploy availability in Render; pushing to GitHub alone does not prove the running service was updated.
 
