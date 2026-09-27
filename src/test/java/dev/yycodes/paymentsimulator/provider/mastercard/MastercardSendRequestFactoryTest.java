@@ -29,7 +29,7 @@ class MastercardSendRequestFactoryTest {
                 "BDB",
                 "",
                 "",
-                null
+                (Clock) null
         );
 
         var payment = mapper.readTree(factory.createPayload(
@@ -99,7 +99,7 @@ class MastercardSendRequestFactoryTest {
                         "BDB",
                         "",
                         "",
-                        null
+                        (Clock) null
                 );
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
@@ -123,7 +123,7 @@ class MastercardSendRequestFactoryTest {
                 "BDB",
                 "",
                 "",
-                null
+                (Clock) null
         );
 
         var jpy = mapper.readTree(factory.createPayload(
