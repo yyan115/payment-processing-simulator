@@ -79,7 +79,9 @@ Both lines belong to one `ledger_transaction`.
 
 The unique `payout_id` constraint and duplicate-safe insert ensure one journal transaction per payout even when multiple workers race.
 
-Ledger posting occurs inside the same database transaction that transitions the payout to `SUCCEEDED`. If journal persistence fails, the success transition rolls back too.
+A deferred PostgreSQL constraint trigger independently verifies at commit that every journal transaction has exactly two entries, one debit and one credit, each equal to the transaction amount and using the transaction currency. An imbalanced journal is rejected even if application code bypasses `LedgerPostingService`.
+
+Ledger posting occurs inside the same database transaction that transitions the payout to `SUCCEEDED`. If journal persistence or the database balance invariant fails, the success transition rolls back too.
 
 Unknown and failed payouts are deliberately absent from the ledger.
 

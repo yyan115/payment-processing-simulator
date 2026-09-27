@@ -58,6 +58,7 @@ Failure injection is deliberately separated from the business payout API. The pr
 - **Reconciliation:** uncertain payouts are checked against durable provider records and can converge as the provider's asynchronous status changes.
 - **Crash-window recovery:** stale `PROCESSING` payouts are reconciled so provider success cannot be stranded by a failed local finalization write.
 - **Double-entry posting:** successful payouts atomically create equal debit and credit ledger entries.
+- **Database-enforced balance:** a deferred PostgreSQL constraint trigger rejects imbalanced or cross-currency journals at commit.
 - **No premature posting:** failed and unresolved payouts create no financial journal entry.
 - **Auditability:** state transitions and reconciliation attempts are persisted.
 - **Operational visibility:** logs, Prometheus metrics, health checks, and alerts for unresolved `UNKNOWN` and stale `PROCESSING` payouts are included.
@@ -93,7 +94,7 @@ CREDIT  CASH_CLEARING              SGD 100
 
 The payout state transition and ledger posting share one database transaction. If the financial posting fails, the payout cannot commit as `SUCCEEDED`.
 
-The payout ID is unique in `ledger_transactions`, preventing the same payout from being financially posted twice.
+The payout ID is unique in `ledger_transactions`, preventing the same payout from being financially posted twice. PostgreSQL also validates the two-line debit/credit balance at transaction commit.
 
 Inspect a confirmed payout:
 
