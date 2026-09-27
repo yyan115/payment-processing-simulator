@@ -4,6 +4,7 @@ import dev.yycodes.paymentsimulator.audit.PayoutEventRepository;
 import dev.yycodes.paymentsimulator.ledger.LedgerEntryRepository;
 import dev.yycodes.paymentsimulator.ledger.LedgerTransactionRepository;
 import dev.yycodes.paymentsimulator.payout.CreatePayoutRequest;
+import dev.yycodes.paymentsimulator.payout.PayoutProcessor;
 import dev.yycodes.paymentsimulator.payout.PayoutRepository;
 import dev.yycodes.paymentsimulator.payout.PayoutService;
 import dev.yycodes.paymentsimulator.provider.ProviderTransactionRepository;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -26,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class LedgerDatabaseInvariantIntegrationTest {
 
     @Autowired private PayoutService payouts;
+    @Autowired private PayoutProcessor processor;
     @Autowired private PayoutRepository payoutRepository;
     @Autowired private ProviderTransactionRepository providerTransactions;
     @Autowired private PayoutEventRepository payoutEvents;
@@ -37,12 +40,7 @@ class LedgerDatabaseInvariantIntegrationTest {
 
     @BeforeEach
     void cleanDatabase() {
-        ledgerEntries.deleteAll();
-        ledgerTransactions.deleteAll();
-        reconciliationAttempts.deleteAll();
-        payoutEvents.deleteAll();
-        providerTransactions.deleteAll();
-        payoutRepository.deleteAll();
+        TestDatabaseCleaner.clean(jdbc);
     }
 
     @Test
@@ -136,6 +134,45 @@ class LedgerDatabaseInvariantIntegrationTest {
         })).isInstanceOf(DataIntegrityViolationException.class);
 
         assertThat(ledgerTransactions.findByPayoutId(payoutId)).isEmpty();
+    }
+
+    @Test
+    void postgresRejectsMutationOfCommittedJournal() {
+        UUID payoutId = payouts.create(
+                "db-immutability-check",
+                new CreatePayoutRequest(
+                        "seller-42",
+                        new BigDecimal("100.00"),
+                        "SGD"
+                )
+        ).payout().getId();
+
+        processor.process(payoutId);
+
+        UUID transactionId = ledgerTransactions
+                .findByPayoutId(payoutId)
+                .orElseThrow()
+                .getId();
+
+        assertThatThrownBy(() -> jdbc.update(
+                """
+                UPDATE ledger_entries
+                SET amount = amount + 1
+                WHERE transaction_id = ?
+                """,
+                transactionId
+        )).isInstanceOf(DataAccessException.class)
+          .hasMessageContaining("ledger rows are immutable");
+
+        assertThatThrownBy(() -> jdbc.update(
+                "DELETE FROM ledger_entries WHERE transaction_id = ?",
+                transactionId
+        )).isInstanceOf(DataAccessException.class)
+          .hasMessageContaining("ledger rows are immutable");
+
+        assertThat(ledgerEntries
+                .findByTransactionIdOrderByCreatedAtAsc(transactionId))
+                .hasSize(2);
     }
 
     private void insertEntry(

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -34,16 +35,12 @@ class PayoutFlowIntegrationTest {
     @Autowired private SimulationScenarioRegistry scenarios;
     @Autowired private LedgerTransactionRepository ledgerTransactions;
     @Autowired private LedgerEntryRepository ledgerEntries;
+    @Autowired private JdbcTemplate jdbc;
 
     @BeforeEach
     void cleanDatabase() {
         scenarios.clear();
-        ledgerEntries.deleteAll();
-        ledgerTransactions.deleteAll();
-        reconciliationRepository.deleteAll();
-        eventRepository.deleteAll();
-        providerRepository.deleteAll();
-        payoutRepository.deleteAll();
+        TestDatabaseCleaner.clean(jdbc);
     }
 
     @Test

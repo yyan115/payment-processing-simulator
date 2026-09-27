@@ -59,6 +59,7 @@ Failure injection is deliberately separated from the business payout API. The pr
 - **Crash-window recovery:** stale `PROCESSING` payouts are reconciled so provider success cannot be stranded by a failed local finalization write.
 - **Double-entry posting:** successful payouts atomically create equal debit and credit ledger entries.
 - **Database-enforced balance:** a deferred PostgreSQL constraint trigger rejects imbalanced or cross-currency journals at commit.
+- **Append-only journal:** PostgreSQL rejects updates and deletes against committed ledger rows.
 - **No premature posting:** failed and unresolved payouts create no financial journal entry.
 - **Auditability:** state transitions and reconciliation attempts are persisted.
 - **Operational visibility:** logs, Prometheus metrics, health checks, and alerts for unresolved `UNKNOWN` and stale `PROCESSING` payouts are included.

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URI;
@@ -35,18 +36,14 @@ class PayoutApiIntegrationTest {
     @Autowired private ReconciliationAttemptRepository reconciliationAttempts;
     @Autowired private LedgerTransactionRepository ledgerTransactions;
     @Autowired private LedgerEntryRepository ledgerEntries;
+    @Autowired private JdbcTemplate jdbc;
 
     private final HttpClient client = HttpClient.newHttpClient();
     private final JsonMapper json = JsonMapper.builder().build();
 
     @BeforeEach
     void cleanDatabase() {
-        ledgerEntries.deleteAll();
-        ledgerTransactions.deleteAll();
-        reconciliationAttempts.deleteAll();
-        events.deleteAll();
-        providerTransactions.deleteAll();
-        payouts.deleteAll();
+        TestDatabaseCleaner.clean(jdbc);
     }
 
     @Test
