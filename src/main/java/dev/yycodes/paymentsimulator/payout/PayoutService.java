@@ -2,8 +2,9 @@ package dev.yycodes.paymentsimulator.payout;
 
 import dev.yycodes.paymentsimulator.shared.BadRequestException;
 import dev.yycodes.paymentsimulator.shared.ConflictException;
-import dev.yycodes.paymentsimulator.shared.NotFoundException;
 import dev.yycodes.paymentsimulator.shared.MoneyAmounts;
+import dev.yycodes.paymentsimulator.shared.NotFoundException;
+
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -17,10 +18,24 @@ import java.util.UUID;
 @Service
 public class PayoutService {
     private final PayoutRepository repository;
-    public PayoutService(PayoutRepository repository) { this.repository = repository; }
+    private final dev.yycodes.paymentsimulator.provider.ProviderCatalog providers;
+    private final dev.yycodes.paymentsimulator.demo.DemoWorkspace workspace;
+
+    public PayoutService(
+            PayoutRepository repository,
+            dev.yycodes.paymentsimulator.provider.ProviderCatalog providers,
+            dev.yycodes.paymentsimulator.demo.DemoWorkspace workspace) {
+        this.repository = repository;
+        this.providers = providers;
+        this.workspace = workspace;
+    }
 
     public PayoutCreationResult create(String idempotencyKey, CreatePayoutRequest request) {
         String key = normalizeKey(idempotencyKey);
+        UUID session = workspace.currentId();
+        if (session != null) key = session + ":" + fingerprint(key, BigDecimal.ZERO, "SESSION");
+        String provider = providers.resolve(request.provider());
+        providers.require(provider);
         String recipient = request.recipientReference().trim();
         final String currency;
         final BigDecimal amount;
@@ -34,42 +49,94 @@ public class PayoutService {
 
         var existing = repository.findByIdempotencyKey(key);
         if (existing.isPresent()) {
-            assertSameRequest(existing.get(), fingerprint);
+            assertSameRequest(existing.get(), fingerprint, provider);
             return new PayoutCreationResult(existing.get(), false);
         }
 
         try {
-            Payout saved = repository.saveAndFlush(new Payout(key, fingerprint, recipient, amount, currency));
+            Payout saved =
+                    repository.saveAndFlush(
+                            new Payout(
+                                    key,
+                                    fingerprint,
+                                    recipient,
+                                    amount,
+                                    currency,
+                                    provider,
+                                    session));
             return new PayoutCreationResult(saved, true);
         } catch (DataIntegrityViolationException race) {
-            Payout winner = repository.findByIdempotencyKey(key).orElseThrow(() -> race);
-            assertSameRequest(winner, fingerprint);
+            var found = repository.findByIdempotencyKey(key);
+            if (found.isEmpty() && session != null)
+                throw new dev.yycodes.paymentsimulator.demo.DemoException(
+                        429,
+                        "This workspace has reached its payout limit or expired. Start a new"
+                            + " workspace.");
+            Payout winner = found.orElseThrow(() -> race);
+            assertSameRequest(winner, fingerprint, provider);
             return new PayoutCreationResult(winner, false);
         }
     }
 
+    public PayoutPage list(int page, int size) {
+        if (page < 0 || size < 1 || size > 100) {
+            throw new BadRequestException(
+                    "page must be non-negative and size must be between 1 and 100");
+        }
+        var pageable =
+                org.springframework.data.domain.PageRequest.of(
+                        page,
+                        size,
+                        org.springframework.data.domain.Sort.by(
+                                org.springframework.data.domain.Sort.Direction.DESC,
+                                "createdAt",
+                                "id"));
+        UUID session = workspace.currentId();
+        var result =
+                session == null
+                        ? repository.findAll(pageable)
+                        : repository.findByDemoSessionId(session, pageable);
+        return new PayoutPage(
+                result.getContent().stream().map(PayoutResponse::from).toList(),
+                result.getTotalElements(),
+                page,
+                size);
+    }
+
     public Payout get(UUID id) {
-        return repository.findById(id).orElseThrow(() -> new NotFoundException("Payout " + id + " was not found"));
+        var payout =
+                repository
+                        .findById(id)
+                        .orElseThrow(
+                                () -> new NotFoundException("Payout " + id + " was not found"));
+        workspace.assertOwn(payout);
+        return payout;
     }
 
     private static String normalizeKey(String key) {
-        if (key == null || key.isBlank()) throw new BadRequestException("Idempotency-Key header is required");
+        if (key == null || key.isBlank())
+            throw new BadRequestException("Idempotency-Key header is required");
         String normalized = key.trim();
-        if (normalized.length() > 255) throw new BadRequestException("Idempotency-Key must be at most 255 characters");
+        if (normalized.length() > 255)
+            throw new BadRequestException("Idempotency-Key must be at most 255 characters");
         return normalized;
     }
 
-    private static void assertSameRequest(Payout payout, String fingerprint) {
-        if (!payout.getRequestFingerprint().equals(fingerprint)) {
-            throw new ConflictException("Idempotency key was already used for a different payout request");
+    private void assertSameRequest(Payout payout, String fingerprint, String provider) {
+        if (!payout.getRequestFingerprint().equals(fingerprint)
+                || !providers.resolve(payout.getProvider()).equals(provider)) {
+            throw new ConflictException(
+                    "Idempotency key was already used for a different payout request");
         }
     }
 
     private static String fingerprint(String recipient, BigDecimal amount, String currency) {
         String canonical = recipient + "\n" + amount.toPlainString() + "\n" + currency;
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(canonical.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of()
+                    .formatHex(
+                            MessageDigest.getInstance("SHA-256")
+                                    .digest(canonical.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 is unavailable", impossible);
         }

@@ -10,13 +10,12 @@ import java.util.UUID;
 @Table(name = "ledger_entries")
 public class LedgerEntry {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "transaction_id", nullable = false, updatable = false)
     private UUID transactionId;
 
-    @Column(name = "account_code", nullable = false, updatable = false)
+    @Column(name = "account_code", nullable = false, updatable = false, length = 512)
     private String accountCode;
 
     @Enumerated(EnumType.STRING)
@@ -32,8 +31,7 @@ public class LedgerEntry {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected LedgerEntry() {
-    }
+    protected LedgerEntry() {}
 
     public LedgerEntry(
             UUID transactionId,
@@ -50,11 +48,31 @@ public class LedgerEntry {
         this.createdAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UUID getTransactionId() { return transactionId; }
-    public String getAccountCode() { return accountCode; }
-    public LedgerDirection getDirection() { return direction; }
-    public BigDecimal getAmount() { return amount; }
-    public String getCurrency() { return currency; }
-    public Instant getCreatedAt() { return createdAt; }
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getTransactionId() {
+        return transactionId;
+    }
+
+    public String getAccountCode() {
+        return accountCode;
+    }
+
+    public LedgerDirection getDirection() {
+        return direction;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }

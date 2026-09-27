@@ -1,12 +1,18 @@
 package dev.yycodes.paymentsimulator.provider.mastercard;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+
 import dev.yycodes.paymentsimulator.provider.ProviderStatus;
 import dev.yycodes.paymentsimulator.provider.SubmissionMode;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
 import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
@@ -22,9 +28,6 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 class MastercardSendProviderContractTest {
 
     private HttpServer server;
@@ -35,8 +38,7 @@ class MastercardSendProviderContractTest {
     private final AtomicReference<String> authorization = new AtomicReference<>();
     private final AtomicReference<String> requestBody = new AtomicReference<>();
     private final AtomicInteger responseStatus = new AtomicInteger(200);
-    private final AtomicReference<String> responseBodyOverride =
-            new AtomicReference<>();
+    private final AtomicReference<String> responseBodyOverride = new AtomicReference<>();
 
     @BeforeEach
     void startServer() throws Exception {
@@ -56,12 +58,9 @@ class MastercardSendProviderContractTest {
         UUID reference = UUID.fromString("1d23a2a2-c94b-4ab5-9549-44208fc95348");
         var provider = provider();
 
-        var result = provider.submit(
-                reference,
-                new BigDecimal("100.00"),
-                "SGD",
-                SubmissionMode.ORIGINAL
-        );
+        var result =
+                provider.submit(
+                        reference, new BigDecimal("100.00"), "SGD", SubmissionMode.ORIGINAL);
 
         assertThat(result.status()).isEqualTo(ProviderStatus.SUCCEEDED);
         assertThat(result.providerReference()).isEqualTo("dsb_contract");
@@ -71,12 +70,13 @@ class MastercardSendProviderContractTest {
         assertThat(repeatFlag.get()).isEqualTo("false");
         assertThat(authorization.get()).startsWith("OAuth ");
 
-        var payment = JsonMapper.builder().build()
-                .readTree(requestBody.get())
-                .path("payment_disbursement");
+        var payment =
+                JsonMapper.builder()
+                        .build()
+                        .readTree(requestBody.get())
+                        .path("payment_disbursement");
 
-        assertThat(payment.path("disbursement_reference").asText())
-                .isEqualTo(reference.toString());
+        assertThat(payment.path("disbursement_reference").asText()).isEqualTo(reference.toString());
         assertThat(payment.path("amount").asText()).isEqualTo("10000");
         assertThat(payment.path("currency").asText()).isEqualTo("SGD");
         assertThat(payment.path("transaction_local_date_time").asText())
@@ -85,12 +85,7 @@ class MastercardSendProviderContractTest {
 
     @Test
     void repeatedSubmissionSetsRepeatFlagTrue() throws Exception {
-        provider().submit(
-                UUID.randomUUID(),
-                new BigDecimal("25.00"),
-                "SGD",
-                SubmissionMode.RETRY
-        );
+        provider().submit(UUID.randomUUID(), new BigDecimal("25.00"), "SGD", SubmissionMode.RETRY);
 
         assertThat(repeatFlag.get()).isEqualTo("true");
     }
@@ -98,7 +93,8 @@ class MastercardSendProviderContractTest {
     @Test
     void documentedLegacy402DeclineBecomesBusinessDecline() throws Exception {
         responseStatus.set(402);
-        responseBodyOverride.set("""
+        responseBodyOverride.set(
+                """
                 {
                   "Errors": {
                     "Error": [
@@ -111,12 +107,13 @@ class MastercardSendProviderContractTest {
                 }
                 """);
 
-        var result = provider().submit(
-                UUID.randomUUID(),
-                new BigDecimal("100.00"),
-                "SGD",
-                SubmissionMode.ORIGINAL
-        );
+        var result =
+                provider()
+                        .submit(
+                                UUID.randomUUID(),
+                                new BigDecimal("100.00"),
+                                "SGD",
+                                SubmissionMode.ORIGINAL);
 
         assertThat(result.status()).isEqualTo(ProviderStatus.DECLINED);
         assertThat(result.providerReference()).isNull();
@@ -125,7 +122,8 @@ class MastercardSendProviderContractTest {
     @Test
     void nonBusinessHttpRejectionRemainsIntegrationError() throws Exception {
         responseStatus.set(401);
-        responseBodyOverride.set("""
+        responseBodyOverride.set(
+                """
                 {
                   "Errors": {
                     "Error": [
@@ -137,20 +135,23 @@ class MastercardSendProviderContractTest {
                 }
                 """);
 
-        assertThatThrownBy(() -> provider().submit(
-                UUID.randomUUID(),
-                new BigDecimal("100.00"),
-                "SGD",
-                SubmissionMode.ORIGINAL
-        )).isInstanceOf(
-                dev.yycodes.paymentsimulator.provider.ProviderRejectedException.class
-        );
+        assertThatThrownBy(
+                        () ->
+                                provider()
+                                        .submit(
+                                                UUID.randomUUID(),
+                                                new BigDecimal("100.00"),
+                                                "SGD",
+                                                SubmissionMode.ORIGINAL))
+                .isInstanceOf(
+                        dev.yycodes.paymentsimulator.provider.ProviderRejectedException.class);
     }
 
     @Test
     void reconciliation404MeansProviderHasNoRecord() throws Exception {
         responseStatus.set(404);
-        responseBodyOverride.set("""
+        responseBodyOverride.set(
+                """
                 {
                   "Errors": {
                     "Error": [
@@ -162,8 +163,7 @@ class MastercardSendProviderContractTest {
                 }
                 """);
 
-        assertThat(provider().findByClientReference(UUID.randomUUID()))
-                .isEmpty();
+        assertThat(provider().findByClientReference(UUID.randomUUID())).isEmpty();
     }
 
     @Test
@@ -173,31 +173,26 @@ class MastercardSendProviderContractTest {
         var result = provider().findByClientReference(reference);
 
         assertThat(result).isPresent();
-        assertThat(result.orElseThrow().status())
-                .isEqualTo(ProviderStatus.SUCCEEDED);
+        assertThat(result.orElseThrow().status()).isEqualTo(ProviderStatus.SUCCEEDED);
         assertThat(method.get()).isEqualTo("GET");
         assertThat(pathAndQuery.get())
-                .isEqualTo(
-                        "/send/v1/partners/partner-test/disbursements?ref="
-                                + reference
-                );
+                .isEqualTo("/send/static/v1/partners/partner-test/disbursements?ref=" + reference);
         assertThat(authorization.get()).startsWith("OAuth ");
     }
 
     private MastercardSendDisbursementsProvider provider() throws Exception {
         JsonMapper mapper = JsonMapper.builder().build();
-        MastercardSendRequestFactory factory = new MastercardSendRequestFactory(
-                mapper,
-                "raw:sender",
-                "pan:recipient;exp=2077-05",
-                "BDB",
-                "DEPOSIT_ACCOUNT",
-                "USA",
-                Clock.fixed(
-                        Instant.parse("2026-09-26T22:00:00Z"),
-                        ZoneId.of("America/Chicago")
-                )
-        );
+        MastercardSendRequestFactory factory =
+                new MastercardSendRequestFactory(
+                        mapper,
+                        "raw:sender",
+                        "pan:recipient;exp=2077-05",
+                        "BDB",
+                        "DEPOSIT_ACCOUNT",
+                        "USA",
+                        Clock.fixed(
+                                Instant.parse("2026-09-26T22:00:00Z"),
+                                ZoneId.of("America/Chicago")));
 
         KeyPairGenerator keys = KeyPairGenerator.getInstance("RSA");
         keys.initialize(2048);
@@ -209,8 +204,7 @@ class MastercardSendProviderContractTest {
                 baseUrl,
                 "partner-test",
                 "consumer-test",
-                keys.generateKeyPair().getPrivate()
-        );
+                keys.generateKeyPair().getPrivate());
     }
 
     private void handle(HttpExchange exchange) {
@@ -218,21 +212,18 @@ class MastercardSendProviderContractTest {
             method.set(exchange.getRequestMethod());
             String query = exchange.getRequestURI().getRawQuery();
             pathAndQuery.set(
-                    exchange.getRequestURI().getRawPath()
-                            + (query == null ? "" : "?" + query)
-            );
+                    exchange.getRequestURI().getRawPath() + (query == null ? "" : "?" + query));
             repeatFlag.set(exchange.getRequestHeaders().getFirst("repeat-flag"));
             authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
-            requestBody.set(new String(
-                    exchange.getRequestBody().readAllBytes(),
-                    StandardCharsets.UTF_8
-            ));
+            requestBody.set(
+                    new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
 
             String response;
             if (responseBodyOverride.get() != null) {
                 response = responseBodyOverride.get();
             } else if ("GET".equals(exchange.getRequestMethod())) {
-                response = """
+                response =
+                        """
                         {
                           "disbursements": {
                             "data": {
@@ -247,7 +238,8 @@ class MastercardSendProviderContractTest {
                         }
                         """;
             } else {
-                response = """
+                response =
+                        """
                         {
                           "disbursement": {
                             "id": "dsb_contract",

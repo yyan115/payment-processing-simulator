@@ -1,5 +1,7 @@
 server:
   shutdown: graceful
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
 
 spring:
   application:
@@ -19,6 +21,12 @@ spring:
 
 payments:
   provider: ${PAYMENTS_PROVIDER:simulated}
+  demo:
+    enabled: ${DEMO_ENABLED:false}
+    session-seconds: ${DEMO_SESSION_SECONDS:900}
+    max-payouts: ${DEMO_MAX_PAYOUTS:40}
+    mastercard-calls-per-minute: ${DEMO_MASTERCARD_CALLS_PER_MINUTE:12}
+    mastercard-calls-per-day: ${DEMO_MASTERCARD_CALLS_PER_DAY:100}
   reconciliation:
     enabled: ${RECONCILIATION_ENABLED:true}
     interval-ms: ${RECONCILIATION_INTERVAL_MS:30000}
@@ -26,6 +34,7 @@ payments:
     backoff-base-ms: ${RECONCILIATION_BACKOFF_BASE_MS:30000}
     backoff-max-ms: ${RECONCILIATION_BACKOFF_MAX_MS:240000}
   mastercard:
+    enabled: ${MASTERCARD_ENABLED:false}
     base-url: ${MASTERCARD_BASE_URL:https://sandbox.api.move.mastercard.com}
     partner-id: ${MASTERCARD_PARTNER_ID:}
     consumer-key: ${MASTERCARD_CONSUMER_KEY:}
@@ -38,6 +47,7 @@ payments:
     funding-source: ${MASTERCARD_FUNDING_SOURCE:}
     payment-origination-country: ${MASTERCARD_PAYMENT_ORIGINATION_COUNTRY:}
     transaction-time-zone: ${MASTERCARD_TRANSACTION_TIME_ZONE:}
+    request-details-path: ${MASTERCARD_REQUEST_DETAILS_PATH:}
 
 management:
   endpoints:

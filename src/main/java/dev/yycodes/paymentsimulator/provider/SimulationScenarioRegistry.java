@@ -20,6 +20,10 @@ public class SimulationScenarioRegistry {
         return configured == null ? SimulatedOutcome.SUCCESS : configured;
     }
 
+    public void remove(UUID payoutId) {
+        scenarios.remove(payoutId);
+    }
+
     public void clear() {
         scenarios.clear();
     }

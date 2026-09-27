@@ -1,45 +1,98 @@
 package dev.yycodes.paymentsimulator.provider.mastercard;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 class MastercardSendRequestFactoryTest {
 
     private final JsonMapper mapper = JsonMapper.builder().build();
 
+    @TempDir Path temporary;
+
     @Test
-    void createsMinimalDisbursementWithoutInventingIdentityData()
-            throws Exception {
-        UUID reference = UUID.fromString(
-                "6f6f3338-8df7-41be-8e58-f23727a8a5e1"
-        );
+    void includesConfiguredPartiesWithoutChangingThePaymentIntent() throws Exception {
+        Path file = temporary.resolve("parties.json");
+        Files.writeString(
+                file,
+                """
+                {
+                  "sender": {"first_name": "John"},
+                  "recipient": {"first_name": "Jane"},
+                  "participant": {"merchant_category_code": "6536"},
+                  "transaction_purpose": "00"
+                }
+                """);
+        var factory = configuredFactory(file);
+        UUID reference = UUID.randomUUID();
+        var payment =
+                mapper.readTree(factory.createPayload(reference, new BigDecimal("53.00"), "USD"))
+                        .path("payment_disbursement");
 
-        MastercardSendRequestFactory factory = new MastercardSendRequestFactory(
-                mapper,
-                "",
-                "pan:recipient;exp=2077-05",
-                "BDB",
-                "",
-                "",
-                (Clock) null
-        );
+        assertThat(payment.path("sender").path("first_name").asText()).isEqualTo("John");
+        assertThat(payment.path("recipient").path("first_name").asText()).isEqualTo("Jane");
+        assertThat(payment.path("participant").path("merchant_category_code").asText())
+                .isEqualTo("6536");
+        assertThat(payment.path("transaction_purpose").asText()).isEqualTo("00");
+        assertThat(payment.path("disbursement_reference").asText()).isEqualTo(reference.toString());
+        assertThat(payment.path("amount").asText()).isEqualTo("5300");
+        assertThat(payment.path("currency").asText()).isEqualTo("USD");
 
-        var payment = mapper.readTree(factory.createPayload(
-                reference,
-                new BigDecimal("100.00"),
-                "SGD"
-        )).path("payment_disbursement");
+        var second =
+                mapper.readTree(
+                                factory.createPayload(
+                                        UUID.randomUUID(), new BigDecimal("10.00"), "USD"))
+                        .path("payment_disbursement");
+        assertThat(second.path("amount").asText()).isEqualTo("1000");
+        assertThat(payment.path("amount").asText()).isEqualTo("5300");
+    }
 
-        assertThat(payment.path("disbursement_reference").asText())
-                .isEqualTo(reference.toString());
+    @Test
+    void rejectsRequestDetailsThatOverridePaymentIntentOrHaveInvalidShapes() throws Exception {
+        Path file = temporary.resolve("invalid.json");
+        for (String content :
+                new String[] {
+                    "[]",
+                    "{\"amount\":\"1\"}",
+                    "{\"disbursement_reference\":\"fixed\"}",
+                    "{\"sender\":\"not-an-object\"}",
+                    "{\"transaction_purpose\":0}"
+                }) {
+            Files.writeString(file, content);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> configuredFactory(file))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    private MastercardSendRequestFactory configuredFactory(Path file) {
+        return new MastercardSendRequestFactory(
+                mapper, "", "raw:test-recipient", "BDB", "", "", "", file.toString());
+    }
+
+    @Test
+    void createsMinimalDisbursementWithoutInventingIdentityData() throws Exception {
+        UUID reference = UUID.fromString("6f6f3338-8df7-41be-8e58-f23727a8a5e1");
+
+        MastercardSendRequestFactory factory =
+                new MastercardSendRequestFactory(
+                        mapper, "", "pan:recipient;exp=2077-05", "BDB", "", "", (Clock) null);
+
+        var payment =
+                mapper.readTree(factory.createPayload(reference, new BigDecimal("100.00"), "SGD"))
+                        .path("payment_disbursement");
+
+        assertThat(payment.path("disbursement_reference").asText()).isEqualTo(reference.toString());
         assertThat(payment.path("amount").asText()).isEqualTo("10000");
         assertThat(payment.path("currency").asText()).isEqualTo("SGD");
         assertThat(payment.path("payment_type").asText()).isEqualTo("BDB");
@@ -56,35 +109,29 @@ class MastercardSendRequestFactoryTest {
     }
 
     @Test
-    void includesConfiguredOnboardingFieldsAndTransactionLocalTime()
-            throws Exception {
-        Clock chicagoClock = Clock.fixed(
-                Instant.parse("2026-09-26T22:00:00Z"),
-                ZoneId.of("America/Chicago")
-        );
+    void includesConfiguredOnboardingFieldsAndTransactionLocalTime() throws Exception {
+        Clock chicagoClock =
+                Clock.fixed(Instant.parse("2026-09-26T22:00:00Z"), ZoneId.of("America/Chicago"));
 
-        MastercardSendRequestFactory factory = new MastercardSendRequestFactory(
-                mapper,
-                "raw:sender",
-                "pan:recipient;exp=2077-05",
-                "BDB",
-                "DEPOSIT_ACCOUNT",
-                "USA",
-                chicagoClock
-        );
+        MastercardSendRequestFactory factory =
+                new MastercardSendRequestFactory(
+                        mapper,
+                        "raw:sender",
+                        "pan:recipient;exp=2077-05",
+                        "BDB",
+                        "DEPOSIT_ACCOUNT",
+                        "USA",
+                        chicagoClock);
 
-        var payment = mapper.readTree(factory.createPayload(
-                UUID.randomUUID(),
-                new BigDecimal("100.00"),
-                "SGD"
-        )).path("payment_disbursement");
+        var payment =
+                mapper.readTree(
+                                factory.createPayload(
+                                        UUID.randomUUID(), new BigDecimal("100.00"), "SGD"))
+                        .path("payment_disbursement");
 
-        assertThat(payment.path("sender_account_uri").asText())
-                .isEqualTo("raw:sender");
-        assertThat(payment.path("funding_source").asText())
-                .isEqualTo("DEPOSIT_ACCOUNT");
-        assertThat(payment.path("payment_origination_country").asText())
-                .isEqualTo("USA");
+        assertThat(payment.path("sender_account_uri").asText()).isEqualTo("raw:sender");
+        assertThat(payment.path("funding_source").asText()).isEqualTo("DEPOSIT_ACCOUNT");
+        assertThat(payment.path("payment_origination_country").asText()).isEqualTo("USA");
         assertThat(payment.path("transaction_local_date_time").asText())
                 .isEqualTo("2026-09-26T17:00:00-05:00");
     }
@@ -93,50 +140,32 @@ class MastercardSendRequestFactoryTest {
     void rejectsAmountThatCannotBeRepresentedByMastercardSend() {
         MastercardSendRequestFactory factory =
                 new MastercardSendRequestFactory(
-                        mapper,
-                        "",
-                        "pan:recipient;exp=2077-05",
-                        "BDB",
-                        "",
-                        "",
-                        (Clock) null
-                );
+                        mapper, "", "pan:recipient;exp=2077-05", "BDB", "", "", (Clock) null);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
-                () -> factory.createPayload(
-                        UUID.randomUUID(),
-                        new BigDecimal("10000000000.00"),
-                        "SGD"
-                )
-        ).isInstanceOf(
-                dev.yycodes.paymentsimulator.provider.ProviderRequestException.class
-        );
+                        () ->
+                                factory.createPayload(
+                                        UUID.randomUUID(), new BigDecimal("10000000000.00"), "SGD"))
+                .isInstanceOf(dev.yycodes.paymentsimulator.provider.ProviderRequestException.class);
     }
 
     @Test
-    void convertsCurrenciesUsingTheirIsoMinorUnitExponent()
-            throws Exception {
-        MastercardSendRequestFactory factory = new MastercardSendRequestFactory(
-                mapper,
-                "",
-                "pan:recipient;exp=2077-05",
-                "BDB",
-                "",
-                "",
-                (Clock) null
-        );
+    void convertsCurrenciesUsingTheirIsoMinorUnitExponent() throws Exception {
+        MastercardSendRequestFactory factory =
+                new MastercardSendRequestFactory(
+                        mapper, "", "pan:recipient;exp=2077-05", "BDB", "", "", (Clock) null);
 
-        var jpy = mapper.readTree(factory.createPayload(
-                UUID.randomUUID(),
-                new BigDecimal("100"),
-                "JPY"
-        )).path("payment_disbursement");
+        var jpy =
+                mapper.readTree(
+                                factory.createPayload(
+                                        UUID.randomUUID(), new BigDecimal("100"), "JPY"))
+                        .path("payment_disbursement");
 
-        var kwd = mapper.readTree(factory.createPayload(
-                UUID.randomUUID(),
-                new BigDecimal("1.234"),
-                "KWD"
-        )).path("payment_disbursement");
+        var kwd =
+                mapper.readTree(
+                                factory.createPayload(
+                                        UUID.randomUUID(), new BigDecimal("1.234"), "KWD"))
+                        .path("payment_disbursement");
 
         assertThat(jpy.path("amount").asText()).isEqualTo("100");
         assertThat(kwd.path("amount").asText()).isEqualTo("1234");

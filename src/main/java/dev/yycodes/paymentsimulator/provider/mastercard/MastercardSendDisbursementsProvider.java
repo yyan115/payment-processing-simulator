@@ -2,9 +2,12 @@ package dev.yycodes.paymentsimulator.provider.mastercard;
 
 import com.mastercard.developer.oauth.OAuth;
 import com.mastercard.developer.utils.AuthenticationUtils;
+
 import dev.yycodes.paymentsimulator.provider.*;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -21,7 +24,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-@ConditionalOnProperty(name = "payments.provider", havingValue = "mastercard")
+@ConditionalOnExpression(
+        "${payments.mastercard.enabled:false} or '${payments.provider:simulated}' == 'mastercard'")
 public class MastercardSendDisbursementsProvider implements PaymentProvider {
 
     private final MastercardSendRequestFactory requestFactory;
@@ -32,6 +36,10 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
     private final String consumerKey;
     private final PrivateKey signingKey;
 
+    @Autowired(required = false)
+    private dev.yycodes.paymentsimulator.demo.SandboxRequestBudget demoBudget;
+
+    @Autowired
     public MastercardSendDisbursementsProvider(
             MastercardSendRequestFactory requestFactory,
             MastercardSendResponseParser parser,
@@ -40,19 +48,16 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
             @Value("${payments.mastercard.consumer-key}") String consumerKey,
             @Value("${payments.mastercard.p12-path}") String p12Path,
             @Value("${payments.mastercard.key-alias}") String keyAlias,
-            @Value("${payments.mastercard.key-password}") String keyPassword
-    ) throws Exception {
+            @Value("${payments.mastercard.key-password}") String keyPassword)
+            throws Exception {
         this(
                 requestFactory,
                 parser,
-                HttpClient.newBuilder()
-                        .connectTimeout(Duration.ofSeconds(5))
-                        .build(),
+                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build(),
                 URI.create(baseUrl),
                 partnerId,
                 consumerKey,
-                loadSigningKey(p12Path, keyAlias, keyPassword)
-        );
+                loadSigningKey(p12Path, keyAlias, keyPassword));
         requireSandboxBaseUrl(this.baseUrl);
     }
 
@@ -78,32 +83,20 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
 
     @Override
     public ProviderResult submit(
-            UUID clientReference,
-            BigDecimal amount,
-            String currency,
-            SubmissionMode mode) {
+            UUID clientReference, BigDecimal amount, String currency, SubmissionMode mode) {
 
-        URI uri = baseUrl.resolve(
-                "/send/static/v1/partners/"
-                        + encodePath(partnerId)
-                        + "/disbursements/payment"
-        );
+        URI uri =
+                baseUrl.resolve(
+                        "/send/static/v1/partners/"
+                                + encodePath(partnerId)
+                                + "/disbursements/payment");
 
-        String payload = requestFactory.createPayload(
-                clientReference,
-                amount,
-                currency
-        );
+        String payload = requestFactory.createPayload(clientReference, amount, currency);
 
-        HttpRequest request = signedRequest(
-                uri,
-                "POST",
-                payload,
-                HttpRequest.BodyPublishers.ofString(payload)
-        ).header(
-                "repeat-flag",
-                mode == SubmissionMode.RETRY ? "true" : "false"
-        ).build();
+        HttpRequest request =
+                signedRequest(uri, "POST", payload, HttpRequest.BodyPublishers.ofString(payload))
+                        .header("repeat-flag", mode == SubmissionMode.RETRY ? "true" : "false")
+                        .build();
 
         ProviderHttpResponse response = execute(request);
 
@@ -115,8 +108,7 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
             } catch (IOException invalidErrorBody) {
                 throw new ProviderRejectedException(
                         response.statusCode(),
-                        "Mastercard Send returned an unreadable decline response"
-                );
+                        "Mastercard Send returned an unreadable decline response");
             }
         }
 
@@ -132,24 +124,17 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
 
     @Override
     public Optional<ProviderResult> findByClientReference(UUID clientReference) {
-        String ref = URLEncoder.encode(
-                clientReference.toString(),
-                StandardCharsets.UTF_8
-        );
+        String ref = URLEncoder.encode(clientReference.toString(), StandardCharsets.UTF_8);
 
-        URI uri = baseUrl.resolve(
-                "/send/v1/partners/"
-                        + encodePath(partnerId)
-                        + "/disbursements?ref="
-                        + ref
-        );
+        URI uri =
+                baseUrl.resolve(
+                        "/send/static/v1/partners/"
+                                + encodePath(partnerId)
+                                + "/disbursements?ref="
+                                + ref);
 
-        HttpRequest request = signedRequest(
-                uri,
-                "GET",
-                "",
-                HttpRequest.BodyPublishers.noBody()
-        ).build();
+        HttpRequest request =
+                signedRequest(uri, "GET", "", HttpRequest.BodyPublishers.noBody()).build();
 
         ProviderHttpResponse response = execute(request);
 
@@ -168,19 +153,11 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
     }
 
     private HttpRequest.Builder signedRequest(
-            URI uri,
-            String method,
-            String payload,
-            HttpRequest.BodyPublisher body) {
+            URI uri, String method, String payload, HttpRequest.BodyPublisher body) {
 
-        String authorization = OAuth.getAuthorizationHeader(
-                uri,
-                method,
-                payload,
-                StandardCharsets.UTF_8,
-                consumerKey,
-                signingKey
-        );
+        String authorization =
+                OAuth.getAuthorizationHeader(
+                        uri, method, payload, StandardCharsets.UTF_8, consumerKey, signingKey);
 
         return HttpRequest.newBuilder(uri)
                 .timeout(Duration.ofSeconds(10))
@@ -191,28 +168,22 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
     }
 
     private ProviderHttpResponse execute(HttpRequest request) {
+        if (demoBudget != null) demoBudget.consume();
         try {
-            HttpResponse<String> response = httpClient.send(
-                    request,
-                    HttpResponse.BodyHandlers.ofString()
-            );
+            HttpResponse<String> response =
+                    httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() >= 500 || response.statusCode() == 408) {
                 throw new ProviderTimeoutException(
                         "Mastercard Send request had an ambiguous server/transport result");
             }
 
-            return new ProviderHttpResponse(
-                    response.statusCode(),
-                    response.body()
-            );
+            return new ProviderHttpResponse(response.statusCode(), response.body());
         } catch (IOException ioFailure) {
-            throw new ProviderTimeoutException(
-                    "Mastercard Send network request failed");
+            throw new ProviderTimeoutException("Mastercard Send network request failed");
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            throw new ProviderTimeoutException(
-                    "Mastercard Send request was interrupted");
+            throw new ProviderTimeoutException("Mastercard Send request was interrupted");
         }
     }
 
@@ -220,28 +191,21 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             throw new ProviderRejectedException(
                     response.statusCode(),
-                    "Mastercard Send rejected request with HTTP "
-                            + response.statusCode()
-            );
+                    "Mastercard Send rejected request with HTTP " + response.statusCode());
         }
     }
 
-    private static PrivateKey loadSigningKey(
-            String p12Path,
-            String keyAlias,
-            String keyPassword) throws Exception {
+    private static PrivateKey loadSigningKey(String p12Path, String keyAlias, String keyPassword)
+            throws Exception {
         requireConfigured("payments.mastercard.p12-path", p12Path);
-        return AuthenticationUtils.loadSigningKey(
-                p12Path,
-                keyAlias,
-                keyPassword
-        );
+        return AuthenticationUtils.loadSigningKey(p12Path, keyAlias, keyPassword);
     }
 
     static void requireSandboxBaseUrl(URI baseUrl) {
         String host = baseUrl.getHost();
-        boolean allowed = "sandbox.api.move.mastercard.com".equalsIgnoreCase(host)
-                || "sandbox.api.mastercard.com".equalsIgnoreCase(host);
+        boolean allowed =
+                "sandbox.api.move.mastercard.com".equalsIgnoreCase(host)
+                        || "sandbox.api.mastercard.com".equalsIgnoreCase(host);
 
         if (!"https".equalsIgnoreCase(baseUrl.getScheme()) || !allowed) {
             throw new IllegalStateException(
@@ -250,8 +214,7 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
     }
 
     private static String encodePath(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8)
-                .replace("+", "%20");
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     private static void requireConfigured(String property, String value) {
@@ -261,6 +224,5 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
         }
     }
 
-    private record ProviderHttpResponse(int statusCode, String body) {
-    }
+    private record ProviderHttpResponse(int statusCode, String body) {}
 }

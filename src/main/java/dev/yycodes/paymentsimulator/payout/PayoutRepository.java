@@ -8,15 +8,18 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface PayoutRepository extends JpaRepository<Payout, UUID> {
+    org.springframework.data.domain.Page<Payout> findByDemoSessionId(
+            UUID session, org.springframework.data.domain.Pageable page);
+
+    long countByDemoSessionId(UUID session);
+
     Optional<Payout> findByIdempotencyKey(String idempotencyKey);
+
     List<Payout> findAllByStatus(PayoutStatus status);
-    List<Payout> findAllByStatusAndUpdatedAtBefore(
-            PayoutStatus status,
-            Instant cutoff
-    );
+
+    List<Payout> findAllByStatusAndUpdatedAtBefore(PayoutStatus status, Instant cutoff);
+
     long countByStatus(PayoutStatus status);
-    long countByStatusAndUpdatedAtBefore(
-            PayoutStatus status,
-            Instant cutoff
-    );
+
+    long countByStatusAndUpdatedAtBefore(PayoutStatus status, Instant cutoff);
 }
