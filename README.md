@@ -61,7 +61,7 @@ Failure injection is deliberately separated from the business payout API. The pr
 - **Database-enforced balance:** a deferred PostgreSQL constraint trigger rejects imbalanced or cross-currency journals at commit.
 - **Append-only journal:** PostgreSQL rejects updates and deletes against committed ledger rows.
 - **No premature posting:** failed and unresolved payouts create no financial journal entry.
-- **Auditability:** state transitions and reconciliation attempts are persisted.
+- **Auditability:** state transitions and reconciliation attempts are persisted in database-enforced append-only history tables.
 - **Operational visibility:** logs, Prometheus metrics, health checks, and alerts for unresolved `UNKNOWN` and stale `PROCESSING` payouts are included.
 
 See [Design notes](docs/design.md) for the invariants and failure model.

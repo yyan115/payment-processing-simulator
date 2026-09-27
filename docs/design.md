@@ -129,7 +129,7 @@ Supporting a reversal after local success would require a separate reversal life
 
 ## Auditability
 
-State changes produce immutable `payout_events` records containing payout ID, event type, previous state, new state, and timestamp.
+State changes produce immutable `payout_events` records containing payout ID, event type, previous state, new state, and timestamp. Reconciliation attempts form a separate append-only history. PostgreSQL rejects UPDATE and DELETE operations on both history tables, so audit immutability is enforced below the ORM layer.
 
 ## Observability
 
