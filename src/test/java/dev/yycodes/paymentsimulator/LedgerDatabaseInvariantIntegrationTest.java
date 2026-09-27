@@ -17,7 +17,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -64,14 +63,13 @@ class LedgerDatabaseInvariantIntegrationTest {
                     """
                     INSERT INTO ledger_transactions
                         (id, payout_id, transaction_type, amount, currency, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     """,
                     transactionId,
                     payoutId,
                     "PAYOUT_CONFIRMED",
                     new BigDecimal("100.00"),
-                    "SGD",
-                    Instant.now()
+                    "SGD"
             );
 
             jdbc.update(
@@ -79,15 +77,14 @@ class LedgerDatabaseInvariantIntegrationTest {
                     INSERT INTO ledger_entries
                         (id, transaction_id, account_code, direction,
                          amount, currency, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     """,
                     UUID.randomUUID(),
                     transactionId,
                     "SELLER_PAYABLE:seller-42",
                     "DEBIT",
                     new BigDecimal("100.00"),
-                    "SGD",
-                    Instant.now()
+                    "SGD"
             );
         })).isInstanceOf(DataIntegrityViolationException.class);
 
@@ -113,14 +110,13 @@ class LedgerDatabaseInvariantIntegrationTest {
                     """
                     INSERT INTO ledger_transactions
                         (id, payout_id, transaction_type, amount, currency, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     """,
                     transactionId,
                     payoutId,
                     "PAYOUT_CONFIRMED",
                     new BigDecimal("100.00"),
-                    "SGD",
-                    Instant.now()
+                    "SGD"
             );
 
             insertEntry(
@@ -153,15 +149,14 @@ class LedgerDatabaseInvariantIntegrationTest {
                 INSERT INTO ledger_entries
                     (id, transaction_id, account_code, direction,
                      amount, currency, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 """,
                 UUID.randomUUID(),
                 transactionId,
                 accountCode,
                 direction,
                 new BigDecimal(amount),
-                currency,
-                Instant.now()
+                currency
         );
     }
 }
