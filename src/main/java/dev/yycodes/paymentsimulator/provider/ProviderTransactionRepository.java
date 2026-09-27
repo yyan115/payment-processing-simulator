@@ -35,7 +35,7 @@ public interface ProviderTransactionRepository
             @Param("createdAt") Instant createdAt
     );
 
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = """
             UPDATE provider_transactions
             SET status = :newStatus,

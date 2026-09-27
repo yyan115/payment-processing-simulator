@@ -115,7 +115,11 @@ class PayoutFlowIntegrationTest {
         assertThat(pending.getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
         assertThat(ledgerTransactions.count()).isZero();
 
-        providerStore.updateStatus(id, ProviderStatus.SUCCEEDED);
+        ProviderResult updatedProvider =
+                providerStore.updateStatus(id, ProviderStatus.SUCCEEDED);
+        assertThat(updatedProvider.status())
+                .isEqualTo(ProviderStatus.SUCCEEDED);
+
         var reconciled = processor.reconcile(id);
 
         assertThat(reconciled.outcome())
@@ -133,7 +137,11 @@ class PayoutFlowIntegrationTest {
         assertThat(processor.process(id).getStatus())
                 .isEqualTo(PayoutStatus.UNKNOWN);
 
-        providerStore.updateStatus(id, ProviderStatus.DECLINED);
+        ProviderResult updatedProvider =
+                providerStore.updateStatus(id, ProviderStatus.DECLINED);
+        assertThat(updatedProvider.status())
+                .isEqualTo(ProviderStatus.DECLINED);
+
         var reconciled = processor.reconcile(id);
 
         assertThat(reconciled.outcome())
