@@ -44,5 +44,24 @@ jobs:
       - name: Validate Docker Compose
         run: docker compose config --quiet
 
-      - name: Build runtime image
-        run: docker build --tag payment-processing-simulator:ci .
+      - name: Smoke-test runtime stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          cleanup() {
+            docker compose down --volumes --remove-orphans
+          }
+          trap cleanup EXIT
+
+          docker compose up --build --detach postgres app
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:8080/actuator/health > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker compose ps
+          docker compose logs app
+          exit 1

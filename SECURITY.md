@@ -26,7 +26,9 @@ Do not place secrets, credentials, or sensitive financial data in a public GitHu
 
 ## Runtime container
 
-The final application image runs as a dedicated unprivileged user. CI builds the runtime image in addition to validating the Compose configuration.
+The final application image runs as a dedicated unprivileged user and includes an application health check. Docker Compose runs the app with a read-only root filesystem, a temporary writable `/tmp`, all Linux capabilities dropped, and `no-new-privileges`.
+
+CI boots PostgreSQL and the built application container and waits for the Actuator health endpoint, so the runtime image and startup path are exercised rather than only syntax-checked.
 
 ## Automated checks
 

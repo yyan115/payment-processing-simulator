@@ -1,3 +1,6 @@
+server:
+  shutdown: graceful
+
 spring:
   application:
     name: payment-processing-simulator
@@ -11,6 +14,8 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
 
 payments:
   provider: ${PAYMENTS_PROVIDER:simulated}

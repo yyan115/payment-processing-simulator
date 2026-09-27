@@ -200,7 +200,7 @@ mvn verify
 
 Tests cover the public REST contract, idempotency and concurrent creation, asynchronous provider-state convergence, failure semantics, crash-window recovery, concurrent reconciliation, safe repeats, balanced ledger posting, maximum-length recipient handling, concurrent processing, and the Mastercard adapter's signed request contract.
 
-CI runs the suite on every push and pull request.
+CI runs the suite on every push and pull request, validates Compose, builds the non-root runtime image, boots PostgreSQL plus the application container, and waits for the Actuator health check.
 
 ## Observability
 
