@@ -12,6 +12,7 @@ The project is built around several invariants:
 6. A payout is posted to the ledger at most once.
 7. Concurrent workers cannot create duplicate provider or ledger transactions.
 8. A provider success cannot be lost merely because the local finalization write fails.
+9. A confirmed financial event is never rewritten to represent a later reversal; reversals require compensating financial events.
 
 ## Ambiguous outcomes
 
@@ -117,6 +118,12 @@ The simulated provider can independently advance an existing transaction from `P
 Automatic reconciliation uses bounded exponential backoff based on persisted attempt history. The first unresolved payout is checked immediately; subsequent checks back off from 30 seconds to a configurable four-minute cap. Manual reconciliation remains available regardless of the automatic schedule.
 
 Every reconciliation attempt is stored separately from the state-transition audit trail.
+
+## Reversal boundary
+
+The current lifecycle ends at local confirmation or failure. A provider status such as `REVERSED` or `CANCELLED` can resolve an unresolved payout as a non-success, but the system does not rewrite an already-`SUCCEEDED` payout.
+
+Supporting a reversal after local success would require a separate reversal lifecycle and compensating journal transaction linked to the original payout. That design is intentionally left distinct because the ledger is append-only and the original approval remains an auditable historical event.
 
 ## Auditability
 

@@ -216,6 +216,10 @@ See [Mastercard Send integration](docs/mastercard.md) for configuration and the 
 
 The deterministic simulator remains the default because it can reproduce failure cases that an external sandbox may not expose.
 
+### Scope boundary
+
+The project models creation, ambiguous outcomes, retries, reconciliation, and pre-terminal failure handling. It does not model a provider reversal that arrives after a payout has already been confirmed and journaled. A real reversal must be a distinct financial event with an explicit reversal lifecycle and compensating journal entries; mutating the original confirmed payout or deleting its ledger entries would violate the project's audit and ledger invariants.
+
 ## Security
 
 The repository is designed for synthetic and sandbox payment data only. Provider credentials remain outside source control, application logs avoid recipient/payment details, CodeQL runs static security analysis, and Dependabot tracks dependencies.

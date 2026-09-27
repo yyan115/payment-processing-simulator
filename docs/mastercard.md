@@ -13,7 +13,7 @@ The implementation follows Mastercard's published Java tooling and Disbursements
 - Internal amounts use major currency units, while Mastercard Send requests are converted to the ISO 4217 currency's smallest unit. For example, `SGD 100.00` is sent as `"10000"`. The adapter also enforces Mastercard Send's published maximum of `999999999999` minor units.
 - Onboarding-dependent `participant`, sender identity, and recipient identity fields are deliberately omitted from the default request instead of inventing customer data or assuming optional features are enabled.
 - A deliberate repeat sends the Mastercard Send `repeat-flag: true` header.
-- `APPROVED`, `DECLINED`, `UNKNOWN`, `PENDING`, `ERROR`, `REVERSED`, and `CANCELLED` are mapped conservatively into the internal provider state model.
+- `APPROVED`, `DECLINED`, `UNKNOWN`, `PENDING`, `ERROR`, `REVERSED`, and `CANCELLED` are mapped conservatively while a payout is still unresolved. A `REVERSED` or `CANCELLED` result observed before local success resolves the payout as a non-success.
 
 ## Current connectivity
 
@@ -51,6 +51,12 @@ Do not put those values in Git.
 Account URIs are deliberately not stored in the repository. The recipient account URI is required by the Disbursements contract. Sender account, funding source, origination country, and transaction time zone are optional adapter settings because their requirements depend on the partner profile established during Mastercard onboarding.
 
 The adapter rejects non-sandbox Mastercard hosts even if a production URL is supplied. This repository is not intended to move production money.
+
+## Reversal boundary
+
+The adapter does not claim post-success reversal accounting. Once a payout has been confirmed locally and its immutable journal has been posted, a later provider reversal cannot be represented by rewriting that payout or deleting its journal. Correct support would require a separate reversal resource/state transition and compensating debit/credit entries linked to the original payout.
+
+This boundary is intentional. It preserves the historical fact that the original payout was once approved while leaving a clear path for a future reversal subsystem.
 
 ## Verification boundary
 
