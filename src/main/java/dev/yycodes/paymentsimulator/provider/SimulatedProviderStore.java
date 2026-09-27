@@ -1,5 +1,6 @@
 package dev.yycodes.paymentsimulator.provider;
 
+import dev.yycodes.paymentsimulator.shared.ConflictException;
 import dev.yycodes.paymentsimulator.shared.NotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,18 +58,43 @@ public class SimulatedProviderStore {
     @Transactional
     public ProviderResult updateStatus(
             UUID clientReference,
-            ProviderStatus status) {
+            ProviderStatus requestedStatus) {
 
-        int updated = repository.updateStatus(
+        ProviderTransaction current = repository.findByClientReference(
+                        clientReference
+                )
+                .orElseThrow(() -> new NotFoundException(
+                        "No provider transaction exists for payout "
+                                + clientReference
+                ));
+
+        ProviderStatus currentStatus = current.getStatus();
+
+        if (currentStatus == requestedStatus) {
+            return toResult(current);
+        }
+
+        if (isTerminal(currentStatus)) {
+            throw new ConflictException(
+                    "Provider transaction "
+                            + clientReference
+                            + " is already terminal in "
+                            + currentStatus
+            );
+        }
+
+        int updated = repository.updateStatusIfCurrent(
                 clientReference,
-                status.name(),
+                currentStatus.name(),
+                requestedStatus.name(),
                 Instant.now()
         );
 
         if (updated == 0) {
-            throw new NotFoundException(
-                    "No provider transaction exists for payout "
+            throw new ConflictException(
+                    "Provider transaction "
                             + clientReference
+                            + " changed concurrently"
             );
         }
 
@@ -77,6 +103,11 @@ public class SimulatedProviderStore {
                 .orElseThrow(() -> new IllegalStateException(
                         "Provider transaction disappeared after status update"
                 ));
+    }
+
+    private static boolean isTerminal(ProviderStatus status) {
+        return status == ProviderStatus.SUCCEEDED
+                || status == ProviderStatus.DECLINED;
     }
 
     @Transactional(readOnly = true)

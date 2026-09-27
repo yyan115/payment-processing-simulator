@@ -147,6 +147,22 @@ class PayoutFlowIntegrationTest {
     }
 
     @Test
+    void terminalProviderStatusCannotBeRewrittenBySimulator() {
+        UUID id = create("terminal-provider-state");
+
+        assertThat(processor.process(id).getStatus())
+                .isEqualTo(PayoutStatus.SUCCEEDED);
+
+        assertThatThrownBy(() -> providerStore.updateStatus(
+                id,
+                ProviderStatus.DECLINED
+        )).isInstanceOf(ConflictException.class);
+
+        assertThat(providerStore.find(id).orElseThrow().status())
+                .isEqualTo(ProviderStatus.SUCCEEDED);
+    }
+
+    @Test
     void providerSuccessCanBeRecoveredAfterLocalFinalizeCrashWindow() {
         UUID id = create("crash-after-provider-success");
 

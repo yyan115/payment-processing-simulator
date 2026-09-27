@@ -38,13 +38,15 @@ public interface ProviderTransactionRepository
     @Modifying
     @Query(value = """
             UPDATE provider_transactions
-            SET status = :status,
+            SET status = :newStatus,
                 updated_at = :updatedAt
             WHERE client_reference = :clientReference
+              AND status = :expectedStatus
             """, nativeQuery = true)
-    int updateStatus(
+    int updateStatusIfCurrent(
             @Param("clientReference") UUID clientReference,
-            @Param("status") String status,
+            @Param("expectedStatus") String expectedStatus,
+            @Param("newStatus") String newStatus,
             @Param("updatedAt") Instant updatedAt
     );
 }

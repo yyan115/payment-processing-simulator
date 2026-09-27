@@ -110,7 +110,7 @@ The scheduled worker handles both `UNKNOWN` payouts and stale `PROCESSING` payou
 - provider reports `UNKNOWN` or `PENDING`: preserve `UNKNOWN`
 - provider has no record: preserve `UNKNOWN`
 
-The simulated provider can independently advance an existing transaction from `PENDING` or `UNKNOWN` to a terminal state. This models asynchronous provider processing and lets reconciliation demonstrate convergence rather than a static lookup.
+The simulated provider can independently advance an existing transaction from `PENDING` or `UNKNOWN` to a terminal state. Terminal provider states are immutable; a later reversal would require a distinct reversal model rather than rewriting historical success. This models asynchronous provider processing and lets reconciliation demonstrate convergence rather than a static lookup.
 
 Automatic reconciliation uses bounded exponential backoff based on persisted attempt history. The first unresolved payout is checked immediately; subsequent checks back off from 30 seconds to a configurable four-minute cap. Manual reconciliation remains available regardless of the automatic schedule.
 
