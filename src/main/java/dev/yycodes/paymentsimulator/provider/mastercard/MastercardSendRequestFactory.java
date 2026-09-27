@@ -25,24 +25,41 @@ public class MastercardSendRequestFactory {
     private final JsonMapper mapper;
     private final String senderAccountUri;
     private final String recipientAccountUri;
+    private final String paymentType;
+    private final String fundingSource;
     private final String paymentOriginationCountry;
-    private final Clock clock;
+    private final Clock transactionClock;
 
     @Autowired
     public MastercardSendRequestFactory(
             JsonMapper mapper,
-            @Value("${payments.mastercard.sender-account-uri}") String senderAccountUri,
-            @Value("${payments.mastercard.recipient-account-uri}") String recipientAccountUri,
-            @Value("${payments.mastercard.payment-origination-country:USA}")
+            @Value("${payments.mastercard.sender-account-uri:}")
+            String senderAccountUri,
+            @Value("${payments.mastercard.recipient-account-uri}")
+            String recipientAccountUri,
+            @Value("${payments.mastercard.payment-type:BDB}")
+            String paymentType,
+            @Value("${payments.mastercard.funding-source:}")
+            String fundingSource,
+            @Value("${payments.mastercard.payment-origination-country:}")
             String paymentOriginationCountry,
-            @Value("${payments.mastercard.transaction-time-zone:America/Chicago}")
+            @Value("${payments.mastercard.transaction-time-zone:}")
             String transactionTimeZone) {
         this(
                 mapper,
                 senderAccountUri,
                 recipientAccountUri,
+                paymentType,
+                fundingSource,
                 paymentOriginationCountry,
-                Clock.system(ZoneId.of(transactionTimeZone))
+                transactionTimeZone == null || transactionTimeZone.isBlank()
+                        ? null
+                        : Clock.system(ZoneId.of(transactionTimeZone))
+        );
+
+        requireConfigured(
+                "payments.mastercard.recipient-account-uri",
+                recipientAccountUri
         );
     }
 
@@ -50,13 +67,18 @@ public class MastercardSendRequestFactory {
             JsonMapper mapper,
             String senderAccountUri,
             String recipientAccountUri,
+            String paymentType,
+            String fundingSource,
             String paymentOriginationCountry,
-            Clock clock) {
+            Clock transactionClock) {
         this.mapper = mapper;
-        this.senderAccountUri = senderAccountUri;
+        this.senderAccountUri = normalizeOptional(senderAccountUri);
         this.recipientAccountUri = recipientAccountUri;
-        this.paymentOriginationCountry = paymentOriginationCountry;
-        this.clock = clock;
+        this.paymentType = normalizeOptional(paymentType);
+        this.fundingSource = normalizeOptional(fundingSource);
+        this.paymentOriginationCountry =
+                normalizeOptional(paymentOriginationCountry);
+        this.transactionClock = transactionClock;
     }
 
     public String createPayload(
@@ -71,41 +93,52 @@ public class MastercardSendRequestFactory {
                 MoneyAmounts.toMinorUnits(amount, currency)
         );
         payment.put("currency", currency);
-        payment.put("payment_type", "BDB");
-        payment.put("sender_account_uri", senderAccountUri);
         payment.put("recipient_account_uri", recipientAccountUri);
-        payment.put("funding_source", "DEPOSIT_ACCOUNT");
-        payment.put("payment_origination_country", paymentOriginationCountry);
-        payment.put(
-                "transaction_local_date_time",
-                OffsetDateTime.now(clock)
-                        .withNano(0)
-                        .format(LOCAL_DATE_TIME_FORMAT)
+
+        putIfConfigured(payment, "payment_type", paymentType);
+        putIfConfigured(payment, "sender_account_uri", senderAccountUri);
+        putIfConfigured(payment, "funding_source", fundingSource);
+        putIfConfigured(
+                payment,
+                "payment_origination_country",
+                paymentOriginationCountry
         );
 
-        ObjectNode sender = payment.putObject("sender");
-        sender.put("first_name", "Sandbox");
-        sender.put("last_name", "Business");
-        ObjectNode senderAddress = sender.putObject("address");
-        senderAddress.put("line1", "123 Corporate Drive");
-        senderAddress.put("city", "Chicago");
-        senderAddress.put("country_subdivision", "IL");
-        senderAddress.put("postal_code", "60618");
-        senderAddress.put("country", "USA");
-
-        ObjectNode recipient = payment.putObject("recipient");
-        recipient.put("first_name", "Sandbox");
-        recipient.put("last_name", "Recipient");
-        ObjectNode recipientAddress = recipient.putObject("address");
-        recipientAddress.put("line1", "1 Main St");
-        recipientAddress.put("city", "OFallon");
-        recipientAddress.put("country_subdivision", "MO");
-        recipientAddress.put("postal_code", "63368");
-        recipientAddress.put("country", "USA");
+        if (transactionClock != null) {
+            payment.put(
+                    "transaction_local_date_time",
+                    OffsetDateTime.now(transactionClock)
+                            .withNano(0)
+                            .format(LOCAL_DATE_TIME_FORMAT)
+            );
+        }
 
         ObjectNode wrapper = mapper.createObjectNode();
         wrapper.set("payment_disbursement", payment);
-
         return mapper.writeValueAsString(wrapper);
+    }
+
+    private static void putIfConfigured(
+            ObjectNode node,
+            String field,
+            String value) {
+        if (value != null) {
+            node.put(field, value);
+        }
+    }
+
+    private static String normalizeOptional(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    private static void requireConfigured(String property, String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException(
+                    property
+                            + " must be configured when PAYMENTS_PROVIDER=mastercard");
+        }
     }
 }

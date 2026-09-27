@@ -11,7 +11,7 @@ The implementation follows Mastercard's published Java tooling and Disbursements
 - Reconciliation looks up a disbursement by the client-supplied `disbursement_reference`.
 - The payout UUID is used as that stable client reference.
 - Internal amounts use major currency units, while Mastercard Send requests are converted to the ISO 4217 currency's smallest unit. For example, `SGD 100.00` is sent as `"10000"`. The adapter also enforces Mastercard Send's published maximum of `999999999999` minor units.
-- Onboarding-dependent `participant` fields are deliberately omitted from the default request instead of assuming they are enabled for the partner.
+- Onboarding-dependent `participant`, sender identity, and recipient identity fields are deliberately omitted from the default request instead of inventing customer data or assuming optional features are enabled.
 - A deliberate repeat sends the Mastercard Send `repeat-flag: true` header.
 - `APPROVED`, `DECLINED`, `UNKNOWN`, `PENDING`, `ERROR`, `REVERSED`, and `CANCELLED` are mapped conservatively into the internal provider state model.
 
@@ -29,7 +29,7 @@ It can be overridden with `MASTERCARD_BASE_URL`.
 
 ## Transaction local time
 
-The adapter includes `transaction_local_date_time` in the `payment_disbursement` object. Mastercard specifies that this must represent the actual local date and time at the point of transaction acceptance, including its UTC offset. The sandbox fixture therefore uses `USA` with the `America/Chicago` time zone; both are configurable and should be kept consistent.
+The adapter supports the optional `transaction_local_date_time` field added in Mastercard Send Release Notes 25.4. When `MASTERCARD_TRANSACTION_TIME_ZONE` is configured, the adapter sends the actual local date and time with its UTC offset. If it is not configured, the field is omitted rather than inventing a location.
 
 ## Credentials
 
@@ -48,7 +48,7 @@ MASTERCARD_RECIPIENT_ACCOUNT_URI=...
 
 Do not put those values in Git.
 
-Sender and recipient account URIs are deliberately not stored in the repository. Configure the sandbox values supplied for your Mastercard Developers project.
+Account URIs are deliberately not stored in the repository. The recipient account URI is required by the Disbursements contract. Sender account, funding source, origination country, and transaction time zone are optional adapter settings because their requirements depend on the partner profile established during Mastercard onboarding.
 
 The adapter rejects non-sandbox Mastercard hosts even if a production URL is supplied. This repository is not intended to move production money.
 

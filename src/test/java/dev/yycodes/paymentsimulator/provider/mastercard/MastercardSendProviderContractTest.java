@@ -114,6 +114,8 @@ class MastercardSendProviderContractTest {
                 mapper,
                 "raw:sender",
                 "pan:recipient;exp=2077-05",
+                "BDB",
+                "DEPOSIT_ACCOUNT",
                 "USA",
                 Clock.fixed(
                         Instant.parse("2026-09-26T22:00:00Z"),
