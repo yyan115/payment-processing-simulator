@@ -5,7 +5,7 @@ RUN mvn --batch-mode dependency:go-offline
 COPY src src
 RUN mvn --batch-mode -DskipTests package
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:24-jre-alpine
 RUN apk add --no-cache curl \
     && addgroup -S app \
     && adduser -S -G app app
