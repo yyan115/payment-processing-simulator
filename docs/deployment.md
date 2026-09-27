@@ -23,10 +23,26 @@ The JDBC URL does not contain the username or password. Render stores those sepa
 ## Deploy the app
 
 1. Push the application code to your GitHub repository.
-2. In [Render](https://dashboard.render.com), create a **Blueprint** from the repository and its `render.yaml`.
-3. Confirm the web service is on **Free**, then enter the three database values above when prompted.
-4. Deploy. Render builds the frontend and backend together; health is checked at `/actuator/health`.
-5. Open the supplied `onrender.com` URL and run the lost-response walkthrough from the README.
+2. In [Render](https://dashboard.render.com), choose **New → Web Service** and connect the repository. **Public Git Repository** accepts its public GitHub URL without installing the GitHub integration.
+3. Select **Docker**, branch `main`, region **Singapore**, and compute **Free ($0/month)**. The form may initially select a paid compute plan, so check this explicitly.
+4. Add the three database variables above and the following application settings:
+
+   ```text
+   DEMO_ENABLED=true
+   RECONCILIATION_ENABLED=false
+   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=5
+   SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE=0
+   MASTERCARD_ENABLED=false
+   ```
+
+5. Under **Advanced**, set the health check to `/actuator/health`. Use repository root `.` as the Docker build context and `./Dockerfile` as the Dockerfile path. Leave the Docker command override empty.
+6. To include Mastercard immediately, supply its sandbox settings below and set `MASTERCARD_ENABLED=true` before deploying.
+7. Deploy. Render builds the frontend and backend together.
+8. Open the supplied `onrender.com` URL and run the lost-response walkthrough from the README.
+
+Alternatively, create a **Blueprint** from `render.yaml`; it defines the same Free service settings. Blueprint creation can request credit-card verification before repository selection, as observed during setup on 2026-09-28. The ordinary Web Service form provides a separate setup path. Account verification requirements remain under Render's control.
+
+A service created from a public repository URL may require manual deployments for later commits. Confirm its auto-deploy availability in Render; pushing to GitHub alone does not prove the running service was updated.
 
 The default deployment has the simulator available immediately. It uses private 15-minute workspaces, a 40-payout limit per workspace and bounded session admissions. Automatic reconciliation is paused so visitors control the lesson. The UI explains when a workspace expires and can open a new one.
 
@@ -48,7 +64,7 @@ MASTERCARD_PAYMENT_ORIGINATION_COUNTRY=USA
 MASTERCARD_REQUEST_DETAILS_PATH=/app/examples/mastercard-sandbox-parties.json
 ```
 
-Change `MASTERCARD_ENABLED` to `true` in your blueprint as well, so a later blueprint sync preserves that setting. Keep every credential value in the host’s secret settings, never in the blueprint.
+If using a Blueprint, change `MASTERCARD_ENABLED` to `true` there as well, so a later blueprint sync preserves that setting. Keep every credential value in the host’s secret settings, never in the blueprint.
 
 The container decodes the signing key to a private temporary file when it starts. Base64 is an encoding, not encryption: treat that value exactly like the original private key. API responses sent to the frontend do not contain signing credentials or account URIs.
 
