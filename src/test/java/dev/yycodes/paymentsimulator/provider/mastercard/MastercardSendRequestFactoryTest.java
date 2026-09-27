@@ -83,4 +83,28 @@ class MastercardSendRequestFactoryTest {
         assertThat(jpy.path("amount").asText()).isEqualTo("100");
         assertThat(kwd.path("amount").asText()).isEqualTo("1234");
     }
+
+    @Test
+    void omitsOnboardingDependentParticipantFieldsByDefault() throws Exception {
+        Clock clock = Clock.fixed(
+                Instant.parse("2026-09-26T22:00:00Z"),
+                ZoneId.of("America/Chicago")
+        );
+
+        MastercardSendRequestFactory factory = new MastercardSendRequestFactory(
+                mapper,
+                "raw:sender",
+                "pan:recipient;exp=2077-05",
+                "USA",
+                clock
+        );
+
+        var payment = mapper.readTree(factory.createPayload(
+                UUID.randomUUID(),
+                new BigDecimal("100.00"),
+                "SGD"
+        )).path("payment_disbursement");
+
+        assertThat(payment.has("participant")).isFalse();
+    }
 }

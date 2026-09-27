@@ -36,10 +36,16 @@ public final class MoneyAmounts {
         int fractionDigits = fractionDigits(currencyCode);
 
         try {
-            return majorUnits
+            BigDecimal minorUnits = majorUnits
                     .movePointRight(fractionDigits)
-                    .setScale(0, RoundingMode.UNNECESSARY)
-                    .toPlainString();
+                    .setScale(0, RoundingMode.UNNECESSARY);
+
+            if (minorUnits.compareTo(new BigDecimal("999999999999")) > 0) {
+                throw new IllegalArgumentException(
+                        "Amount exceeds Mastercard Send's maximum minor-unit value");
+            }
+
+            return minorUnits.toPlainString();
         } catch (ArithmeticException invalidPrecision) {
             throw new IllegalArgumentException(
                     "Amount precision is invalid for " + currencyCode,

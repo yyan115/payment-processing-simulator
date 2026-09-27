@@ -103,11 +103,6 @@ public class MastercardSendRequestFactory {
         recipientAddress.put("postal_code", "63368");
         recipientAddress.put("country", "USA");
 
-        ObjectNode participant = payment.putObject("participant");
-        participant.put("merchant_category_code", "4121");
-        participant.put("card_acceptor_id", "PaymentSimulator");
-        participant.put("customer_service_contact_info", "18005559999");
-
         ObjectNode wrapper = mapper.createObjectNode();
         wrapper.set("payment_disbursement", payment);
 
