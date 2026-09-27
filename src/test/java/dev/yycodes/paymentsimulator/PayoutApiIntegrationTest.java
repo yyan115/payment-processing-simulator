@@ -114,6 +114,71 @@ class PayoutApiIntegrationTest {
     }
 
     @Test
+    void acceptsSmallestPositiveUnitForThreeDecimalCurrency() throws Exception {
+        HttpResponse<String> response = postPayout(
+                "api-kwd-smallest-unit",
+                """
+                {
+                  "recipientReference": "seller-42",
+                  "amount": 0.001,
+                  "currency": "KWD"
+                }
+                """
+        );
+
+        assertThat(response.statusCode()).isEqualTo(201);
+        assertThat(json.readTree(response.body()).path("amount").decimalValue())
+                .isEqualByComparingTo("0.001");
+        assertThat(payouts.count()).isEqualTo(1);
+    }
+
+    @Test
+    void rejectsFractionalAmountForZeroDecimalCurrency() throws Exception {
+        HttpResponse<String> response = postPayout(
+                "api-jpy-fraction",
+                """
+                {
+                  "recipientReference": "seller-42",
+                  "amount": 100.1,
+                  "currency": "JPY"
+                }
+                """
+        );
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(payouts.count()).isZero();
+    }
+
+    @Test
+    void rejectsZeroAndNegativeAmounts() throws Exception {
+        HttpResponse<String> zero = postPayout(
+                "api-zero-amount",
+                """
+                {
+                  "recipientReference": "seller-42",
+                  "amount": 0,
+                  "currency": "SGD"
+                }
+                """
+        );
+
+        HttpResponse<String> negative = postPayout(
+                "api-negative-amount",
+                """
+                {
+                  "recipientReference": "seller-42",
+                  "amount": -1,
+                  "currency": "SGD"
+                }
+                """
+        );
+
+        assertThat(zero.statusCode()).isEqualTo(400);
+        assertThat(negative.statusCode()).isEqualTo(400);
+        assertThat(payouts.count()).isZero();
+    }
+
+    @Test
     void rejectsUnknownIsoCurrencyBeforePersistence() throws Exception {
         HttpResponse<String> response = postPayout(
                 "api-invalid-currency",

@@ -34,7 +34,7 @@ Invalid transitions are rejected by the `Payout` domain object.
 
 ## Money representation
 
-The REST API and ledger store amounts in major currency units as `BigDecimal`. Currency codes are validated against ISO 4217, and amounts cannot contain more fractional digits than the currency supports.
+The REST API and ledger store positive amounts in major currency units as `BigDecimal`. Currency codes are validated against ISO 4217, and amounts cannot contain more fractional digits than the currency supports. The minimum representable amount therefore follows the currency exponent rather than assuming a two-decimal currency: KWD can accept `0.001`, while JPY accepts whole units only.
 
 Provider adapters are responsible for their wire representation. Mastercard Send expects amounts in the currency's smallest unit, so the adapter converts using the ISO currency exponent without rounding.
 

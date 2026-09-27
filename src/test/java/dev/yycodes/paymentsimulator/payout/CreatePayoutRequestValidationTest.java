@@ -14,14 +14,40 @@ class CreatePayoutRequestValidationTest {
             Validation.buildDefaultValidatorFactory().getValidator();
 
     @Test
-    void acceptsAmountThatFitsDatabasePrecision() {
+    void acceptsPositiveAmountThatFitsDatabasePrecision() {
         var request = new CreatePayoutRequest(
                 "seller-42",
-                new BigDecimal("999999999999999.9999"),
-                "SGD"
+                new BigDecimal("0.001"),
+                "KWD"
         );
 
         assertThat(validator.validate(request)).isEmpty();
+    }
+
+    @Test
+    void rejectsZeroAmount() {
+        var request = new CreatePayoutRequest(
+                "seller-42",
+                BigDecimal.ZERO,
+                "SGD"
+        );
+
+        assertThat(validator.validate(request))
+                .anyMatch(violation ->
+                        violation.getPropertyPath().toString().equals("amount"));
+    }
+
+    @Test
+    void rejectsNegativeAmount() {
+        var request = new CreatePayoutRequest(
+                "seller-42",
+                new BigDecimal("-1.00"),
+                "SGD"
+        );
+
+        assertThat(validator.validate(request))
+                .anyMatch(violation ->
+                        violation.getPropertyPath().toString().equals("amount"));
     }
 
     @Test
@@ -33,7 +59,8 @@ class CreatePayoutRequestValidationTest {
         );
 
         assertThat(validator.validate(request))
-                .anyMatch(violation -> violation.getPropertyPath().toString().equals("amount"));
+                .anyMatch(violation ->
+                        violation.getPropertyPath().toString().equals("amount"));
     }
 
     @Test
@@ -45,6 +72,7 @@ class CreatePayoutRequestValidationTest {
         );
 
         assertThat(validator.validate(request))
-                .anyMatch(violation -> violation.getPropertyPath().toString().equals("amount"));
+                .anyMatch(violation ->
+                        violation.getPropertyPath().toString().equals("amount"));
     }
 }
