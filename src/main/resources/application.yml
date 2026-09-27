@@ -18,6 +18,8 @@ payments:
     enabled: ${RECONCILIATION_ENABLED:true}
     interval-ms: ${RECONCILIATION_INTERVAL_MS:30000}
     processing-stale-ms: ${RECONCILIATION_PROCESSING_STALE_MS:60000}
+    backoff-base-ms: ${RECONCILIATION_BACKOFF_BASE_MS:30000}
+    backoff-max-ms: ${RECONCILIATION_BACKOFF_MAX_MS:240000}
   mastercard:
     base-url: ${MASTERCARD_BASE_URL:https://sandbox.api.move.mastercard.com}
     partner-id: ${MASTERCARD_PARTNER_ID:}

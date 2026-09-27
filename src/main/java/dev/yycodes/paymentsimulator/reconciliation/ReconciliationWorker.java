@@ -13,6 +13,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
@@ -29,34 +32,102 @@ public class ReconciliationWorker {
 
     private final PayoutRepository payouts;
     private final PayoutProcessor processor;
+    private final ReconciliationAttemptRepository attempts;
     private final long processingStaleMs;
+    private final ReconciliationBackoffPolicy backoff;
 
     public ReconciliationWorker(
             PayoutRepository payouts,
             PayoutProcessor processor,
+            ReconciliationAttemptRepository attempts,
             @Value("${payments.reconciliation.processing-stale-ms:60000}")
-            long processingStaleMs) {
+            long processingStaleMs,
+            @Value("${payments.reconciliation.backoff-base-ms:30000}")
+            long backoffBaseMs,
+            @Value("${payments.reconciliation.backoff-max-ms:240000}")
+            long backoffMaxMs) {
         this.payouts = payouts;
         this.processor = processor;
+        this.attempts = attempts;
         this.processingStaleMs = processingStaleMs;
+        this.backoff = new ReconciliationBackoffPolicy(
+                backoffBaseMs,
+                backoffMaxMs
+        );
     }
 
     @Scheduled(fixedDelayString = "${payments.reconciliation.interval-ms:30000}")
     public void reconcileRecoverablePayouts() {
-        Instant staleCutoff = Instant.now().minusMillis(processingStaleMs);
+        Instant now = Instant.now();
+        Instant staleCutoff = now.minusMillis(processingStaleMs);
 
-        Stream.concat(
-                payouts.findAllByStatus(PayoutStatus.UNKNOWN).stream(),
+        List<Payout> unknown = payouts.findAllByStatus(PayoutStatus.UNKNOWN);
+        Set<UUID> unknownIds = unknown.stream()
+                .map(Payout::getId)
+                .collect(Collectors.toSet());
+
+        Map<UUID, ReconciliationAttemptSummary> summaries =
+                loadAttemptSummaries(unknownIds);
+
+        Stream<Payout> dueUnknown = unknown.stream()
+                .filter(payout -> isDue(
+                        payout.getId(),
+                        summaries.get(payout.getId()),
+                        now
+                ));
+
+        Stream<Payout> staleProcessing =
                 payouts.findAllByStatusAndUpdatedAtBefore(
                         PayoutStatus.PROCESSING,
                         staleCutoff
-                ).stream()
-        ).map(Payout::getId)
-         .distinct()
-         .forEach(this::reconcile);
+                ).stream();
+
+        Stream.concat(dueUnknown, staleProcessing)
+                .map(Payout::getId)
+                .distinct()
+                .forEach(this::reconcile);
     }
 
-    private void reconcile(java.util.UUID payoutId) {
+    private Map<UUID, ReconciliationAttemptSummary> loadAttemptSummaries(
+            Set<UUID> payoutIds) {
+        if (payoutIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return attempts.summarizeAttempts(payoutIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        ReconciliationAttemptSummary::getPayoutId,
+                        Function.identity()
+                ));
+    }
+
+    private boolean isDue(
+            UUID payoutId,
+            ReconciliationAttemptSummary summary,
+            Instant now) {
+        if (summary == null) {
+            return true;
+        }
+
+        boolean due = backoff.isDue(
+                summary.getAttemptCount(),
+                summary.getLastAttemptAt(),
+                now
+        );
+
+        if (!due) {
+            log.debug(
+                    "automatic_reconciliation_deferred payoutId={} attempts={}",
+                    payoutId,
+                    summary.getAttemptCount()
+            );
+        }
+
+        return due;
+    }
+
+    private void reconcile(UUID payoutId) {
         try {
             ReconciliationResolution result = processor.reconcile(payoutId);
 
