@@ -1,0 +1,25 @@
+# One free web service serves the UI and Java API. Supply a separate Neon Free database.
+services:
+  - type: web
+    name: payment-processing-simulator
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DEMO_ENABLED
+        value: "true"
+      - key: RECONCILIATION_ENABLED
+        value: "false"
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+        value: "5"
+      - key: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
+        value: "0"
+      - key: MASTERCARD_ENABLED
+        value: "false"

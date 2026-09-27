@@ -15,7 +15,15 @@ permissions:
 
 jobs:
   analyze:
-    name: Analyze Java
+    name: Analyze ${{ matrix.language }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: java-kotlin
+            build-mode: manual
+          - language: javascript-typescript
+            build-mode: none
     runs-on: ubuntu-latest
 
     steps:
@@ -30,11 +38,12 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: java-kotlin
-          build-mode: manual
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
           queries: security-extended
 
       - name: Build
+        if: matrix.language == 'java-kotlin'
         run: mvn --batch-mode -DskipTests clean package
 
       - name: Analyze

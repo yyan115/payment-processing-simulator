@@ -1,0 +1,15 @@
+# Optional sandbox adapter, using secrets from the shell or an ignored .env file.
+services:
+  app:
+    environment:
+      MASTERCARD_ENABLED: "true"
+      MASTERCARD_PARTNER_ID: ${MASTERCARD_PARTNER_ID:?Set a 32-character sandbox partner ID}
+      MASTERCARD_CONSUMER_KEY: ${MASTERCARD_CONSUMER_KEY:?Set your sandbox consumer key}
+      MASTERCARD_P12_BASE64: ${MASTERCARD_P12_BASE64:?Set the base64-encoded sandbox signing key}
+      MASTERCARD_KEY_ALIAS: ${MASTERCARD_KEY_ALIAS:?Set your signing key alias}
+      MASTERCARD_KEY_PASSWORD: ${MASTERCARD_KEY_PASSWORD:?Set your signing key password}
+      MASTERCARD_SENDER_ACCOUNT_URI: ${MASTERCARD_SENDER_ACCOUNT_URI:?Set the official test sender account URI}
+      MASTERCARD_RECIPIENT_ACCOUNT_URI: ${MASTERCARD_RECIPIENT_ACCOUNT_URI:?Set the official test recipient account URI}
+      MASTERCARD_FUNDING_SOURCE: DEBIT
+      MASTERCARD_PAYMENT_ORIGINATION_COUNTRY: USA
+      MASTERCARD_REQUEST_DETAILS_PATH: /app/examples/mastercard-sandbox-parties.json
