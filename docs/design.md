@@ -32,6 +32,8 @@ CREATED -> PROCESSING -> SUCCEEDED
 
 Invalid transitions are rejected by the `Payout` domain object.
 
+HTTP-level provider rejection is kept separate from a business decline. A documented Mastercard 402 `DECLINE` can resolve to `FAILED`; authentication, configuration, throttling, or other HTTP rejections preserve an unresolved local outcome instead of inventing a business failure.
+
 ## Money representation
 
 The REST API and ledger store positive amounts in major currency units as `BigDecimal`. Currency codes are validated against ISO 4217, and amounts cannot contain more fractional digits than the currency supports. The minimum representable amount therefore follows the currency exponent rather than assuming a two-decimal currency: KWD can accept `0.001`, while JPY accepts whole units only.

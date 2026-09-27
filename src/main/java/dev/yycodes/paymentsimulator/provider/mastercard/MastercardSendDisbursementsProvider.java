@@ -105,10 +105,25 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
                 mode == SubmissionMode.RETRY ? "true" : "false"
         ).build();
 
-        String body = execute(request);
+        ProviderHttpResponse response = execute(request);
+
+        if (response.statusCode() == 402) {
+            try {
+                if (parser.isLegacyDeclineError(response.body())) {
+                    return new ProviderResult(null, ProviderStatus.DECLINED);
+                }
+            } catch (IOException invalidErrorBody) {
+                throw new ProviderRejectedException(
+                        response.statusCode(),
+                        "Mastercard Send returned an unreadable decline response"
+                );
+            }
+        }
+
+        requireSuccess(response);
 
         try {
-            return parser.parseCreate(body);
+            return parser.parseCreate(response.body());
         } catch (IOException | IllegalArgumentException invalidResponse) {
             throw new ProviderTimeoutException(
                     "Mastercard Send returned an unreadable transaction response");
@@ -136,10 +151,16 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
                 HttpRequest.BodyPublishers.noBody()
         ).build();
 
-        String body = execute(request);
+        ProviderHttpResponse response = execute(request);
+
+        if (response.statusCode() == 404) {
+            return Optional.empty();
+        }
+
+        requireSuccess(response);
 
         try {
-            return parser.parseLookup(body);
+            return parser.parseLookup(response.body());
         } catch (IOException | IllegalArgumentException invalidResponse) {
             throw new ProviderTimeoutException(
                     "Mastercard Send returned an unreadable reconciliation response");
@@ -169,7 +190,7 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
                 .method(method, body);
     }
 
-    private String execute(HttpRequest request) {
+    private ProviderHttpResponse execute(HttpRequest request) {
         try {
             HttpResponse<String> response = httpClient.send(
                     request,
@@ -181,13 +202,10 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
                         "Mastercard Send request had an ambiguous server/transport result");
             }
 
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new ProviderRejectedException(
-                        response.statusCode(),
-                        "Mastercard Send rejected request with HTTP " + response.statusCode());
-            }
-
-            return response.body();
+            return new ProviderHttpResponse(
+                    response.statusCode(),
+                    response.body()
+            );
         } catch (IOException ioFailure) {
             throw new ProviderTimeoutException(
                     "Mastercard Send network request failed");
@@ -195,6 +213,16 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
             Thread.currentThread().interrupt();
             throw new ProviderTimeoutException(
                     "Mastercard Send request was interrupted");
+        }
+    }
+
+    private static void requireSuccess(ProviderHttpResponse response) {
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new ProviderRejectedException(
+                    response.statusCode(),
+                    "Mastercard Send rejected request with HTTP "
+                            + response.statusCode()
+            );
         }
     }
 
@@ -231,5 +259,8 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
             throw new IllegalStateException(
                     property + " must be configured when PAYMENTS_PROVIDER=mastercard");
         }
+    }
+
+    private record ProviderHttpResponse(int statusCode, String body) {
     }
 }

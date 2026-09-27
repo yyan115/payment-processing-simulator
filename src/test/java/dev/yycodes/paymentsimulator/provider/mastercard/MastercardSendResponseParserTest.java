@@ -95,6 +95,45 @@ class MastercardSendResponseParserTest {
     }
 
     @Test
+    void recognizesDocumentedLegacy402DeclineError() throws Exception {
+        String body = """
+                {
+                  "Errors": {
+                    "Error": [
+                      {
+                        "Source": "Gateway",
+                        "ReasonCode": "DECLINE",
+                        "Description": "Transaction declined",
+                        "Recoverable": false,
+                        "Details": null
+                      }
+                    ]
+                  }
+                }
+                """;
+
+        assertThat(parser.isLegacyDeclineError(body)).isTrue();
+    }
+
+    @Test
+    void doesNotTreatOtherGatewayErrorsAsBusinessDeclines() throws Exception {
+        String body = """
+                {
+                  "Errors": {
+                    "Error": [
+                      {
+                        "Source": "Gateway",
+                        "ReasonCode": "INVALID_INPUT_VALUE"
+                      }
+                    ]
+                  }
+                }
+                """;
+
+        assertThat(parser.isLegacyDeclineError(body)).isFalse();
+    }
+
+    @Test
     void emptyLookupReturnsNoProviderRecord() throws Exception {
         String body = """
                 {

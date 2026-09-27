@@ -19,9 +19,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MastercardSendProviderContractTest {
 
@@ -32,6 +34,9 @@ class MastercardSendProviderContractTest {
     private final AtomicReference<String> repeatFlag = new AtomicReference<>();
     private final AtomicReference<String> authorization = new AtomicReference<>();
     private final AtomicReference<String> requestBody = new AtomicReference<>();
+    private final AtomicInteger responseStatus = new AtomicInteger(200);
+    private final AtomicReference<String> responseBodyOverride =
+            new AtomicReference<>();
 
     @BeforeEach
     void startServer() throws Exception {
@@ -88,6 +93,77 @@ class MastercardSendProviderContractTest {
         );
 
         assertThat(repeatFlag.get()).isEqualTo("true");
+    }
+
+    @Test
+    void documentedLegacy402DeclineBecomesBusinessDecline() throws Exception {
+        responseStatus.set(402);
+        responseBodyOverride.set("""
+                {
+                  "Errors": {
+                    "Error": [
+                      {
+                        "ReasonCode": "DECLINE",
+                        "Recoverable": false
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        var result = provider().submit(
+                UUID.randomUUID(),
+                new BigDecimal("100.00"),
+                "SGD",
+                SubmissionMode.ORIGINAL
+        );
+
+        assertThat(result.status()).isEqualTo(ProviderStatus.DECLINED);
+        assertThat(result.providerReference()).isNull();
+    }
+
+    @Test
+    void nonBusinessHttpRejectionRemainsIntegrationError() throws Exception {
+        responseStatus.set(401);
+        responseBodyOverride.set("""
+                {
+                  "Errors": {
+                    "Error": [
+                      {
+                        "ReasonCode": "AUTHENTICATION_FAILED"
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        assertThatThrownBy(() -> provider().submit(
+                UUID.randomUUID(),
+                new BigDecimal("100.00"),
+                "SGD",
+                SubmissionMode.ORIGINAL
+        )).isInstanceOf(
+                dev.yycodes.paymentsimulator.provider.ProviderRejectedException.class
+        );
+    }
+
+    @Test
+    void reconciliation404MeansProviderHasNoRecord() throws Exception {
+        responseStatus.set(404);
+        responseBodyOverride.set("""
+                {
+                  "Errors": {
+                    "Error": [
+                      {
+                        "ReasonCode": "NOT_FOUND"
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        assertThat(provider().findByClientReference(UUID.randomUUID()))
+                .isEmpty();
     }
 
     @Test
@@ -153,7 +229,9 @@ class MastercardSendProviderContractTest {
             ));
 
             String response;
-            if ("GET".equals(exchange.getRequestMethod())) {
+            if (responseBodyOverride.get() != null) {
+                response = responseBodyOverride.get();
+            } else if ("GET".equals(exchange.getRequestMethod())) {
                 response = """
                         {
                           "disbursements": {
@@ -181,7 +259,7 @@ class MastercardSendProviderContractTest {
 
             byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
-            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.sendResponseHeaders(responseStatus.get(), bytes.length);
             exchange.getResponseBody().write(bytes);
             exchange.close();
         } catch (Exception failure) {

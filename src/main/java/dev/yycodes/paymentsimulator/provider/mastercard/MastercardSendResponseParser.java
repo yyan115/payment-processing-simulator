@@ -29,11 +29,30 @@ public class MastercardSendResponseParser {
                 .path("data")
                 .path("disbursement");
 
-        if (!list.isArray() || list.isEmpty()) {
+        if (!list.isArray() || list.size() == 0) {
             return Optional.empty();
         }
 
         return Optional.of(parseDisbursement(list.get(0)));
+    }
+
+    public boolean isLegacyDeclineError(String body) throws IOException {
+        JsonNode errors = mapper.readTree(body)
+                .path("Errors")
+                .path("Error");
+
+        if (!errors.isArray()) {
+            return false;
+        }
+
+        for (JsonNode error : errors) {
+            if ("DECLINE".equalsIgnoreCase(
+                    error.path("ReasonCode").asText())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     ProviderResult parseDisbursement(JsonNode disbursement) {
