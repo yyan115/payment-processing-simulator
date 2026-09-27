@@ -24,6 +24,10 @@ Do not use real PANs, customer identities, or production financial data with thi
 
 Do not place secrets, credentials, or sensitive financial data in a public GitHub issue. Report reproducible security defects without sensitive material and rotate any credential that may have been exposed.
 
+## Runtime container
+
+The final application image runs as a dedicated unprivileged user. CI builds the runtime image in addition to validating the Compose configuration.
+
 ## Automated checks
 
 GitHub Actions runs the test suite on pushes and pull requests. CodeQL performs Java static security analysis using the security-extended query suite. Dependabot tracks Maven, Docker, and GitHub Actions dependencies.

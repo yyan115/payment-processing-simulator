@@ -43,3 +43,6 @@ jobs:
 
       - name: Validate Docker Compose
         run: docker compose config --quiet
+
+      - name: Build runtime image
+        run: docker build --tag payment-processing-simulator:ci .
