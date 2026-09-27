@@ -49,7 +49,7 @@ The service canonicalizes recipient reference, amount, and currency, then stores
 - same key + same fingerprint: return the existing payout
 - same key + different fingerprint: reject with a conflict
 
-A unique database constraint remains the final authority during concurrent requests.
+A unique database constraint remains the final authority during concurrent requests. PostgreSQL also checks payout/provider state domains, ISO-shaped currency codes, SHA-256 fingerprint format, ledger directions/types, reconciliation outcomes, and the simulated provider's foreign-key link back to its payout.
 
 ## Provider repeats
 
