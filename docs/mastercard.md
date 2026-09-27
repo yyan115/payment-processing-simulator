@@ -50,7 +50,11 @@ MASTERCARD_RECIPIENT_ACCOUNT_URI=...
 
 Do not put those values in Git.
 
-Account URIs are deliberately not stored in the repository. The recipient account URI is required by the Disbursements contract. Sender account, funding source, origination country, and transaction time zone are optional adapter settings because their requirements depend on the partner profile established during Mastercard onboarding.
+Account URIs are deliberately not stored in the repository. The recipient account URI is required by the Disbursements contract.
+
+`sender_account_uri` is not universally required by the schema, so the adapter does not invent one. Mastercard explicitly requires it for disbursements to Mastercard accounts, while some non-Mastercard routes may not require it. The adapter cannot determine that network requirement from an arbitrary configured account URI, so the caller must provide the sender account URI whenever the configured route requires it.
+
+Funding source, origination country, and transaction time zone are also optional adapter settings whose requirements depend on the partner profile and route established during Mastercard onboarding.
 
 The adapter rejects non-sandbox Mastercard hosts even if a production URL is supplied. This repository is not intended to move production money.
 
