@@ -55,7 +55,7 @@ Failure injection is deliberately separated from the business payout API. The pr
 - **Concurrent-write protection:** JPA optimistic locking prevents conflicting state updates.
 - **Unknown is not failed:** transport timeouts preserve uncertainty instead of inventing a business outcome.
 - **Safe retry:** a repeated provider submission can return the original provider transaction instead of creating another payout.
-- **Reconciliation:** uncertain payouts are checked against durable provider records.
+- **Reconciliation:** uncertain payouts are checked against durable provider records and can converge as the provider's asynchronous status changes.
 - **Crash-window recovery:** stale `PROCESSING` payouts are reconciled so provider success cannot be stranded by a failed local finalization write.
 - **Double-entry posting:** successful payouts atomically create equal debit and credit ledger entries.
 - **No premature posting:** failed and unresolved payouts create no financial journal entry.
@@ -107,8 +107,8 @@ curl http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/ledger
 | --- | --- | --- | --- | --- |
 | `SUCCESS` | `SUCCEEDED` | `SUCCEEDED` | debit + credit | Not needed |
 | `DECLINED` | `DECLINED` | `FAILED` | none | Not needed |
-| `UNKNOWN` | `UNKNOWN` | `UNKNOWN` | none | Remains uncertain until provider state changes |
-| `PENDING` | `PENDING` | `UNKNOWN` | none | Remains uncertain until provider state changes |
+| `UNKNOWN` | `UNKNOWN` | `UNKNOWN` | none | Provider state can later become success/failure and reconciliation resolves it |
+| `PENDING` | `PENDING` | `UNKNOWN` | none | Provider state can later become success/failure and reconciliation resolves it |
 | `TIMEOUT_AFTER_SUCCESS` | `SUCCEEDED` | `UNKNOWN` | none until resolved | Resolves or safely retries to `SUCCEEDED` |
 | `TIMEOUT_BEFORE_PROCESSING` | none | `UNKNOWN` | none | Reconciliation remains unknown; retry processes once |
 
@@ -196,7 +196,7 @@ curl http://localhost:8080/api/v1/payouts/<PAYOUT_ID>/ledger
 mvn verify
 ```
 
-Tests cover the public REST contract, idempotency and concurrent creation, failure semantics, crash-window recovery, reconciliation, safe repeats, balanced ledger posting, maximum-length recipient handling, concurrent processing, and the Mastercard adapter's signed request contract.
+Tests cover the public REST contract, idempotency and concurrent creation, asynchronous provider-state convergence, failure semantics, crash-window recovery, reconciliation, safe repeats, balanced ledger posting, maximum-length recipient handling, concurrent processing, and the Mastercard adapter's signed request contract.
 
 CI runs the suite on every push and pull request.
 

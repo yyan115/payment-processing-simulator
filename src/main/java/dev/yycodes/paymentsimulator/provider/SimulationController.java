@@ -19,10 +19,15 @@ public class SimulationController {
 
     private final PayoutService payouts;
     private final SimulationScenarioRegistry scenarios;
+    private final SimulatedProviderStore providerStore;
 
-    public SimulationController(PayoutService payouts, SimulationScenarioRegistry scenarios) {
+    public SimulationController(
+            PayoutService payouts,
+            SimulationScenarioRegistry scenarios,
+            SimulatedProviderStore providerStore) {
         this.payouts = payouts;
         this.scenarios = scenarios;
+        this.providerStore = providerStore;
     }
 
     @PutMapping("/{id}/next-outcome")
@@ -32,5 +37,14 @@ public class SimulationController {
             @Valid @RequestBody SimulatePayoutRequest request) {
         payouts.get(id);
         scenarios.configure(id, request.outcome());
+    }
+
+    @PutMapping("/{id}/provider-status")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void updateProviderStatus(
+            @PathVariable UUID id,
+            @Valid @RequestBody SimulateProviderStatusRequest request) {
+        payouts.get(id);
+        providerStore.updateStatus(id, request.status());
     }
 }

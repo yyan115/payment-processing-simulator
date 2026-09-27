@@ -108,6 +108,8 @@ The scheduled worker handles both `UNKNOWN` payouts and stale `PROCESSING` payou
 - provider reports `UNKNOWN` or `PENDING`: preserve `UNKNOWN`
 - provider has no record: preserve `UNKNOWN`
 
+The simulated provider can independently advance an existing transaction from `PENDING` or `UNKNOWN` to a terminal state. This models asynchronous provider processing and lets reconciliation demonstrate convergence rather than a static lookup.
+
 Every reconciliation attempt is stored separately from the state-transition audit trail.
 
 ## Auditability

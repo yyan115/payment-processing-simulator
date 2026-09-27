@@ -1,5 +1,6 @@
 package dev.yycodes.paymentsimulator.provider;
 
+import dev.yycodes.paymentsimulator.shared.NotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +51,31 @@ public class SimulatedProviderStore {
                 .map(SimulatedProviderStore::toResult)
                 .orElseThrow(() -> new IllegalStateException(
                         "Provider transaction lost after duplicate-safe insert"
+                ));
+    }
+
+    @Transactional
+    public ProviderResult updateStatus(
+            UUID clientReference,
+            ProviderStatus status) {
+
+        int updated = repository.updateStatus(
+                clientReference,
+                status.name(),
+                Instant.now()
+        );
+
+        if (updated == 0) {
+            throw new NotFoundException(
+                    "No provider transaction exists for payout "
+                            + clientReference
+            );
+        }
+
+        return repository.findByClientReference(clientReference)
+                .map(SimulatedProviderStore::toResult)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Provider transaction disappeared after status update"
                 ));
     }
 

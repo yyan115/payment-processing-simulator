@@ -28,6 +28,7 @@ class PayoutFlowIntegrationTest {
     @Autowired private PaymentProvider provider;
     @Autowired private PayoutRepository payoutRepository;
     @Autowired private ProviderTransactionRepository providerRepository;
+    @Autowired private SimulatedProviderStore providerStore;
     @Autowired private PayoutEventRepository eventRepository;
     @Autowired private ReconciliationAttemptRepository reconciliationRepository;
     @Autowired private SimulationScenarioRegistry scenarios;
@@ -105,6 +106,44 @@ class PayoutFlowIntegrationTest {
                 .isEqualTo(ReconciliationOutcome.STILL_UNKNOWN);
         assertThat(reconciliation.payout().getStatus())
                 .isEqualTo(PayoutStatus.UNKNOWN);
+    }
+
+    @Test
+    void pendingProviderResultCanLaterResolveToSuccess() {
+        UUID id = create("pending-to-success");
+        scenarios.configure(id, SimulatedOutcome.PENDING);
+
+        Payout pending = processor.process(id);
+
+        assertThat(pending.getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
+        assertThat(ledgerTransactions.count()).isZero();
+
+        providerStore.updateStatus(id, ProviderStatus.SUCCEEDED);
+        var reconciled = processor.reconcile(id);
+
+        assertThat(reconciled.outcome())
+                .isEqualTo(ReconciliationOutcome.RESOLVED_SUCCEEDED);
+        assertThat(reconciled.payout().getStatus())
+                .isEqualTo(PayoutStatus.SUCCEEDED);
+        assertBalancedLedger(id, new BigDecimal("100.00"));
+    }
+
+    @Test
+    void unknownProviderResultCanLaterResolveToDecline() {
+        UUID id = create("unknown-to-decline");
+        scenarios.configure(id, SimulatedOutcome.UNKNOWN);
+
+        assertThat(processor.process(id).getStatus())
+                .isEqualTo(PayoutStatus.UNKNOWN);
+
+        providerStore.updateStatus(id, ProviderStatus.DECLINED);
+        var reconciled = processor.reconcile(id);
+
+        assertThat(reconciled.outcome())
+                .isEqualTo(ReconciliationOutcome.RESOLVED_FAILED);
+        assertThat(reconciled.payout().getStatus())
+                .isEqualTo(PayoutStatus.FAILED);
+        assertThat(ledgerTransactions.count()).isZero();
     }
 
     @Test
