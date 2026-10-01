@@ -151,4 +151,17 @@ describe("automatic payment workflow", () => {
     );
     expect(f.run.complete).not.toBe(true);
   });
+  it("keeps confirmed payment state and reports a failed Mastercard lookup", async () => {
+    const f = fixture("SUCCESS");
+    f.run.intent.provider = "mastercard";
+    vi.mocked(f.engine.lookup).mockRejectedValue(new Error("Unavailable"));
+    const progress = vi.fn();
+    const result = await runPayment(f.engine, f.run, vi.fn(), progress);
+    expect(result.payout.status).toBe("SUCCEEDED");
+    expect(f.run.complete).toBe(true);
+    expect(progress.mock.calls.at(-1)?.[1]).toContain(
+      "Status lookup unavailable",
+    );
+    expect(f.sent()).toBe(1);
+  });
 });

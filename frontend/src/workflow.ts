@@ -70,10 +70,12 @@ export async function runPayment(
   if (replay.created || replay.payout.id !== run.id)
     throw new Error("Duplicate protection returned an unexpected payment.");
   snapshot = await engine.snapshot(run.id);
+  let lookupUnavailable = false;
   if (run.intent.provider === "mastercard") {
     try {
       await engine.lookup(run.id);
     } catch {
+      lookupUnavailable = true;
       await progress(
         snapshot,
         "Status lookup unavailable. The saved payment result is unchanged.",
@@ -82,15 +84,17 @@ export async function runPayment(
   }
   await progress(
     snapshot,
-    snapshot.payout.status === "PROCESSING"
-      ? "Processing is still in progress. No final confirmation is available."
-      : snapshot.payout.status === "UNKNOWN"
-        ? "The provider still cannot confirm the result. No new payment was sent."
-        : snapshot.payout.status === "FAILED"
-          ? "Payment declined. No ledger entries posted."
-          : snapshot.attempts.length
-            ? "Recovered automatically. One payment confirmed, one journal posted."
-            : "Payment confirmed. One journal posted.",
+    lookupUnavailable
+      ? "Status lookup unavailable. The saved payment result is unchanged."
+      : snapshot.payout.status === "PROCESSING"
+        ? "Processing is still in progress. No final confirmation is available."
+        : snapshot.payout.status === "UNKNOWN"
+          ? "The provider still cannot confirm the result. No new payment was sent."
+          : snapshot.payout.status === "FAILED"
+            ? "Payment failed. No ledger entries posted."
+            : snapshot.attempts.length
+              ? "Recovered automatically. One payment confirmed, one journal posted."
+              : "Payment confirmed. One journal posted.",
   );
   run.complete =
     snapshot.payout.status !== "CREATED" &&
