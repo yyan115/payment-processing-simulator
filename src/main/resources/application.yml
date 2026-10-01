@@ -16,6 +16,8 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+    connect-retries: 10
+    connect-retries-interval: 3s
   lifecycle:
     timeout-per-shutdown-phase: 20s
 

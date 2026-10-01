@@ -17,7 +17,7 @@ SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=5
 SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE=0
 ```
 
-Deploy. Flyway creates and updates the schema automatically. Inspect startup logs and `/actuator/health` before testing a payment. The demo runs recovery steps during the browser workflow; the scheduled reconciliation worker is available for persistent local operation.
+Deploy. Flyway retries a temporarily unavailable database before creating or updating the schema. Inspect startup logs and `/actuator/health` before testing a payment. The demo runs recovery steps during the browser workflow; the scheduled reconciliation worker is available for persistent local operation.
 
 Free apps sleep after inactivity. Blitz displays its own waking page before our app can load. Once our UI loads, connection failures are checked automatically with backoff. A payment whose HTTP response was lost keeps its original idempotency key and offers **Resume unfinished request**, preventing an accidental new payment.
 
@@ -44,8 +44,8 @@ The browser requests verification before Mastercard use. The server verifies Clo
 
 ## Hosting status
 
-- Blitz PostgreSQL has been created and connected. Application cutover and final public checks are in progress.
-- Original Neon databases remain intact; no database was deleted.
-- Render was not deployed because the account requested payment-card verification.
+- The app now uses Blitz PostgreSQL 17.11. Startup validated all 13 migrations; the public payment/ledger smoke check and all 20 browser tests passed on 2026-10-02, including authenticated Mastercard submission and reference lookup.
+- Neon is no longer the active database; its connection settings were removed from Blitz. Its databases remain intact for rollback.
+- The first database connection was refused; restarting the app established the connection. Turnstile activation still needs real Cloudflare keys.
 
 [Blitz database documentation](https://blitz.cloud/docs/databases/) · [Plan limits](https://blitz.cloud/docs/limits/) · [Turnstile verification](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/)

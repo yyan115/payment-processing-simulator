@@ -49,6 +49,8 @@ Select **Mastercard sandbox** in the provider field and **Send payment**. The wo
 
 ## Verification
 
+On **2026-10-02**, the public browser workflow submitted USD 53.00 through the authenticated sandbox adapter and posted one balanced journal. The automatic reference lookup completed successfully.
+
 On **2026-09-27**, authenticated local Java and browser workflows submitted USD 53.00, received approval, retrieved the same transaction by reference, posted one balanced journal, and returned the original payment on idempotent replay. A safe repeat also recovered a timed-out request. An earlier incomplete request preserved `UNKNOWN` without a journal.
 
 The static sandbox returns simulated responses. This verifies signing and sandbox compatibility, not production settlement, MTF readiness or all Mastercard failure scenarios. CI uses generated keys and local contract fixtures; live credentials are never required. Current public verification is recorded in [Deployment](deployment.md).

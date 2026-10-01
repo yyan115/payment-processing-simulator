@@ -40,7 +40,7 @@ Open **http://localhost:8080**. Mastercard credentials are optional. The UI and 
 - **Concurrency:** unique constraints and optimistic locking protect competing creation and processing requests.
 - **Isolation and limits:** workspaces cannot access one another’s payments; database-backed Mastercard budgets limit outgoing calls. Optional Turnstile verification protects external-provider actions.
 
-Authenticated Mastercard sandbox creation and reference lookup were verified on **2026-09-27**. This is sandbox integration evidence, not production settlement. Public deployment verification is recorded in the [deployment guide](docs/deployment.md).
+Authenticated Mastercard sandbox creation and reference lookup were verified on the public deployment on **2026-10-02**. This is sandbox integration evidence, not production settlement. Public deployment verification is recorded in the [deployment guide](docs/deployment.md).
 
 ## Development
 

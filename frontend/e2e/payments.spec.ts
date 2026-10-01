@@ -200,11 +200,19 @@ test("authenticated Mastercard payout and lookup", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Send payment", exact: true }),
   ).toBeEnabled();
+  const lookup = page.waitForResponse(
+    (response) =>
+      /\/api\/v1\/payouts\/[^/]+\/provider$/.test(response.url()) &&
+      response.request().method() === "GET",
+  );
   await page.getByRole("button", { name: "Send payment", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Send payment", exact: true }),
   ).toBeEnabled({ timeout: 30000 });
   await expect(page.locator(".payment-status")).toHaveText("Succeeded");
+  const observed = await lookup;
+  expect(observed.status()).toBe(200);
+  expect((await observed.json()).provider.status).toBe("SUCCEEDED");
   await page.locator(".payment-summary").click();
   await page.getByText(/^Ledger ·/).click();
   await expect(page.locator("tbody tr")).toHaveCount(2);
