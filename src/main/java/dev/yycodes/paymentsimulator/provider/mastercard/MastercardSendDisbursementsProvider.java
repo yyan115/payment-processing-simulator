@@ -98,7 +98,7 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
                         .header("repeat-flag", mode == SubmissionMode.RETRY ? "true" : "false")
                         .build();
 
-        ProviderHttpResponse response = execute(request);
+        ProviderHttpResponse response = execute(request, clientReference);
 
         if (response.statusCode() == 402) {
             try {
@@ -136,7 +136,7 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
         HttpRequest request =
                 signedRequest(uri, "GET", "", HttpRequest.BodyPublishers.noBody()).build();
 
-        ProviderHttpResponse response = execute(request);
+        ProviderHttpResponse response = execute(request, clientReference);
 
         if (response.statusCode() == 404) {
             return Optional.empty();
@@ -167,8 +167,8 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
                 .method(method, body);
     }
 
-    private ProviderHttpResponse execute(HttpRequest request) {
-        if (demoBudget != null) demoBudget.consume();
+    private ProviderHttpResponse execute(HttpRequest request, UUID clientReference) {
+        if (demoBudget != null) demoBudget.consume(clientReference);
         try {
             HttpResponse<String> response =
                     httpClient.send(request, HttpResponse.BodyHandlers.ofString());

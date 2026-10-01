@@ -16,16 +16,38 @@ import java.time.temporal.ChronoUnit;
 @ConditionalOnProperty(name = "payments.demo.enabled", havingValue = "true")
 public class SandboxRequestBudget {
     private final JdbcTemplate jdbc;
+    private final SandboxVerification verification;
+    private final int sessionLimit;
     private final int minuteLimit;
     private final int dayLimit;
 
     public SandboxRequestBudget(
             JdbcTemplate jdbc,
+            SandboxVerification verification,
+            @Value("${payments.demo.mastercard-calls-per-session:10}") int sessionLimit,
             @Value("${payments.demo.mastercard-calls-per-minute:12}") int minuteLimit,
             @Value("${payments.demo.mastercard-calls-per-day:100}") int dayLimit) {
         this.jdbc = jdbc;
+        this.verification = verification;
+        this.sessionLimit = sessionLimit;
         this.minuteLimit = minuteLimit;
         this.dayLimit = dayLimit;
+    }
+
+    @Transactional
+    public void consume(java.util.UUID payment) {
+        verification.authorize(payment);
+        int changed =
+                jdbc.update(
+                        "UPDATE demo_sessions SET sandbox_calls=sandbox_calls+1 WHERE id=(SELECT"
+                            + " demo_session_id FROM payouts WHERE id=?) AND"
+                            + " expires_at>CURRENT_TIMESTAMP AND sandbox_calls<?",
+                        payment,
+                        sessionLimit);
+        if (changed == 0)
+            throw new ProviderRejectedException(
+                    429, "This session has used its Mastercard allowance.");
+        consume();
     }
 
     @Transactional

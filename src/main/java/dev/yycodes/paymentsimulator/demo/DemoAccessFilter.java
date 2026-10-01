@@ -56,7 +56,14 @@ public class DemoAccessFilter extends OncePerRequestFilter {
             if ("cross-site".equals(request.getHeader("Sec-Fetch-Site")))
                 throw new DemoException(403, "Open the demo directly to use its API.");
             if (path.equals("/api/v1/workspace")) {
-                limit("admission:" + request.getRemoteAddr(), 30);
+                try {
+                    UUID session = workspace.requireActive(request);
+                    limit(session.toString(), 120);
+                    if ("true".equals(request.getParameter("reset"))) limit("admission:" + request.getRemoteAddr(), 30);
+                } catch (DemoException error) {
+                    if (error.status() != 410) throw error;
+                    limit("admission:" + request.getRemoteAddr(), 30);
+                }
             } else if (!path.equals("/api/v1/config")) {
                 UUID session = workspace.requireActive(request);
                 limit(session.toString(), 120);

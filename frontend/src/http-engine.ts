@@ -39,6 +39,17 @@ async function request<T>(
       signal: AbortSignal.timeout(20000),
     });
   } catch {
+    if (method !== "GET" && !path.startsWith("/workspace"))
+      report?.({
+        method,
+        path: `/api/v1${path}`,
+        status: 0,
+        duration: Math.round(performance.now() - started),
+        request: body ?? null,
+        response: null,
+        at: new Date().toISOString(),
+        idempotencyKey: headers?.["Idempotency-Key"],
+      });
     throw new ApiError(
       "No server response. The request may have completed; check the payout before retrying.",
       503,

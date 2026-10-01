@@ -17,6 +17,7 @@ import java.util.UUID;
 /** Consistent local evidence; simulated provider truth is only included for simulated payouts. */
 @RestController
 public class SimulationInspectionController {
+    private final dev.yycodes.paymentsimulator.demo.SandboxVerification verification;
     private final PayoutService payouts;
     private final ProviderCatalog catalog;
     private final SimulatedProviderStore provider;
@@ -28,6 +29,7 @@ public class SimulationInspectionController {
 
     public SimulationInspectionController(
             PayoutService payouts,
+            dev.yycodes.paymentsimulator.demo.SandboxVerification verification,
             ProviderCatalog catalog,
             SimulatedProviderStore provider,
             PayoutHistoryService history,
@@ -35,6 +37,7 @@ public class SimulationInspectionController {
             LedgerQueryService ledger,
             ReconciliationAttemptRepository attempts,
             @Value("${payments.reconciliation.enabled:true}") boolean automaticReconciliation) {
+        this.verification = verification;
         this.payouts = payouts;
         this.catalog = catalog;
         this.provider = provider;
@@ -71,6 +74,7 @@ public class SimulationInspectionController {
     @GetMapping("/api/v1/payouts/{id}/provider")
     public ProviderObservation provider(@PathVariable UUID id) {
         var payout = payouts.get(id);
+        if ("mastercard".equals(payout.getProvider())) verification.authorize(id);
         var result = catalog.require(payout.getProvider()).findByClientReference(id);
         return new ProviderObservation(result.orElse(null), Instant.now());
     }

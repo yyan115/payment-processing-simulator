@@ -16,15 +16,24 @@ import java.util.UUID;
 @RequestMapping("/api/v1/payouts")
 public class PayoutController {
 
+    private final dev.yycodes.paymentsimulator.demo.SandboxVerification verification;
     private final PayoutService payouts;
     private final PayoutProcessor processor;
     private final PayoutHistoryService history;
 
     public PayoutController(
-            PayoutService payouts, PayoutProcessor processor, PayoutHistoryService history) {
+            PayoutService payouts,
+            PayoutProcessor processor,
+            PayoutHistoryService history,
+            dev.yycodes.paymentsimulator.demo.SandboxVerification verification) {
+        this.verification = verification;
         this.payouts = payouts;
         this.processor = processor;
         this.history = history;
+    }
+
+    private void guard(UUID id) {
+        if ("mastercard".equals(payouts.get(id).getProvider())) verification.authorize(id);
     }
 
     @PostMapping
@@ -57,18 +66,21 @@ public class PayoutController {
     @PostMapping("/{id}/process")
     public PayoutResponse process(@PathVariable UUID id) {
         payouts.get(id); // Authorize the decoded resource ID before reading or changing it.
+        guard(id);
         return PayoutResponse.from(processor.process(id));
     }
 
     @PostMapping("/{id}/retry")
     public PayoutResponse retry(@PathVariable UUID id) {
         payouts.get(id); // Authorize the decoded resource ID before reading or changing it.
+        guard(id);
         return PayoutResponse.from(processor.retry(id));
     }
 
     @PostMapping("/{id}/reconcile")
     public ReconciliationResponse reconcile(@PathVariable UUID id) {
         payouts.get(id); // Authorize the decoded resource ID before reading or changing it.
+        guard(id);
         return ReconciliationResponse.from(processor.reconcile(id));
     }
 }

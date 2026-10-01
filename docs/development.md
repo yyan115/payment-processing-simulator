@@ -28,7 +28,7 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. Vite proxies API requests to the Java service on port 8080. Font files and icons are bundled locally.
+Open http://127.0.0.1:5173. Vite proxies API requests to the Java service on port 8080. Icons are bundled locally.
 
 ## Backend tests
 

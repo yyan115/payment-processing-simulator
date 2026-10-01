@@ -181,7 +181,7 @@ export const scenarios: {
   },
   {
     id: "SUCCESS",
-    name: "Successful payout",
+    name: "Payment succeeds",
     description: "The provider confirms success.",
   },
   {
@@ -198,12 +198,12 @@ export const scenarios: {
     id: "PENDING",
     name: "Still processing",
     description:
-      "The provider returns PENDING until you approve or decline it.",
+      "The simulator confirms success after initially reporting PENDING.",
   },
   {
     id: "UNKNOWN",
     name: "Provider is uncertain",
     description:
-      "The provider returns UNKNOWN until you approve or decline it.",
+      "The provider cannot establish a final result; reconciliation preserves UNKNOWN.",
   },
 ];

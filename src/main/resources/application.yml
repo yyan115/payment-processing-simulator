@@ -25,6 +25,11 @@ payments:
     enabled: ${DEMO_ENABLED:false}
     session-seconds: ${DEMO_SESSION_SECONDS:900}
     max-payouts: ${DEMO_MAX_PAYOUTS:40}
+    turnstile-required: ${TURNSTILE_REQUIRED:false}
+    turnstile-site-key: ${TURNSTILE_SITE_KEY:}
+    turnstile-secret: ${TURNSTILE_SECRET_KEY:}
+    turnstile-hostname: ${TURNSTILE_HOSTNAME:}
+    mastercard-calls-per-session: ${DEMO_MASTERCARD_CALLS_PER_SESSION:10}
     mastercard-calls-per-minute: ${DEMO_MASTERCARD_CALLS_PER_MINUTE:12}
     mastercard-calls-per-day: ${DEMO_MASTERCARD_CALLS_PER_DAY:100}
   reconciliation:
