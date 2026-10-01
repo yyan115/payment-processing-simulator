@@ -289,3 +289,80 @@ test("Mastercard configuration removes simulator scenarios", async ({
   await page.getByLabel("Provider", { exact: true }).selectOption("simulated");
   await expect(page.getByLabel("Scenario", { exact: true })).toBeVisible();
 });
+
+test("bot verification gates Mastercard, supports retry and leaves simulation open", async ({
+  page,
+}) => {
+  await page.route("**/api/v1/config", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: { ...(await response.json()), mastercardAvailable: true },
+    });
+  });
+  let verified = false;
+  let submissions = 0;
+  await page.route("**/api/v1/sandbox-verification", async (route) => {
+    if (route.request().method() === "POST") {
+      expect(route.request().postDataJSON()).toEqual({
+        token: "fixture-token",
+      });
+      if (++submissions === 1) {
+        await route.fulfill({
+          status: 403,
+          json: { message: "Verification failed. Please try again." },
+        });
+        return;
+      }
+      verified = true;
+    }
+    await route.fulfill({
+      json: { required: true, siteKey: "fixture-public", verified },
+    });
+  });
+  await page.route(
+    "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit",
+    (route) =>
+      route.fulfill({
+        contentType: "application/javascript",
+        body: `window.turnstile = {
+    render(node, options) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.textContent = 'Complete test verification';
+      button.onclick = () => options.callback('fixture-token');
+      node.appendChild(button); window.fixtureWidget = node; return 'fixture-widget';
+    },
+    remove() { window.fixtureWidget?.replaceChildren(); }
+  };`,
+      }),
+  );
+  await open(page);
+  const sendButton = page.getByRole("button", {
+    name: "Send payment",
+    exact: true,
+  });
+  await page.getByLabel("Provider", { exact: true }).selectOption("mastercard");
+  await expect(sendButton).toBeDisabled();
+  await page.getByLabel("Provider", { exact: true }).selectOption("simulated");
+  await expect(sendButton).toBeEnabled();
+  await page.getByLabel("Provider", { exact: true }).selectOption("mastercard");
+  await page
+    .getByRole("button", { name: "Complete test verification" })
+    .click();
+  await expect(page.getByRole("alert")).toContainText("Verification failed");
+  await expect(sendButton).toBeDisabled();
+  await page.getByRole("button", { name: "Retry verification" }).click();
+  await page
+    .getByRole("button", { name: "Complete test verification" })
+    .click();
+  await expect(
+    page.getByText("Session verified", { exact: true }),
+  ).toBeVisible();
+  await expect(sendButton).toBeEnabled();
+  await page.reload();
+  await page.getByLabel("Provider", { exact: true }).selectOption("mastercard");
+  await expect(
+    page.getByText("Session verified", { exact: true }),
+  ).toBeVisible();
+  await expect(sendButton).toBeEnabled();
+});
