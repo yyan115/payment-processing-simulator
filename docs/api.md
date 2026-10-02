@@ -1,6 +1,6 @@
 # Payout API walkthrough
 
-Start the application with `docker compose up --build`. Demo mode requires a workspace cookie; the browser handles this automatically. For curl:
+Start the application with `docker compose up --build`. Demo mode requires a workspace. The browser sends its own workspace id in the `X-Workspace-Id` header, which `POST /workspace` returns as `id`. Without the header, the workspace cookie is used. For curl:
 
 ```bash
 COOKIE_JAR=$(mktemp)

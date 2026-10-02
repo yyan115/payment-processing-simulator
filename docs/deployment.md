@@ -21,6 +21,10 @@ Deploy. Flyway retries a temporarily unavailable database before creating or upd
 
 Free apps sleep after inactivity. Blitz displays its own waking page before our app can load. Once our UI loads, connection failures are checked automatically with backoff. A payment whose HTTP response was lost keeps its original idempotency key and offers **Resume unfinished request**, preventing an accidental new payment.
 
+## Visa sandbox
+
+The eight `VISA_*` settings in [Visa setup](visa.md) are server-only. Upload the certificates and keys as base64 values. The default budgets and verification below apply to Visa and Mastercard calls alike.
+
 ## Mastercard sandbox
 
 Configure the server-only settings in [Mastercard setup](mastercard.md). Upload the signing container as `MASTERCARD_P12_BASE64`; the runtime decodes it into a private temporary file. Never place credentials in frontend build variables or Git. The adapter accepts sandbox hosts only.

@@ -55,7 +55,7 @@ Provider routing follows the payout’s stored selection. Simulated snapshots in
 
 ## Public demo
 
-A random HttpOnly, SameSite=Strict cookie identifies an isolated workspace. The cookie is a browser-session cookie, so the workspace ends when the browser closes; the server also expires a workspace after 6 hours without requests, and each request extends that allowance. Resource access checks ownership, lists are scoped, and idempotency keys are namespaced. Quotas bound payouts, admissions and requests. Expired workspaces are removed in batches after a grace period; reset does not undo external sandbox transactions.
+A random workspace id identifies an isolated workspace. Each page keeps its id in tab storage and sends it in the X-Workspace-Id header, so every tab has its own workspace and a refresh starts a new one. Without the header the server falls back to a browser-session cookie, which is how curl and the API examples work. The server expires a workspace after 6 hours without requests, and each request extends that allowance. A workspace with no payments expires after 30 minutes instead, since it holds nothing, and at most 3000 workspaces are live at once. Resource access checks ownership, lists are scoped, and idempotency keys are namespaced. Quotas bound payouts, admissions and requests. Expired workspaces are removed in batches after a grace period; reset does not undo external sandbox transactions.
 
 The database also stores shared and per-session Mastercard call budgets. Optional Turnstile validation grants external-provider access only until the workspace expires. The adapter accepts sandbox hosts only, and signing credentials stay on the server.
 
