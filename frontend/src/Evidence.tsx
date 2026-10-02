@@ -20,7 +20,7 @@ export function LedgerView({ snapshot }: { snapshot: Snapshot | null }) {
       <div className="journal-title">
         <span>
           <CheckCircle2 size={16} />
-          Payout journal
+          Ledger entry
         </span>
         <code>{shortId(ledger.id)}</code>
       </div>

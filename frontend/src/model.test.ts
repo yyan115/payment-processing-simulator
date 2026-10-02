@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { minorUnits, normalizeIntent } from "./model";
+import {
+  minorUnits,
+  normalizeIntent,
+  participants,
+  recipientAfterSenderChange,
+  recipientsFor,
+  scenarios,
+} from "./model";
 describe("money at the API boundary", () => {
   it.each([
     ["0.01", "USD", 1n],
@@ -36,4 +43,35 @@ describe("money at the API boundary", () => {
       currency: "USD",
       provider: "mastercard",
     }));
+});
+
+describe("participants", () => {
+  it("never offers the sender as a recipient", () => {
+    for (const sender of participants)
+      expect(recipientsFor(sender)).not.toContain(sender);
+  });
+  it("moves the recipient when the sender becomes the same person", () => {
+    for (const sender of participants)
+      for (const recipient of participants) {
+        const next = recipientAfterSenderChange(sender, recipient);
+        expect(next).not.toBe(sender);
+        expect(recipientsFor(sender)).toContain(next);
+        if (recipient !== sender) expect(next).toBe(recipient);
+      }
+  });
+});
+describe("scenario descriptions", () => {
+  it("name the people and amount and use the real payment terms", () => {
+    const party = { from: "Jane Tan", to: "John Lim", amount: "SGD 100.00" };
+    expect(new Set(scenarios.map((s) => s.name)).size).toBe(6);
+    for (const s of scenarios) {
+      expect(s.summary.endsWith(".")).toBe(true);
+      const text = s.explanation(party);
+      expect(text).toContain("Jane Tan sends John Lim SGD 100.00");
+      expect(text).toMatch(/SUCCEEDED|FAILED|UNKNOWN/);
+    }
+    const lost = scenarios.find((s) => s.id === "TIMEOUT_AFTER_SUCCESS");
+    expect(lost?.explanation(party)).toContain("reconciles");
+    expect(scenarios[0].explanation(party)).toContain("idempotency key");
+  });
 });

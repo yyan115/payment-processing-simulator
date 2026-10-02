@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, Github, Moon, Sun, LoaderCircle } from "lucide-react";
 import { HttpEngine, observeRequests } from "./http-engine";
-import { ApiError, money, normalizeIntent, scenarios } from "./model";
+import {
+  ApiError,
+  money,
+  normalizeIntent,
+  participants,
+  recipientAfterSenderChange,
+  recipientsFor,
+  scenarios,
+} from "./model";
 import type {
   Configuration,
   Mode,
@@ -12,9 +20,11 @@ import type {
 } from "./model";
 import Verification from "./Verification";
 import { runPayment } from "./workflow";
-import type { Run } from "./workflow";
+import type { Run, Step } from "./workflow";
+import { Flow, viewOf } from "./Flow";
 import { LedgerView } from "./Evidence";
-import { eventText, time } from "./presentation";
+import { eventText, networkStatusText, time } from "./presentation";
+import { sleep, stepDelay } from "./pace";
 const engine = new HttpEngine();
 function read<T>(key: string, fallback: T): T {
   try {
@@ -30,13 +40,16 @@ function store(key: string, value: unknown) {
     /* The server remains authoritative when storage is unavailable. */
   }
 }
+// The statuses are the payment platform's own state names.
 const statusText = {
-  CREATED: "Accepted",
-  PROCESSING: "Processing",
-  SUCCEEDED: "Succeeded",
-  FAILED: "Declined",
-  UNKNOWN: "Unresolved",
+  CREATED: "CREATED",
+  PROCESSING: "PROCESSING",
+  SUCCEEDED: "SUCCEEDED",
+  FAILED: "FAILED",
+  UNKNOWN: "UNKNOWN",
 };
+const sessionEnded =
+  "Your previous session ended after a period of inactivity, so its history was cleared.";
 export default function App() {
   const [theme, setTheme] = useState(
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
@@ -50,24 +63,21 @@ export default function App() {
     (ready: boolean) => setVerified(ready),
     [],
   );
-  const [latest, setLatest] = useState<Snapshot | null>(null);
   const [mode, setMode] = useState<Mode>("simulated");
   const [scenario, setScenario] = useState<Outcome>("TIMEOUT_AFTER_SUCCESS");
-  const [participants, setParticipants] = useState<string[]>(() =>
-    read("participants", ["Jane Tan", "John Lim", "Alex Morgan"]),
-  );
-  const [sender, setSender] = useState("Jane Tan"),
-    [recipient, setRecipient] = useState("John Lim");
-  const [name, setName] = useState(""),
-    [amount, setAmount] = useState("100.00");
+  const [sender, setSender] = useState<string>(participants[0]),
+    [recipient, setRecipient] = useState<string>(participants[1]);
+  const [amount, setAmount] = useState("100.00");
   const [items, setItems] = useState<Payout[]>([]),
     [total, setTotal] = useState(0),
     [page, setPage] = useState(0);
   const [snapshots, setSnapshots] = useState<Record<string, Snapshot>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState(false),
-    [message, setMessage] = useState(""),
     [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [steps, setSteps] = useState<Step[]>([]),
+    [trace, setTrace] = useState({ title: "", mode: "simulated" as Mode });
   const [traceMap, setTraceMap] = useState<Record<string, Trace[]>>(() =>
     read("payment-requests", {}),
   );
@@ -76,6 +86,7 @@ export default function App() {
     locked = useRef(false),
     mounted = useRef(true),
     connectionPromise = useRef<Promise<boolean> | null>(null);
+  const traceEnd = useRef<HTMLDivElement>(null);
   const save = () => store("payment-runs", runs.current);
   const refresh = useCallback(async (listPage = 0) => {
     const list = await engine.list(listPage);
@@ -110,25 +121,31 @@ export default function App() {
       }),
     [],
   );
+  // Keep the newest step in view, so the viewer can follow along.
+  useEffect(() => {
+    traceEnd.current?.scrollIntoView?.({
+      block: "nearest",
+      behavior: "smooth",
+    });
+  }, [steps.length]);
   const connect = useCallback(
     (reset = false): Promise<boolean> => {
       if (connectionPromise.current) return connectionPromise.current;
       const task = (async () => {
         try {
           const workspace = await engine.workspace(reset);
-          const identity = workspace.expiresAt
-            ? String(Math.floor(Date.parse(workspace.expiresAt) / 1000))
-            : "persistent";
+          // The start time identifies the session; it does not change while it is in use.
+          const identity = workspace.startedAt ?? "persistent";
           const old = read<string | null>("workspace-identity", null);
           if (reset || (old && old !== identity)) {
             runs.current = {};
             save();
             setSnapshots({});
-            setLatest(null);
+            setSteps([]);
             setExpanded(null);
             setTraceMap({});
             store("payment-requests", {});
-            setMessage("Previous session expired. A fresh session is ready.");
+            setNotice(reset ? "" : sessionEnded);
           }
           store("workspace-identity", identity);
           const configuration = await engine.config();
@@ -178,15 +195,18 @@ export default function App() {
     }, 10000);
     return () => clearInterval(timer);
   }, [connection, connect]);
-  const progress = async (snapshot: Snapshot, text: string) => {
+  const progress = async (snapshot: Snapshot | null, step: Step) => {
     if (!mounted.current) return;
-    setLatest(snapshot);
-    setSnapshots((previous) => ({
-      ...previous,
-      [snapshot.payout.id]: snapshot,
-    }));
-    setMessage(text);
-    await refresh();
+    setSteps((previous) => [...previous, step]);
+    if (snapshot) {
+      setSnapshots((previous) => ({
+        ...previous,
+        [snapshot.payout.id]: snapshot,
+      }));
+      await refresh();
+    }
+    if (!step.final)
+      await sleep(stepDelay(active.current?.intent.provider ?? "simulated"));
   };
   const execute = async (run: Run) => {
     if (locked.current) return;
@@ -194,14 +214,22 @@ export default function App() {
     active.current = run;
     setBusy(true);
     setError("");
-    setMessage("Sending payment…");
+    setNotice("");
+    setTrace({
+      title: `${run.sender} → ${run.intent.recipientReference} · ${money(run.intent.amount, run.intent.currency)}${
+        run.intent.provider === "simulated"
+          ? ` · ${scenarios.find((s) => s.id === run.scenario)?.name}`
+          : ""
+      }`,
+      mode: run.intent.provider,
+    });
     try {
       await runPayment(engine, run, save, progress);
       await refresh();
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 410) {
         await connect();
-        setError("Session expired. The previous payment was not repeated.");
+        setNotice(sessionEnded);
       } else {
         setError(
           failure instanceof Error ? failure.message : "Request failed.",
@@ -212,10 +240,12 @@ export default function App() {
       // Never automatically create a fresh payment after an ambiguous network result.
       if (run.id) {
         try {
-          await progress(
-            await engine.snapshot(run.id),
-            "Latest saved payment status.",
-          );
+          const saved = await engine.snapshot(run.id);
+          setSnapshots((previous) => ({
+            ...previous,
+            [saved.payout.id]: saved,
+          }));
+          await refresh();
         } catch {}
       }
     } finally {
@@ -235,8 +265,6 @@ export default function App() {
         );
         return;
       }
-      if (sender === recipient)
-        throw new Error("Choose different sender and recipient.");
       const run: Run = {
         key: `demo-${crypto.randomUUID()}`,
         intent: normalizeIntent({
@@ -250,6 +278,7 @@ export default function App() {
       };
       runs.current[run.key] = run;
       save();
+      setSteps([]);
       void execute(run);
     } catch (failure) {
       setError(
@@ -276,12 +305,16 @@ export default function App() {
     }
   };
   const unfinished = Object.values(runs.current).find((run) => !run.complete);
+  const party = {
+    from: sender,
+    to: recipient,
+    amount: money(amount || "0", "SGD"),
+  };
   return (
     <main className="demo-shell">
       <header className="site-header">
         <div>
           <h1>Payment simulator</h1>
-          <span className="demo-label">Demo · test funds</span>
         </div>
         <div className="header-tools">
           <a
@@ -305,6 +338,13 @@ export default function App() {
           </button>
         </div>
       </header>
+      <p className="intro">
+        This simulator sends a test payment and shows how a payment system deals
+        with things going wrong. Every payment involves two parties: the payment
+        platform, which sends the payment and keeps the records, and the payment
+        network, which moves the money. Choose a scenario, then send the payment
+        to see each step.
+      </p>
       <section className="workspace" aria-label="Payment workspace">
         <div className="connection" role="status">
           <span className={`dot ${connection}`} />
@@ -333,13 +373,19 @@ export default function App() {
           }}
         >
           <fieldset disabled={busy || connection !== "ready"}>
+            <h2 className="section-label">Payment</h2>
             <div className="form-row">
               <label>
                 From
                 <select
                   aria-label="From"
                   value={sender}
-                  onChange={(e) => setSender(e.target.value)}
+                  onChange={(e) => {
+                    setSender(e.target.value);
+                    setRecipient(
+                      recipientAfterSenderChange(e.target.value, recipient),
+                    );
+                  }}
                 >
                   {participants.map((p) => (
                     <option key={p}>{p}</option>
@@ -353,39 +399,12 @@ export default function App() {
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value)}
                 >
-                  {participants.map((p) => (
+                  {recipientsFor(sender).map((p) => (
                     <option key={p}>{p}</option>
                   ))}
                 </select>
               </label>
             </div>
-            <details className="participant-add">
-              <summary>Add participant</summary>
-              <div>
-                <input
-                  aria-label="Participant name"
-                  placeholder="Name"
-                  maxLength={60}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-                <button
-                  type="button"
-                  disabled={!name.trim() || participants.length >= 10}
-                  onClick={() => {
-                    const value = name.trim();
-                    if (!value || participants.includes(value)) return;
-                    const next = [...participants, value];
-                    setParticipants(next);
-                    store("participants", next);
-                    setRecipient(value);
-                    setName("");
-                  }}
-                >
-                  Add
-                </button>
-              </div>
-            </details>
             <div className="form-row">
               <label>
                 Amount ({mode === "mastercard" ? "USD" : "SGD"})
@@ -398,9 +417,9 @@ export default function App() {
                 />
               </label>
               <label>
-                Provider
+                Payment network
                 <select
-                  aria-label="Provider"
+                  aria-label="Payment network"
                   value={mode}
                   onChange={(e) => {
                     setMode(e.target.value as Mode);
@@ -409,7 +428,7 @@ export default function App() {
                     );
                   }}
                 >
-                  <option value="simulated">Simulated provider</option>
+                  <option value="simulated">Simulated network</option>
                   <option
                     value="mastercard"
                     disabled={!config?.mastercardAvailable}
@@ -421,24 +440,54 @@ export default function App() {
               </label>
             </div>
             {mode === "simulated" ? (
-              <label>
-                Scenario
-                <select
-                  aria-label="Scenario"
-                  value={scenario}
-                  onChange={(e) => setScenario(e.target.value as Outcome)}
-                >
-                  {scenarios.map((s) => (
-                    <option value={s.id} key={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div
+                className="scenarios"
+                role="radiogroup"
+                aria-labelledby="scenario-label"
+              >
+                <h2 className="section-label" id="scenario-label">
+                  Scenario
+                </h2>
+                {scenarios.map((s) => {
+                  const on = scenario === s.id;
+                  return (
+                    <div key={s.id} className={on ? "option on" : "option"}>
+                      <label>
+                        <input
+                          type="radio"
+                          name="scenario"
+                          value={s.id}
+                          checked={on}
+                          onChange={() => setScenario(s.id)}
+                          aria-labelledby={`${s.id}-name`}
+                          aria-describedby={`${s.id}-summary`}
+                        />
+                        <span>
+                          <span className="option-name" id={`${s.id}-name`}>
+                            {s.name}
+                          </span>
+                          <span
+                            className="option-summary"
+                            id={`${s.id}-summary`}
+                          >
+                            {s.summary}
+                          </span>
+                        </span>
+                      </label>
+                      {on && (
+                        <p className="scenario-explanation">
+                          {s.explanation(party)}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               <p className="field-note">
-                Official sandbox test accounts · USD · no real money moves.
-                Participant names are demo labels.
+                This sends a request to Mastercard’s sandbox, a test environment
+                that uses Mastercard’s official test accounts. Amounts are in
+                USD and no real money moves. The names above are labels only.
               </p>
             )}
             {mode === "mastercard" && (
@@ -459,31 +508,35 @@ export default function App() {
             </button>
           </fieldset>
         </form>
-        {latest && (
-          <div className="latest-result" aria-label="Latest payment result">
-            <strong>
-              {money(latest.payout.amount, latest.payout.currency)} ·{" "}
-              {statusText[latest.payout.status]}
-            </strong>
-            <div>
-              Payment engine: <code>{latest.payout.status}</code>
-            </div>
-            {latest.payout.provider === "simulated" && (
-              <div>
-                Provider:{" "}
-                <code>{latest.provider?.status ?? "No payment record"}</code>
-              </div>
-            )}
-            <div>Reconciliation checks: {latest.attempts.length}</div>
-            <div>
-              Ledger:{" "}
-              {latest.ledger ? "2 balanced entries" : "No entries posted"}
-            </div>
-          </div>
+        {steps.length > 0 && (
+          <section className="trace" aria-label="Payment progress">
+            <h2>{trace.title}</h2>
+            <Flow
+              view={viewOf(steps)}
+              network={
+                trace.mode === "mastercard"
+                  ? "Mastercard sandbox"
+                  : "Payment network"
+              }
+              working={busy}
+            />
+            <ol className="timeline" aria-live="polite">
+              {steps.map((step, i) => (
+                <li
+                  key={i}
+                  className={`${step.final ? "final " : ""}${step.tone ?? "neutral"}`}
+                >
+                  <strong>{step.title}</strong>
+                  <p>{step.detail}</p>
+                </li>
+              ))}
+            </ol>
+            <div ref={traceEnd} />
+          </section>
         )}
-        {message && (
-          <p role="status" className="operation-status">
-            {message}
+        {notice && (
+          <p role="status" className="notice">
+            {notice}
           </p>
         )}
         {error && (
@@ -556,11 +609,11 @@ export default function App() {
                               </dd>
                             </>
                           )}
-                          <dt>Provider</dt>
+                          <dt>Payment network</dt>
                           <dd>
                             {payment.provider === "mastercard"
                               ? "Mastercard sandbox"
-                              : "Simulated provider"}
+                              : "Simulated network"}
                           </dd>
                           {run?.intent.provider === "simulated" && (
                             <>
@@ -576,13 +629,13 @@ export default function App() {
                         </dl>
                         <p className="field-note">
                           {run?.complete
-                            ? "Idempotency verified: repeating the creation request returned this same payment."
-                            : "The idempotency key identifies the original creation request."}
+                            ? "Idempotency verified: repeating the request returned this same payment."
+                            : "The idempotency key identifies the original request."}
                         </p>
                         <h3>Events</h3>
                         <ol className="events">
                           <li>
-                            <span>Payment accepted</span>
+                            <span>Payment created</span>
                             <time>{time(payment.createdAt)}</time>
                           </li>
                           {snapshot.events.map((e) => (
@@ -600,10 +653,10 @@ export default function App() {
                           {snapshot.attempts.map((a) => (
                             <li key={a.id}>
                               <span>
-                                Reconciliation:{" "}
-                                {a.providerRecordFound
-                                  ? `provider reported ${a.providerStatus}`
-                                  : "no provider record found"}
+                                Checked with the network:{" "}
+                                {a.providerRecordFound && a.providerStatus
+                                  ? networkStatusText[a.providerStatus]
+                                  : "it has no record of this payment"}
                               </span>
                               <time>{time(a.createdAt)}</time>
                             </li>
@@ -686,7 +739,7 @@ export default function App() {
         )}
       </section>
       <footer>
-        Temporary payment records · no real funds ·{" "}
+        Test payments only. No real money moves.{" "}
         <button
           disabled={busy || connection !== "ready"}
           onClick={() => {

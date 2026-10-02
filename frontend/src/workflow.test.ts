@@ -2,10 +2,21 @@ import { describe, it, expect, vi } from "vitest";
 import { runPayment } from "./workflow";
 import type { Run } from "./workflow";
 import type { Engine, Outcome, Snapshot } from "./model";
+import type { Step } from "./workflow";
 function fixture(scenario: Outcome) {
   let status: Snapshot["payout"]["status"] = "CREATED";
   let provider: Snapshot["provider"] = null;
   let sent = 0;
+  const events: Snapshot["events"] = [];
+  const attempts: Snapshot["attempts"] = [];
+  const event = (eventType: string) =>
+    events.push({
+      id: `e${events.length}`,
+      eventType,
+      fromStatus: "PROCESSING",
+      toStatus: status,
+      createdAt: `2026-01-01T00:00:0${events.length}Z`,
+    });
   const snapshot = (): Snapshot => ({
     payout: {
       id: "one",
@@ -20,8 +31,8 @@ function fixture(scenario: Outcome) {
     },
     provider,
     ledger: null,
-    events: [],
-    attempts: [],
+    events: [...events],
+    attempts: [...attempts],
   });
   const engine = {
     create: vi.fn(async () => ({ created: false, payout: snapshot().payout })),
@@ -35,6 +46,17 @@ function fixture(scenario: Outcome) {
           : scenario === "DECLINED"
             ? "FAILED"
             : "UNKNOWN";
+      event(
+        scenario === "SUCCESS"
+          ? "PROVIDER_SUCCEEDED"
+          : scenario === "DECLINED"
+            ? "PROVIDER_DECLINED"
+            : scenario === "PENDING"
+              ? "PROVIDER_PENDING"
+              : scenario === "UNKNOWN"
+                ? "PROVIDER_UNKNOWN"
+                : "PROVIDER_TIMEOUT",
+      );
       provider =
         scenario === "TIMEOUT_BEFORE_PROCESSING"
           ? null
@@ -52,10 +74,18 @@ function fixture(scenario: Outcome) {
     }),
     reconcile: vi.fn(async () => {
       if (provider?.status === "SUCCEEDED") status = "SUCCEEDED";
+      attempts.push({
+        id: `a${attempts.length}`,
+        providerRecordFound: !!provider,
+        providerStatus: provider?.status ?? null,
+        outcome: "",
+        createdAt: `2026-01-01T00:01:0${attempts.length}Z`,
+      });
     }),
     retry: vi.fn(async () => {
       sent++;
       status = "SUCCEEDED";
+      event("PROVIDER_RETRY_SUCCEEDED");
       provider = { providerReference: "provider-one", status: "SUCCEEDED" };
     }),
     advance: vi.fn(async () => {
@@ -83,6 +113,33 @@ function fixture(scenario: Outcome) {
     },
   };
 }
+// What a viewer reads for each scenario, in the order it happens.
+const expected = {
+  SUCCESS: {
+    story: "The network approved the payment",
+    final: "Result: SUCCEEDED",
+  },
+  DECLINED: {
+    story: "The network declined the payment",
+    final: "Result: FAILED",
+  },
+  TIMEOUT_AFTER_SUCCESS: {
+    story: "its response was lost",
+    final: "Result: SUCCEEDED",
+  },
+  TIMEOUT_BEFORE_PROCESSING: {
+    story: "so no money moved and it is safe to send again",
+    final: "Result: SUCCEEDED",
+  },
+  PENDING: {
+    story: "still being processed",
+    final: "Result: SUCCEEDED",
+  },
+  UNKNOWN: {
+    story: "still cannot report a result",
+    final: "Result: UNKNOWN",
+  },
+} as const;
 describe("automatic payment workflow", () => {
   for (const [scenario, status] of [
     ["SUCCESS", "SUCCEEDED"],
@@ -94,9 +151,9 @@ describe("automatic payment workflow", () => {
   ] as const) {
     it(scenario, async () => {
       const f = fixture(scenario);
-      const updates: Snapshot[] = [];
-      const result = await runPayment(f.engine, f.run, vi.fn(), (s) => {
-        updates.push(s);
+      const steps: Step[] = [];
+      const result = await runPayment(f.engine, f.run, vi.fn(), (_, step) => {
+        steps.push(step);
       });
       expect(result.payout.status).toBe(status);
       expect(f.run.complete).toBe(true);
@@ -105,7 +162,19 @@ describe("automatic payment workflow", () => {
         "original-key",
         f.run.intent,
       );
-      expect(updates.length).toBeGreaterThan(1);
+      expect(steps.length).toBeGreaterThan(2);
+      expect(steps.filter((step) => step.final)).toHaveLength(1);
+      expect(steps.at(-1)?.final).toBe(true);
+      expect(steps.at(-1)?.title).toBe(expected[scenario].final);
+      expect(steps.map((step) => step.detail).join("\n")).toContain(
+        expected[scenario].story,
+      );
+      expect(steps.some((step) => step.title === "Payment sent again")).toBe(
+        scenario === "TIMEOUT_BEFORE_PROCESSING",
+      );
+      // Duplicate protection is always shown, and names the idempotency key.
+      const duplicate = steps.find((s) => s.title === "Duplicate protection");
+      expect(duplicate?.detail).toContain("idempotency key");
       if (scenario === "TIMEOUT_AFTER_SUCCESS")
         expect(f.engine.retry).not.toHaveBeenCalled();
       if (scenario === "UNKNOWN")
@@ -159,9 +228,39 @@ describe("automatic payment workflow", () => {
     const result = await runPayment(f.engine, f.run, vi.fn(), progress);
     expect(result.payout.status).toBe("SUCCEEDED");
     expect(f.run.complete).toBe(true);
-    expect(progress.mock.calls.at(-1)?.[1]).toContain(
-      "Status lookup unavailable",
-    );
+    expect(
+      progress.mock.calls.some(([, step]) =>
+        (step as Step).detail.includes("status lookup was unavailable"),
+      ),
+    ).toBe(true);
     expect(f.sent()).toBe(1);
+  });
+});
+
+describe("what the diagram shows", () => {
+  it("response lost: the network shows completed while the platform shows UNKNOWN", async () => {
+    const f = fixture("TIMEOUT_AFTER_SUCCESS");
+    const steps: Step[] = [];
+    await runPayment(f.engine, f.run, vi.fn(), (_, step) => {
+      steps.push(step);
+    });
+    const lost = steps.find((s) => s.title === "No response");
+    expect(lost?.network?.text).toBe("Payment completed");
+    expect(lost?.platform?.text).toBe("UNKNOWN");
+    expect(lost?.arrow).toMatchObject({ dir: "to-platform", lost: true });
+    expect(f.sent()).toBe(1);
+  });
+  it("request lost: the request itself is shown not arriving", async () => {
+    const f = fixture("TIMEOUT_BEFORE_PROCESSING");
+    const steps: Step[] = [];
+    await runPayment(f.engine, f.run, vi.fn(), (_, step) => {
+      steps.push(step);
+    });
+    expect(steps[0].arrow).toMatchObject({ dir: "to-network", lost: true });
+    expect(steps[0].network?.text).toBe("No record");
+    expect(steps.filter((s) => s.title === "Payment sent again")).toHaveLength(
+      1,
+    );
+    expect(f.sent()).toBe(2);
   });
 });

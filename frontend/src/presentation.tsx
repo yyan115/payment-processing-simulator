@@ -1,47 +1,28 @@
-export const labels: Record<string, string> = {
-  CREATED: "Created",
-  PROCESSING: "Processing",
-  SUCCEEDED: "Succeeded",
-  FAILED: "Failed",
-  UNKNOWN: "Unknown",
-  DECLINED: "Declined",
-  PENDING: "Pending",
-};
 export const eventText: Record<string, string> = {
-  PROCESSING_STARTED: "Processing started",
-  PROVIDER_SUCCEEDED: "Provider confirmed success",
-  PROVIDER_DECLINED: "Provider declined payout",
-  PROVIDER_TIMEOUT: "Provider response unavailable",
-  PROVIDER_PENDING: "Provider pending",
-  PROVIDER_UNKNOWN: "Provider outcome unknown",
-  PROVIDER_REJECTED: "Request rejected",
-  PROVIDER_RETRY_SUCCEEDED: "Retry confirmed success",
-  PROVIDER_RETRY_DECLINED: "Retry confirmed decline",
-  PROVIDER_RETRY_TIMEOUT: "Retry response unavailable",
-  PROVIDER_RETRY_REJECTED: "Retry rejected",
-  PROVIDER_RETRY_PENDING: "Retry pending",
-  PROVIDER_RETRY_UNKNOWN: "Retry outcome unknown",
-  RECONCILIATION_SUCCEEDED: "Reconciliation confirmed success",
-  RECONCILIATION_FAILED: "Reconciliation confirmed decline",
-  RECONCILIATION_UNRESOLVED: "Reconciliation unresolved",
+  PROCESSING_STARTED: "Payment sent to the network",
+  PROVIDER_SUCCEEDED: "The network approved the payment",
+  PROVIDER_DECLINED: "The network declined the payment",
+  PROVIDER_TIMEOUT: "No response from the network",
+  PROVIDER_PENDING: "The network is still processing the payment",
+  PROVIDER_UNKNOWN: "The network could not give a result",
+  PROVIDER_REJECTED: "The network rejected the request",
+  PROVIDER_RETRY_SUCCEEDED: "Payment sent again, and the network approved it",
+  PROVIDER_RETRY_DECLINED: "Payment sent again, and the network declined it",
+  PROVIDER_RETRY_TIMEOUT: "Payment sent again, with no response",
+  PROVIDER_RETRY_REJECTED: "Payment sent again, and the request was rejected",
+  PROVIDER_RETRY_PENDING: "Payment sent again, and it is still processing",
+  PROVIDER_RETRY_UNKNOWN: "Payment sent again, and the network gave no result",
+  RECONCILIATION_SUCCEEDED: "Checked with the network: the payment was made",
+  RECONCILIATION_FAILED: "Checked with the network: the payment was refused",
+  RECONCILIATION_UNRESOLVED: "Checked with the network: still no result",
 };
-export const statusClass = (status?: string) =>
-  status === "SUCCEEDED"
-    ? "positive"
-    : status === "FAILED" || status === "DECLINED"
-      ? "negative"
-      : status === "UNKNOWN" || status === "PENDING"
-        ? "warning"
-        : "neutral";
+export const networkStatusText = {
+  SUCCEEDED: "the payment was made",
+  DECLINED: "the payment was refused",
+  PENDING: "it is still processing",
+  UNKNOWN: "no result is available",
+} as const;
 export const shortId = (id: string) => `${id.slice(0, 8)}…${id.slice(-4)}`;
-export function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={`status ${statusClass(status)}`}>
-      <span />
-      {labels[status] ?? status}
-    </span>
-  );
-}
 export function time(value: string) {
   return new Date(value).toLocaleTimeString("en-SG", {
     hour: "2-digit",
