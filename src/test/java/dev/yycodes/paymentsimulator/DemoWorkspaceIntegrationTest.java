@@ -172,6 +172,39 @@ class DemoWorkspaceIntegrationTest {
     }
 
     @Test
+    void activityKeepsTheSessionAliveAndTheCookieEndsWithTheBrowser() throws Exception {
+        var opened = request("POST", "/api/v1/workspace", null, null, null);
+        String header = opened.headers().firstValue("set-cookie").orElseThrow();
+        assertThat(header).doesNotContainIgnoringCase("Max-Age").doesNotContainIgnoringCase("Expires");
+        String cookie = header.split(";", 2)[0];
+        UUID session = UUID.fromString(cookie.substring(cookie.indexOf('=') + 1));
+        // A session close to its inactivity limit is extended by ordinary use.
+        jdbc.update(
+                "UPDATE demo_sessions SET expires_at=CURRENT_TIMESTAMP+INTERVAL '2 minutes' WHERE"
+                    + " id=?",
+                session);
+        assertThat(request("GET", "/api/v1/payouts", cookie, null, null).statusCode())
+                .isEqualTo(200);
+        var expires =
+                jdbc.queryForObject(
+                        "SELECT expires_at FROM demo_sessions WHERE id=?",
+                        java.sql.Timestamp.class,
+                        session)
+                        .toInstant();
+        assertThat(expires).isAfter(java.time.Instant.now().plus(java.time.Duration.ofMinutes(20)));
+        // The session keeps one identity however often it is extended.
+        String first =
+                json.readTree(request("POST", "/api/v1/workspace", cookie, null, null).body())
+                        .path("startedAt")
+                        .asText();
+        String second =
+                json.readTree(request("POST", "/api/v1/workspace", cookie, null, null).body())
+                        .path("startedAt")
+                        .asText();
+        assertThat(first).isNotEmpty().isEqualTo(second);
+    }
+
+    @Test
     void expiryBlocksAccessAndCleanupRemovesOnlyExpiredDemoRecords() throws Exception {
         String expired = workspace(), active = workspace();
         String id = create(expired, "expired"), retained = create(active, "active");

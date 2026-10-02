@@ -27,6 +27,7 @@ public class DemoWorkspace {
     private final JdbcTemplate jdbc;
     private final SimulationScenarioRegistry scenarios;
     private final boolean enabled;
+    // Inactivity allowance: every request extends it, so an active visitor never expires.
     private final int seconds;
     private final int maxPayouts;
 
@@ -34,7 +35,7 @@ public class DemoWorkspace {
             JdbcTemplate jdbc,
             SimulationScenarioRegistry scenarios,
             @Value("${payments.demo.enabled:false}") boolean enabled,
-            @Value("${payments.demo.session-seconds:900}") int seconds,
+            @Value("${payments.demo.session-seconds:1800}") int seconds,
             @Value("${payments.demo.max-payouts:40}") int maxPayouts) {
         this.jdbc = jdbc;
         this.scenarios = scenarios;
@@ -90,8 +91,26 @@ public class DemoWorkspace {
         if (expires == null || !expires.isAfter(Instant.now()))
             throw new DemoException(
                     410, "Your workspace has expired. Start a new workspace to continue.");
+        touch(id);
         request.setAttribute(ATTRIBUTE, id);
         return id;
+    }
+
+    // Pushes the expiry back after activity. Skips the write unless it moves by a minute or more.
+    private void touch(UUID id) {
+        Instant next = Instant.now().plusSeconds(seconds);
+        jdbc.update(
+                "UPDATE demo_sessions SET expires_at=? WHERE id=? AND expires_at<?",
+                Timestamp.from(next),
+                id,
+                Timestamp.from(next.minusSeconds(60)));
+    }
+
+    private Instant startedAt(UUID id) {
+        return jdbc.queryForObject(
+                "SELECT created_at FROM demo_sessions WHERE id=?",
+                (rs, n) -> rs.getTimestamp(1).toInstant(),
+                id);
     }
 
     public void assertOwn(Payout payout) {
@@ -101,7 +120,7 @@ public class DemoWorkspace {
 
     @Transactional
     public Workspace open(HttpServletRequest request, HttpServletResponse response, boolean reset) {
-        if (!enabled) return new Workspace(false, null, 0, maxPayouts);
+        if (!enabled) return new Workspace(false, null, 0, maxPayouts, null);
         // Serialize admissions across application instances, bounding public demo storage.
         jdbc.execute("SELECT pg_advisory_xact_lock(782145991)");
         UUID id = cookieId(request);
@@ -113,7 +132,10 @@ public class DemoWorkspace {
                     id);
             expires = null;
         }
-        if (expires == null || !expires.isAfter(Instant.now())) {
+        if (expires != null && expires.isAfter(Instant.now())) {
+            touch(id);
+            expires = expiry(id);
+        } else {
             Integer count =
                     jdbc.queryForObject(
                             "SELECT COUNT(*) FROM demo_sessions WHERE expires_at>CURRENT_TIMESTAMP",
@@ -138,10 +160,9 @@ public class DemoWorkspace {
                         .secure(request.isSecure())
                         .sameSite("Strict")
                         .path("/")
-                        .maxAge(seconds)
                         .build()
                         .toString());
-        return new Workspace(true, expires, seconds, maxPayouts);
+        return new Workspace(true, expires, seconds, maxPayouts, startedAt(id));
     }
 
     @Scheduled(fixedDelayString = "${payments.demo.cleanup-ms:60000}")
@@ -188,6 +209,12 @@ public class DemoWorkspace {
         }
     }
 
+    // The cookie is a browser-session cookie. `startedAt` identifies the session without
+    // exposing the HttpOnly cookie value to the page.
     public record Workspace(
-            boolean temporary, Instant expiresAt, int durationSeconds, int maxPayouts) {}
+            boolean temporary,
+            Instant expiresAt,
+            int durationSeconds,
+            int maxPayouts,
+            Instant startedAt) {}
 }

@@ -25,7 +25,7 @@ payments:
   provider: ${PAYMENTS_PROVIDER:simulated}
   demo:
     enabled: ${DEMO_ENABLED:false}
-    session-seconds: ${DEMO_SESSION_SECONDS:900}
+    session-seconds: ${DEMO_SESSION_SECONDS:1800}
     max-payouts: ${DEMO_MAX_PAYOUTS:40}
     turnstile-required: ${TURNSTILE_REQUIRED:false}
     turnstile-site-key: ${TURNSTILE_SITE_KEY:}
