@@ -94,8 +94,11 @@ for (const [scenario, status, ledger, story, final] of [
     ).toBeVisible();
     await expect(row.getByText(payout.id, { exact: true })).toBeVisible();
     await expect(row.getByText(/Idempotency verified/)).toBeVisible();
-    await row.getByText(/^Ledger ·/).click();
-    await expect(row.locator("tbody tr")).toHaveCount(ledger ? 2 : 0);
+    await expect(row.getByText(/^Journal entry ·/)).toHaveText(
+      ledger ? /· posted$/ : /· not posted$/,
+    );
+    await row.getByText(/^Journal entry ·/).click();
+    await expect(row.locator(".journal-lines li")).toHaveCount(ledger ? 2 : 0);
     await page.reload();
     await expect(page.locator(".connection")).toHaveText("Connected");
     await expect(page.locator(".payment-row")).toHaveCount(1);
@@ -183,12 +186,12 @@ test("each scenario is explained in plain prose before it is run", async ({
   await choose(page, "TIMEOUT_AFTER_SUCCESS");
   await expect(text).toHaveCount(1);
   await expect(text).toContainText(
-    "Jane Tan sends John Lim SGD 100.00. The payment network completes the payment",
+    "Jane Tan sends John Lim SGD 100.00. The network approves it and moves the money",
   );
-  await expect(text).toContainText("records the payment as UNKNOWN");
+  await expect(text).toContainText("records UNKNOWN");
   await expect(text).toContainText("reconciles");
   await expect(text).toContainText("reference");
-  await expect(text).toContainText("John Lim twice");
+  await expect(text).toContainText("John Lim could be paid twice");
   await page.getByLabel("From", { exact: true }).selectOption("Alex Morgan");
   await page.getByLabel("Amount").fill("42.50");
   await expect(text).toContainText("Alex Morgan sends");
@@ -199,7 +202,8 @@ test("each scenario is explained in plain prose before it is run", async ({
   for (const id of Object.keys(names)) {
     await choose(page, id);
     await expect(text).toHaveCount(1);
-    expect((await text.textContent())!.length).toBeGreaterThan(120);
+    await expect(text.locator("p")).toHaveCount(2);
+    expect((await text.textContent())!.length).toBeGreaterThan(200);
   }
   await expect(page.getByText("What happens", { exact: true })).toHaveCount(0);
 });
@@ -229,7 +233,7 @@ test("response lost: the network shows completed while the platform shows UNKNOW
   await expect(platform.locator(".chip").first()).toHaveText("SUCCEEDED", {
     timeout: 20000,
   });
-  await expect(platform.locator(".chip").nth(1)).toHaveText("2 entries posted");
+  await expect(platform.locator(".chip").nth(1)).toHaveText("Entry posted");
   await expect(page.locator("li.final")).toContainText("Result: SUCCEEDED");
 });
 test("request lost: the request is shown not arriving", async ({ page }) => {
@@ -400,8 +404,10 @@ test("authenticated Mastercard payout and lookup", async ({ page }) => {
   expect(observed.status()).toBe(200);
   expect((await observed.json()).provider.status).toBe("SUCCEEDED");
   await page.locator(".payment-summary").click();
-  await page.getByText(/^Ledger ·/).click();
-  await expect(page.locator("tbody tr")).toHaveCount(2);
+  await page.getByText(/^Journal entry ·/).click();
+  await expect(page.locator(".payment-details .journal-lines li")).toHaveCount(
+    2,
+  );
 });
 
 test("lost processing response recovers without a second submission", async ({
@@ -483,7 +489,7 @@ test("Mastercard configuration removes simulator scenarios", async ({
   await expect(page.getByRole("radio")).toHaveCount(0);
   await expect(page.getByLabel("Amount")).toHaveValue("53.00");
   await expect(
-    page.getByText(/Mastercard.s sandbox, a test environment/),
+    page.getByText(/Mastercard API sandbox, a test environment/),
   ).toBeVisible();
   await page
     .getByLabel("Payment network", { exact: true })
@@ -574,4 +580,154 @@ test("bot verification gates Mastercard, supports retry and leaves simulation op
     page.getByText("Session verified", { exact: true }),
   ).toBeVisible();
   await expect(sendButton).toBeEnabled();
+});
+test("step by step waits for the viewer, and Automatic carries on", async ({
+  page,
+}) => {
+  await open(page);
+  await page.getByRole("button", { name: "Step by step" }).click();
+  await expect(
+    page.getByRole("button", { name: "Step by step" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await choose(page, "TIMEOUT_AFTER_SUCCESS");
+  await page.getByRole("button", { name: "Send payment", exact: true }).click();
+  const items = page.locator(".timeline li");
+  const next = page.getByRole("button", { name: "Next step" });
+  await expect(items).toHaveCount(1);
+  await expect(next).toBeVisible();
+  // Nothing moves on its own while the viewer is reading.
+  await page.waitForTimeout(1500);
+  await expect(items).toHaveCount(1);
+  await next.click();
+  await expect(items).toHaveCount(2);
+  await expect(next).toBeVisible();
+  // The choice survives a reload.
+  await page.getByRole("button", { name: "Automatic" }).click();
+  await expect(next).toHaveCount(0);
+  await expect(page.locator("li.final")).toContainText("Result: SUCCEEDED", {
+    timeout: 20000,
+  });
+  await page.reload();
+  await expect(page.locator(".connection")).toHaveText("Connected");
+  await expect(page.getByRole("button", { name: "Automatic" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+test("the ledger is a book of postings with balances, apart from History", async ({
+  page,
+}) => {
+  await open(page);
+  const ledger = page.getByRole("region", { name: "Ledger" });
+  const lines = ledger.locator(".postings tbody tr");
+  const cards = ledger.locator(".account-card");
+  await expect(ledger).toContainText("No entries yet.");
+  await send(page, "SUCCESS");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.filter({ hasText: "Cash clearing" })).toContainText(
+    "SGD 100.00 credit",
+  );
+  await expect(cards.filter({ hasText: "Payable to John Lim" })).toContainText(
+    "SGD 100.00 debit",
+  );
+  await expect(ledger).not.toContainText("Debits equal credits");
+  // Newest posting first: the credit follows the debit, so it is listed above it.
+  await expect(lines).toHaveCount(2);
+  await expect(lines.first()).toContainText("Cash clearing");
+  await expect(lines.first()).toContainText("Jane Tan → John Lim");
+  await expect(lines.last()).toContainText("Payable to John Lim");
+  // A declined payment moves no money, so the ledger does not change.
+  await send(page, "DECLINED");
+  await expect(lines).toHaveCount(2);
+  // A second approved payment adds two postings, and the balances carry on.
+  await send(page, "SUCCESS");
+  await expect(lines).toHaveCount(4);
+  await expect(lines.first()).toContainText("SGD 200.00 credit");
+  await expect(cards.filter({ hasText: "Payable to John Lim" })).toContainText(
+    "SGD 200.00 debit",
+  );
+  await page.reload();
+  await expect(page.locator(".connection")).toHaveText("Connected");
+  await expect(lines).toHaveCount(4);
+  // History describes payments. It has no accounting table.
+  await expect(
+    page.getByRole("region", { name: "Payment history" }).locator("table"),
+  ).toHaveCount(0);
+  page.on("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: "Clear history", exact: true })
+    .click();
+  await expect(ledger).toContainText("No entries yet.");
+});
+test("Mastercard is offered only when it is configured, and never as unavailable", async ({
+  page,
+}) => {
+  for (const available of [false, true]) {
+    await page.route("**/api/v1/config", async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({
+        response,
+        json: { ...(await response.json()), mastercardAvailable: available },
+      });
+    });
+    await open(page);
+    const options = page
+      .getByLabel("Payment network", { exact: true })
+      .locator("option");
+    await expect(options).toHaveText(
+      available
+        ? ["Simulated network", "Mastercard API sandbox"]
+        : ["Simulated network"],
+    );
+    await expect(page.getByText(/unavailable/i)).toHaveCount(0);
+    await page.unroute("**/api/v1/config");
+  }
+});
+test.describe("phone", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true });
+  test("nothing scrolls sideways and the content clears the top bar", async ({
+    page,
+  }) => {
+    await open(page);
+    await send(page, "SUCCESS");
+    const layout = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      barBottom: document.querySelector(".topbar")!.getBoundingClientRect()
+        .bottom,
+      introTop: document.querySelector(".intro")!.getBoundingClientRect().top,
+      cardBottom: document.querySelector(".card")!.getBoundingClientRect()
+        .bottom,
+      bandBottom: document.querySelector(".hero")!.getBoundingClientRect()
+        .bottom,
+    }));
+    expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth);
+    expect(layout.introTop - layout.barBottom).toBeGreaterThanOrEqual(40);
+    expect(layout.bandBottom - layout.cardBottom).toBeGreaterThanOrEqual(40);
+  });
+  test("step by step keeps the newest step and Next step in view", async ({
+    page,
+  }) => {
+    await open(page);
+    await page.getByRole("button", { name: "Step by step" }).click();
+    await choose(page, "TIMEOUT_AFTER_SUCCESS");
+    await page
+      .getByRole("button", { name: "Send payment", exact: true })
+      .click();
+    const next = page.getByRole("button", { name: "Next step" });
+    for (let step = 1; step <= 5; step++) {
+      await expect(page.locator(".timeline li")).toHaveCount(step);
+      await expect
+        .poll(
+          async () => {
+            const box = await next.boundingBox();
+            const view = page.viewportSize()!;
+            return !!box && box.y >= 0 && box.y + box.height <= view.height;
+          },
+          { timeout: 5000 },
+        )
+        .toBe(true);
+      await next.click();
+    }
+  });
 });

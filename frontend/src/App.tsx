@@ -12,6 +12,8 @@ import {
 } from "./model";
 import type {
   Configuration,
+  LedgerAccount,
+  LedgerPosting,
   Mode,
   Outcome,
   Payout,
@@ -22,9 +24,10 @@ import Verification from "./Verification";
 import { runPayment } from "./workflow";
 import type { Run, Step } from "./workflow";
 import { Flow, viewOf } from "./Flow";
-import { LedgerView } from "./Evidence";
+import { JournalEntry, Ledger } from "./Evidence";
 import { eventText, networkStatusText, time } from "./presentation";
-import { sleep, stepDelay } from "./pace";
+import { savedPlayback, savePlayback, sleep, stepDelay } from "./pace";
+import type { Playback } from "./pace";
 const engine = new HttpEngine();
 function read<T>(key: string, fallback: T): T {
   try {
@@ -76,6 +79,12 @@ export default function App() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [accounts, setAccounts] = useState<LedgerAccount[]>([]);
+  const [postings, setPostings] = useState<LedgerPosting[]>([]);
+  const [playback, setPlayback] = useState<Playback>(savedPlayback);
+  const [waiting, setWaiting] = useState(false);
+  const playbackRef = useRef(playback),
+    release = useRef<(() => void) | null>(null);
   const [steps, setSteps] = useState<Step[]>([]),
     [trace, setTrace] = useState({ title: "", mode: "simulated" as Mode });
   const [traceMap, setTraceMap] = useState<Record<string, Trace[]>>(() =>
@@ -86,7 +95,8 @@ export default function App() {
     locked = useRef(false),
     mounted = useRef(true),
     connectionPromise = useRef<Promise<boolean> | null>(null);
-  const traceEnd = useRef<HTMLDivElement>(null);
+  const traceEnd = useRef<HTMLDivElement>(null),
+    runPanel = useRef<HTMLElement>(null);
   const save = () => store("payment-runs", runs.current);
   const refresh = useCallback(async (listPage = 0) => {
     const list = await engine.list(listPage);
@@ -96,6 +106,27 @@ export default function App() {
       setPage(list.page);
     }
   }, []);
+  const refreshLedger = useCallback(async () => {
+    try {
+      const [list, lines] = await Promise.all([
+        engine.ledgerAccounts(),
+        engine.ledgerEntries(),
+      ]);
+      if (mounted.current) {
+        setAccounts(list);
+        setPostings(lines);
+      }
+    } catch {
+      /* The totals are reloaded after the next payment. */
+    }
+  }, []);
+  const changePlayback = (value: Playback) => {
+    playbackRef.current = value;
+    setPlayback(value);
+    savePlayback(value);
+    // Switching to automatic while a step is waiting lets the run carry on.
+    if (value === "auto") release.current?.();
+  };
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try {
@@ -121,13 +152,19 @@ export default function App() {
       }),
     [],
   );
-  // Keep the newest step in view, so the viewer can follow along.
+  // Bring a new run into view, then keep the newest step in view.
   useEffect(() => {
-    traceEnd.current?.scrollIntoView?.({
-      block: "nearest",
-      behavior: "smooth",
-    });
-  }, [steps.length]);
+    if (steps.length === 1)
+      runPanel.current?.scrollIntoView?.({
+        block: "start",
+        behavior: "smooth",
+      });
+    else
+      traceEnd.current?.scrollIntoView?.({
+        block: "nearest",
+        behavior: "smooth",
+      });
+  }, [steps.length, waiting]);
   const connect = useCallback(
     (reset = false): Promise<boolean> => {
       if (connectionPromise.current) return connectionPromise.current;
@@ -150,6 +187,7 @@ export default function App() {
           store("workspace-identity", identity);
           const configuration = await engine.config();
           await refresh();
+          await refreshLedger();
           if (mounted.current) {
             setConfig(configuration);
             setConnection("ready");
@@ -165,7 +203,7 @@ export default function App() {
       connectionPromise.current = task;
       return task;
     },
-    [refresh],
+    [refresh, refreshLedger],
   );
   useEffect(() => {
     mounted.current = true;
@@ -205,8 +243,18 @@ export default function App() {
       }));
       await refresh();
     }
-    if (!step.final)
+    if (step.ledger && snapshot?.ledger) void refreshLedger();
+    if (step.final) return;
+    if (playbackRef.current === "step") {
+      setWaiting(true);
+      await new Promise<void>((resolve) => {
+        release.current = resolve;
+      });
+      release.current = null;
+      if (mounted.current) setWaiting(false);
+    } else {
       await sleep(stepDelay(active.current?.intent.provider ?? "simulated"));
+    }
   };
   const execute = async (run: Run) => {
     if (locked.current) return;
@@ -226,6 +274,7 @@ export default function App() {
     try {
       await runPayment(engine, run, save, progress);
       await refresh();
+      await refreshLedger();
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 410) {
         await connect();
@@ -251,6 +300,7 @@ export default function App() {
     } finally {
       active.current = null;
       locked.current = false;
+      setWaiting(false);
       setBusy(false);
     }
   };
@@ -305,221 +355,292 @@ export default function App() {
     }
   };
   const unfinished = Object.values(runs.current).find((run) => !run.complete);
+  // Names a payment in the ledger, using what this browser knows about it.
+  const paymentLabel = (id: string) => {
+    const payment = items.find((item) => item.id === id);
+    if (!payment) return `Payment ${id.slice(0, 8)}`;
+    const run = Object.values(runs.current).find((r) => r.id === id);
+    return `${run?.sender ? `${run.sender} → ` : ""}${payment.recipientReference}`;
+  };
   const party = {
     from: sender,
     to: recipient,
     amount: money(amount || "0", "SGD"),
   };
   return (
-    <main className="demo-shell">
-      <header className="site-header">
-        <div>
-          <h1>Payment simulator</h1>
-        </div>
-        <div className="header-tools">
-          <a
-            href="https://github.com/yyan115/payment-processing-simulator"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="View source"
-          >
-            <Github size={18} />
-          </a>
-          <button
-            type="button"
-            aria-label={
-              theme === "light"
-                ? "Switch to dark theme"
-                : "Switch to light theme"
-            }
-            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-          >
-            {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
-          </button>
-        </div>
-      </header>
-      <p className="intro">
-        This simulator sends a test payment and shows how a payment system deals
-        with things going wrong. Every payment involves two parties: the payment
-        platform, which sends the payment and keeps the records, and the payment
-        network, which moves the money. Choose a scenario, then send the payment
-        to see each step.
-      </p>
-      <section className="workspace" aria-label="Payment workspace">
-        <div className="connection" role="status">
-          <span className={`dot ${connection}`} />
-          {connection === "ready"
-            ? "Connected"
-            : connection === "connecting"
-              ? "Connecting…"
-              : "Waiting for the server…"}
-        </div>
-        {connection !== "ready" && (
-          <div className="connection-notice">
-            <LoaderCircle className="spin" size={18} />
-            <div>
-              <strong>Connecting to the payment server</strong>
-              <p>
-                Free hosting may need time to start. We’re checking
-                automatically.
-              </p>
+    <main className="page">
+      <div className="hero">
+        <header className="topbar">
+          <div className="container bar">
+            <h1>Payment simulator</h1>
+            <div className="header-tools">
+              <div className="connection" role="status">
+                <span className={`dot ${connection}`} />
+                <span className="connection-text">
+                  {connection === "ready"
+                    ? "Connected"
+                    : connection === "connecting"
+                      ? "Connecting…"
+                      : "Waiting for the server…"}
+                </span>
+              </div>
+              <a
+                href="https://github.com/yyan115/payment-processing-simulator"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="View source"
+              >
+                <Github size={18} />
+              </a>
+              <button
+                type="button"
+                aria-label={
+                  theme === "light"
+                    ? "Switch to dark theme"
+                    : "Switch to light theme"
+                }
+                onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+              >
+                {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+              </button>
             </div>
           </div>
-        )}
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            send();
-          }}
-        >
-          <fieldset disabled={busy || connection !== "ready"}>
-            <h2 className="section-label">Payment</h2>
-            <div className="form-row">
-              <label>
-                From
-                <select
-                  aria-label="From"
-                  value={sender}
-                  onChange={(e) => {
-                    setSender(e.target.value);
-                    setRecipient(
-                      recipientAfterSenderChange(e.target.value, recipient),
-                    );
-                  }}
-                >
-                  {participants.map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                To
-                <select
-                  aria-label="To"
-                  value={recipient}
-                  onChange={(e) => setRecipient(e.target.value)}
-                >
-                  {recipientsFor(sender).map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="form-row">
-              <label>
-                Amount ({mode === "mastercard" ? "USD" : "SGD"})
-                <input
-                  inputMode="decimal"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  aria-label="Amount"
-                  required
-                />
-              </label>
-              <label>
-                Payment network
-                <select
-                  aria-label="Payment network"
-                  value={mode}
-                  onChange={(e) => {
-                    setMode(e.target.value as Mode);
-                    setAmount(
-                      e.target.value === "mastercard" ? "53.00" : "100.00",
-                    );
-                  }}
-                >
-                  <option value="simulated">Simulated network</option>
-                  <option
-                    value="mastercard"
-                    disabled={!config?.mastercardAvailable}
-                  >
-                    Mastercard sandbox
-                    {!config?.mastercardAvailable ? " — unavailable" : ""}
-                  </option>
-                </select>
-              </label>
-            </div>
-            {mode === "simulated" ? (
-              <div
-                className="scenarios"
-                role="radiogroup"
-                aria-labelledby="scenario-label"
-              >
-                <h2 className="section-label" id="scenario-label">
-                  Scenario
-                </h2>
-                {scenarios.map((s) => {
-                  const on = scenario === s.id;
-                  return (
-                    <div key={s.id} className={on ? "option on" : "option"}>
-                      <label>
-                        <input
-                          type="radio"
-                          name="scenario"
-                          value={s.id}
-                          checked={on}
-                          onChange={() => setScenario(s.id)}
-                          aria-labelledby={`${s.id}-name`}
-                          aria-describedby={`${s.id}-summary`}
-                        />
-                        <span>
-                          <span className="option-name" id={`${s.id}-name`}>
-                            {s.name}
-                          </span>
-                          <span
-                            className="option-summary"
-                            id={`${s.id}-summary`}
-                          >
-                            {s.summary}
-                          </span>
-                        </span>
-                      </label>
-                      {on && (
-                        <p className="scenario-explanation">
-                          {s.explanation(party)}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
+        </header>
+        <div className="container hero-body">
+          {connection !== "ready" && (
+            <div className="connection-notice">
+              <LoaderCircle className="spin" size={18} />
+              <div>
+                <strong>Connecting to the payment server</strong>
+                <p>
+                  Free hosting may need time to start. We’re checking
+                  automatically.
+                </p>
               </div>
-            ) : (
-              <p className="field-note">
-                This sends a request to Mastercard’s sandbox, a test environment
-                that uses Mastercard’s official test accounts. Amounts are in
-                USD and no real money moves. The names above are labels only.
-              </p>
+            </div>
+          )}
+          <form
+            className="hero-grid"
+            onSubmit={(event) => {
+              event.preventDefault();
+              send();
+            }}
+          >
+            <div className="hero-copy">
+              <div className="intro">
+                <p>
+                  This simulator sends a test payment and shows how a payment
+                  system deals with things going wrong.
+                </p>
+                <p>
+                  Every payment involves two parties: the payment platform,
+                  which sends the payment and keeps the records, and the payment
+                  network, which moves the money. Choose a scenario, then send
+                  the payment to see each step.
+                </p>
+              </div>
+              <fieldset disabled={busy || connection !== "ready"}>
+                {mode === "simulated" ? (
+                  <div
+                    className="scenarios"
+                    role="radiogroup"
+                    aria-labelledby="scenario-label"
+                  >
+                    <h2 className="section-label" id="scenario-label">
+                      Scenario
+                    </h2>
+                    {scenarios.map((s) => {
+                      const on = scenario === s.id;
+                      return (
+                        <div key={s.id} className={on ? "option on" : "option"}>
+                          <label>
+                            <input
+                              type="radio"
+                              name="scenario"
+                              value={s.id}
+                              checked={on}
+                              onChange={() => setScenario(s.id)}
+                              aria-labelledby={`${s.id}-name`}
+                              aria-describedby={`${s.id}-summary`}
+                            />
+                            <span>
+                              <span className="option-name" id={`${s.id}-name`}>
+                                {s.name}
+                              </span>
+                              <span
+                                className="option-summary"
+                                id={`${s.id}-summary`}
+                              >
+                                {s.summary}
+                              </span>
+                            </span>
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="field-note">
+                    This sends a request to the Mastercard API sandbox, a test
+                    environment that uses Mastercard’s official test accounts.
+                    Amounts are in USD and no real money moves. The names are
+                    labels only.
+                  </p>
+                )}
+                {mode === "mastercard" && (
+                  <Verification onReady={verificationReady} />
+                )}
+              </fieldset>
+            </div>
+            {mode === "simulated" && (
+              <div className="scenario-explanation">
+                {scenarios
+                  .find((s) => s.id === scenario)
+                  ?.explanation(party)
+                  .map((text, i) => (
+                    <p key={i}>{text}</p>
+                  ))}
+              </div>
             )}
-            {mode === "mastercard" && (
-              <Verification onReady={verificationReady} />
-            )}
-            <button
-              className="send-button"
-              type="submit"
-              disabled={!!unfinished || (mode === "mastercard" && !verified)}
-            >
-              {busy ? (
-                <>
-                  <LoaderCircle size={16} className="spin" /> Processing…
-                </>
-              ) : (
-                "Send payment"
+            <section className="card" aria-label="Payment workspace">
+              <fieldset disabled={busy || connection !== "ready"}>
+                <div className="amount">
+                  <label htmlFor="amount">You send</label>
+                  <div className="amount-field">
+                    <input
+                      id="amount"
+                      inputMode="decimal"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      aria-label="Amount"
+                      required
+                    />
+                    <span className="currency">
+                      {mode === "mastercard" ? "USD" : "SGD"}
+                    </span>
+                  </div>
+                </div>
+                <div className="form-row">
+                  <label>
+                    From
+                    <select
+                      aria-label="From"
+                      value={sender}
+                      onChange={(e) => {
+                        setSender(e.target.value);
+                        setRecipient(
+                          recipientAfterSenderChange(e.target.value, recipient),
+                        );
+                      }}
+                    >
+                      {participants.map((p) => (
+                        <option key={p}>{p}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    To
+                    <select
+                      aria-label="To"
+                      value={recipient}
+                      onChange={(e) => setRecipient(e.target.value)}
+                    >
+                      {recipientsFor(sender).map((p) => (
+                        <option key={p}>{p}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  Payment network
+                  <select
+                    aria-label="Payment network"
+                    value={mode}
+                    onChange={(e) => {
+                      setMode(e.target.value as Mode);
+                      setAmount(
+                        e.target.value === "mastercard" ? "53.00" : "100.00",
+                      );
+                    }}
+                  >
+                    <option value="simulated">Simulated network</option>
+                    {config?.mastercardAvailable && (
+                      <option value="mastercard">Mastercard API sandbox</option>
+                    )}
+                  </select>
+                </label>
+              </fieldset>
+              <div className="send-row">
+                <div className="playback" role="group" aria-label="Playback">
+                  <span>Playback</span>
+                  {(["auto", "step"] as const).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={playback === value}
+                      onClick={() => changePlayback(value)}
+                    >
+                      {value === "auto" ? "Automatic" : "Step by step"}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  className="send-button"
+                  type="submit"
+                  disabled={
+                    busy ||
+                    connection !== "ready" ||
+                    !!unfinished ||
+                    (mode === "mastercard" && !verified)
+                  }
+                >
+                  {busy ? (
+                    <>
+                      <LoaderCircle size={16} className="spin" /> Processing…
+                    </>
+                  ) : (
+                    "Send payment"
+                  )}
+                </button>
+              </div>
+              {notice && (
+                <p role="status" className="notice">
+                  {notice}
+                </p>
               )}
-            </button>
-          </fieldset>
-        </form>
+              {error && (
+                <p role="alert" className="error">
+                  {error}
+                </p>
+              )}
+              {unfinished && !busy && connection === "ready" && (
+                <button
+                  type="button"
+                  className="resume-button"
+                  onClick={() => void execute(unfinished)}
+                >
+                  Resume unfinished request
+                </button>
+              )}
+            </section>
+          </form>
+        </div>
+      </div>
+      <div className="container below">
         {steps.length > 0 && (
-          <section className="trace" aria-label="Payment progress">
-            <h2>{trace.title}</h2>
-            <Flow
-              view={viewOf(steps)}
-              network={
-                trace.mode === "mastercard"
-                  ? "Mastercard sandbox"
-                  : "Payment network"
-              }
-              working={busy}
-            />
+          <section className="run" aria-label="Payment progress" ref={runPanel}>
+            <div className="flow-wrap">
+              <h2>{trace.title}</h2>
+              <Flow
+                view={viewOf(steps)}
+                network={
+                  trace.mode === "mastercard"
+                    ? "Mastercard API sandbox"
+                    : "Payment network"
+                }
+                working={busy && !waiting}
+              />
+            </div>
             <ol className="timeline" aria-live="polite">
               {steps.map((step, i) => (
                 <li
@@ -531,225 +652,236 @@ export default function App() {
                 </li>
               ))}
             </ol>
-            <div ref={traceEnd} />
+            {waiting && (
+              <button
+                type="button"
+                className="next-step"
+                onClick={() => release.current?.()}
+              >
+                Next step
+              </button>
+            )}
+            <div ref={traceEnd} className="scroll-end" />
           </section>
         )}
-        {notice && (
-          <p role="status" className="notice">
-            {notice}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="error">
-            {error}
-          </p>
-        )}
-        {unfinished && !busy && connection === "ready" && (
-          <button
-            className="resume-button"
-            onClick={() => void execute(unfinished)}
-          >
-            Resume unfinished request
-          </button>
-        )}
-      </section>
-      <section className="history-section" aria-label="Payment history">
-        <div className="section-heading">
-          <h2>
-            History <span>{total}</span>
-          </h2>
-        </div>
-        {!items.length ? (
-          <p className="empty-history">No payments yet.</p>
-        ) : (
-          items.map((payment) => {
-            const snapshot = snapshots[payment.id];
-            const run = Object.values(runs.current).find(
-              (r) => r.id === payment.id,
-            );
-            const open = expanded === payment.id;
-            return (
-              <article className="payment-row" key={payment.id}>
-                <button
-                  className="payment-summary"
-                  aria-expanded={open}
-                  onClick={() => void inspect(payment.id)}
-                >
-                  <span>
-                    <strong>{money(payment.amount, payment.currency)}</strong>
-                    <small>
-                      {run?.sender ? `${run.sender} → ` : "To "}
-                      {payment.recipientReference}
-                      {run?.intent.provider === "simulated"
-                        ? ` · ${scenarios.find((s) => s.id === run.scenario)?.name}`
-                        : ""}
-                    </small>
-                  </span>
-                  <span
-                    className={`payment-status ${payment.status.toLowerCase()}`}
-                  >
-                    {statusText[payment.status]}
-                  </span>
-                  <ChevronDown size={16} className={open ? "rotated" : ""} />
-                </button>
-                {open && (
-                  <div className="payment-details">
-                    {snapshot ? (
-                      <>
-                        <dl className="identifiers">
-                          <dt>Payment ID</dt>
-                          <dd>
-                            <code>{payment.id}</code>
-                          </dd>
-                          {run && (
-                            <>
-                              <dt>Idempotency key</dt>
+        <div className="books">
+          <section className="history-section" aria-label="Payment history">
+            <div className="section-heading">
+              <h2>
+                History <span>{total}</span>
+              </h2>
+            </div>
+            {!items.length ? (
+              <p className="empty-history">No payments yet.</p>
+            ) : (
+              items.map((payment) => {
+                const snapshot = snapshots[payment.id];
+                const run = Object.values(runs.current).find(
+                  (r) => r.id === payment.id,
+                );
+                const open = expanded === payment.id;
+                return (
+                  <article className="payment-row" key={payment.id}>
+                    <button
+                      className="payment-summary"
+                      aria-expanded={open}
+                      onClick={() => void inspect(payment.id)}
+                    >
+                      <span>
+                        <strong>
+                          {money(payment.amount, payment.currency)}
+                        </strong>
+                        <small>
+                          {run?.sender ? `${run.sender} → ` : "To "}
+                          {payment.recipientReference}
+                          {run?.intent.provider === "simulated"
+                            ? ` · ${scenarios.find((s) => s.id === run.scenario)?.name}`
+                            : ""}
+                        </small>
+                      </span>
+                      <span
+                        className={`payment-status ${payment.status.toLowerCase()}`}
+                      >
+                        {statusText[payment.status]}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={open ? "rotated" : ""}
+                      />
+                    </button>
+                    {open && (
+                      <div className="payment-details">
+                        {snapshot ? (
+                          <>
+                            <dl className="identifiers">
+                              <dt>Payment ID</dt>
                               <dd>
-                                <code>{run.key}</code>
+                                <code>{payment.id}</code>
                               </dd>
-                            </>
-                          )}
-                          <dt>Payment network</dt>
-                          <dd>
-                            {payment.provider === "mastercard"
-                              ? "Mastercard sandbox"
-                              : "Simulated network"}
-                          </dd>
-                          {run?.intent.provider === "simulated" && (
-                            <>
-                              <dt>Scenario</dt>
+                              {run && (
+                                <>
+                                  <dt>Idempotency key</dt>
+                                  <dd>
+                                    <code>{run.key}</code>
+                                  </dd>
+                                </>
+                              )}
+                              <dt>Payment network</dt>
                               <dd>
-                                {
-                                  scenarios.find((s) => s.id === run.scenario)
-                                    ?.name
-                                }
+                                {payment.provider === "mastercard"
+                                  ? "Mastercard API sandbox"
+                                  : "Simulated network"}
                               </dd>
-                            </>
-                          )}
-                        </dl>
-                        <p className="field-note">
-                          {run?.complete
-                            ? "Idempotency verified: repeating the request returned this same payment."
-                            : "The idempotency key identifies the original request."}
-                        </p>
-                        <h3>Events</h3>
-                        <ol className="events">
-                          <li>
-                            <span>Payment created</span>
-                            <time>{time(payment.createdAt)}</time>
-                          </li>
-                          {snapshot.events.map((e) => (
-                            <li key={e.id}>
-                              <span>
-                                {eventText[e.eventType] ??
-                                  e.eventType
-                                    .replaceAll("_", " ")
-                                    .toLowerCase()}{" "}
-                                <small>{e.toStatus}</small>
-                              </span>
-                              <time>{time(e.createdAt)}</time>
-                            </li>
-                          ))}
-                          {snapshot.attempts.map((a) => (
-                            <li key={a.id}>
-                              <span>
-                                Checked with the network:{" "}
-                                {a.providerRecordFound && a.providerStatus
-                                  ? networkStatusText[a.providerStatus]
-                                  : "it has no record of this payment"}
-                              </span>
-                              <time>{time(a.createdAt)}</time>
-                            </li>
-                          ))}
-                        </ol>
-                        <details>
-                          <summary>
-                            Ledger ·{" "}
-                            {snapshot.ledger
-                              ? "2 balanced entries"
-                              : "no entries"}
-                            <ChevronDown size={14} />
-                          </summary>
-                          <LedgerView snapshot={snapshot} />
-                        </details>
-                        <details>
-                          <summary>
-                            API requests ·{" "}
-                            {traceMap[run?.key ?? payment.id]?.length ?? 0}
-                            <ChevronDown size={14} />
-                          </summary>
-                          {traceMap[run?.key ?? payment.id]?.length ? (
-                            traceMap[run?.key ?? payment.id].map((t, i) => (
-                              <details key={i}>
-                                <summary>
-                                  <code>
-                                    {t.method} {t.path}
-                                  </code>
-                                  <span>
-                                    {t.status
-                                      ? `HTTP ${t.status}`
-                                      : "No response"}
-                                  </span>
-                                </summary>
-                                <pre>
-                                  {JSON.stringify(
+                              {run?.intent.provider === "simulated" && (
+                                <>
+                                  <dt>Scenario</dt>
+                                  <dd>
                                     {
-                                      request: t.request,
-                                      response: t.response,
-                                    },
-                                    null,
-                                    2,
-                                  )}
-                                </pre>
-                              </details>
-                            ))
-                          ) : (
+                                      scenarios.find(
+                                        (s) => s.id === run.scenario,
+                                      )?.name
+                                    }
+                                  </dd>
+                                </>
+                              )}
+                            </dl>
                             <p className="field-note">
-                              Request capture is unavailable in this browser
-                              tab. Events and ledger are loaded from the server.
+                              {run?.complete
+                                ? "Idempotency verified: repeating the request returned this same payment."
+                                : "The idempotency key identifies the original request."}
                             </p>
-                          )}
-                        </details>
-                      </>
-                    ) : (
-                      <p>Loading payment details…</p>
+                            <h3>Events</h3>
+                            <ol className="events">
+                              <li>
+                                <span>Payment created</span>
+                                <time>{time(payment.createdAt)}</time>
+                              </li>
+                              {snapshot.events.map((e) => (
+                                <li key={e.id}>
+                                  <span>
+                                    {eventText[e.eventType] ??
+                                      e.eventType
+                                        .replaceAll("_", " ")
+                                        .toLowerCase()}{" "}
+                                    <small>{e.toStatus}</small>
+                                  </span>
+                                  <time>{time(e.createdAt)}</time>
+                                </li>
+                              ))}
+                              {snapshot.attempts.map((a) => (
+                                <li key={a.id}>
+                                  <span>
+                                    Checked with the network:{" "}
+                                    {a.providerRecordFound && a.providerStatus
+                                      ? networkStatusText[a.providerStatus]
+                                      : "it has no record of this payment"}
+                                  </span>
+                                  <time>{time(a.createdAt)}</time>
+                                </li>
+                              ))}
+                            </ol>
+                            <details>
+                              <summary>
+                                Journal entry ·{" "}
+                                {snapshot.ledger ? "posted" : "not posted"}
+                                <ChevronDown size={14} />
+                              </summary>
+                              <JournalEntry snapshot={snapshot} />
+                            </details>
+                            <details>
+                              <summary>
+                                API requests ·{" "}
+                                {traceMap[run?.key ?? payment.id]?.length ?? 0}
+                                <ChevronDown size={14} />
+                              </summary>
+                              {traceMap[run?.key ?? payment.id]?.length ? (
+                                traceMap[run?.key ?? payment.id].map((t, i) => (
+                                  <details key={i}>
+                                    <summary>
+                                      <code>
+                                        {t.method} {t.path}
+                                      </code>
+                                      <span>
+                                        {t.status
+                                          ? `HTTP ${t.status}`
+                                          : "No response"}
+                                      </span>
+                                    </summary>
+                                    <pre>
+                                      {JSON.stringify(
+                                        {
+                                          request: t.request,
+                                          response: t.response,
+                                        },
+                                        null,
+                                        2,
+                                      )}
+                                    </pre>
+                                  </details>
+                                ))
+                              ) : (
+                                <p className="field-note">
+                                  Request capture is unavailable in this browser
+                                  tab. Events and the journal entry are loaded
+                                  from the server.
+                                </p>
+                              )}
+                            </details>
+                          </>
+                        ) : (
+                          <p>Loading payment details…</p>
+                        )}
+                      </div>
                     )}
-                  </div>
-                )}
-              </article>
-            );
-          })
-        )}
-        {total > 20 && (
-          <div className="pagination">
-            <button
-              disabled={page === 0 || busy}
-              onClick={() => void refresh(page - 1)}
-            >
-              Previous
-            </button>
-            <span>Page {page + 1}</span>
-            <button
-              disabled={(page + 1) * 20 >= total || busy}
-              onClick={() => void refresh(page + 1)}
-            >
-              Next
-            </button>
-          </div>
-        )}
-      </section>
-      <footer>
-        Test payments only. No real money moves.{" "}
-        <button
-          disabled={busy || connection !== "ready"}
-          onClick={() => {
-            if (window.confirm("Clear this demo’s history?"))
-              void connect(true);
-          }}
-        >
-          Clear history
-        </button>
-      </footer>
+                  </article>
+                );
+              })
+            )}
+            {total > 20 && (
+              <div className="pagination">
+                <button
+                  disabled={page === 0 || busy}
+                  onClick={() => void refresh(page - 1)}
+                >
+                  Previous
+                </button>
+                <span>Page {page + 1}</span>
+                <button
+                  disabled={(page + 1) * 20 >= total || busy}
+                  onClick={() => void refresh(page + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </section>
+          <section className="ledger-section" aria-label="Ledger">
+            <div className="section-heading">
+              <h2>Ledger</h2>
+            </div>
+            <p className="section-note">
+              Every journal entry is posted here as a debit and a credit.
+            </p>
+            <Ledger
+              accounts={accounts}
+              postings={postings}
+              paymentLabel={paymentLabel}
+            />
+          </section>
+        </div>
+        <footer>
+          Test payments only. No real money moves.{" "}
+          <button
+            disabled={busy || connection !== "ready"}
+            onClick={() => {
+              if (window.confirm("Clear this demo’s history?"))
+                void connect(true);
+            }}
+          >
+            Clear history
+          </button>
+        </footer>
+      </div>
     </main>
   );
 }

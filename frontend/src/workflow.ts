@@ -53,8 +53,8 @@ const platformChip = (snapshot: Snapshot): Chip => ({
 });
 const ledgerChip = (snapshot: Snapshot): Chip =>
   snapshot.ledger
-    ? { text: "2 entries posted", tone: "good" }
-    : { text: "No entries" };
+    ? { text: "Entry posted", tone: "good" }
+    : { text: "Nothing posted" };
 // What the network's own records show about the payment.
 const networkWords: Record<ProviderStatus, Chip> = {
   SUCCEEDED: { text: "Payment completed", tone: "good" },
@@ -105,7 +105,7 @@ function response(snapshot: Snapshot, simulated: boolean): Step {
       return {
         title: "Network approved",
         detail:
-          "The network approved the payment and replied. The platform records it as SUCCEEDED and posts two matching entries to the ledger.",
+          "The network approved the payment and replied. The platform records it as SUCCEEDED and posts a journal entry to the ledger, with one debit and one credit for the same amount.",
         arrow: { dir: "to-platform", label: "Approved" },
         platform,
         ledger,
@@ -209,7 +209,7 @@ function reconcileAnswer(snapshot: Snapshot, willRepeat: boolean): Step {
       return {
         title: "Status confirmed",
         detail:
-          "The network reports the payment as completed. The platform updates its record to SUCCEEDED and posts two matching entries to the ledger.",
+          "The network reports the payment as completed. The platform updates its record to SUCCEEDED and posts a journal entry to the ledger, with one debit and one credit for the same amount.",
         arrow: { dir: "to-platform", label: "Completed" },
         network,
         platform,
@@ -265,7 +265,7 @@ function reconcileAnswer(snapshot: Snapshot, willRepeat: boolean): Step {
 function finish(snapshot: Snapshot): Step {
   const detail = {
     SUCCEEDED:
-      "The payment was made once, and the ledger holds two matching entries for it.",
+      "The payment was made once, and the ledger holds a single journal entry for it.",
     FAILED: "No money moved, so nothing was added to the ledger.",
     UNKNOWN:
       "The payment was not sent again. It stays UNKNOWN until someone confirms its status with the network.",

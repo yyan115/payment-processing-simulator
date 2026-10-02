@@ -1,7 +1,7 @@
 import type { Mode } from "./model";
 // Delay between visible steps, so a viewer can follow what the system does.
 // Only the simulated network is staged; Mastercard shows its real timing.
-export const defaultStepDelay = 1100;
+export const defaultStepDelay = 2000;
 export function stepDelay(provider: Mode): number {
   if (provider !== "simulated") return 0;
   try {
@@ -14,3 +14,21 @@ export function stepDelay(provider: Mode): number {
 }
 export const sleep = (ms: number) =>
   ms > 0 ? new Promise<void>((resolve) => setTimeout(resolve, ms)) : undefined;
+// Automatic plays each step after a pause. Step by step waits for the viewer.
+export type Playback = "auto" | "step";
+export function savedPlayback(): Playback {
+  try {
+    return localStorage.getItem("payment-simulator-playback") === "step"
+      ? "step"
+      : "auto";
+  } catch {
+    return "auto";
+  }
+}
+export function savePlayback(value: Playback) {
+  try {
+    localStorage.setItem("payment-simulator-playback", value);
+  } catch {
+    /* The choice only lasts for this page when storage is unavailable. */
+  }
+}

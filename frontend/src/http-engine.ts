@@ -3,6 +3,8 @@ import type {
   Configuration,
   Engine,
   Intent,
+  LedgerAccount,
+  LedgerPosting,
   Outcome,
   Page,
   Payout,
@@ -91,6 +93,12 @@ export class HttpEngine implements Engine {
   }
   async list(page = 0) {
     return (await request<Page>(`/payouts?page=${page}&size=20`)).data;
+  }
+  async ledgerAccounts() {
+    return (await request<LedgerAccount[]>("/ledger/accounts")).data;
+  }
+  async ledgerEntries() {
+    return (await request<LedgerPosting[]>("/ledger/entries")).data;
   }
   async snapshot(id: string) {
     return (await request<Snapshot>(`/payouts/${id}/snapshot`)).data;

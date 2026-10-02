@@ -66,12 +66,16 @@ describe("scenario descriptions", () => {
     expect(new Set(scenarios.map((s) => s.name)).size).toBe(6);
     for (const s of scenarios) {
       expect(s.summary.endsWith(".")).toBe(true);
-      const text = s.explanation(party);
+      const paragraphs = s.explanation(party);
+      const text = paragraphs.join(" ");
+      expect(paragraphs).toHaveLength(2);
       expect(text).toContain("Jane Tan sends John Lim SGD 100.00");
       expect(text).toMatch(/SUCCEEDED|FAILED|UNKNOWN/);
     }
     const lost = scenarios.find((s) => s.id === "TIMEOUT_AFTER_SUCCESS");
-    expect(lost?.explanation(party)).toContain("reconciles");
-    expect(scenarios[0].explanation(party)).toContain("idempotency key");
+    expect(lost?.explanation(party).join(" ")).toContain("reconciles");
+    expect(scenarios[0].explanation(party).join(" ")).toContain(
+      "idempotency key",
+    );
   });
 });
