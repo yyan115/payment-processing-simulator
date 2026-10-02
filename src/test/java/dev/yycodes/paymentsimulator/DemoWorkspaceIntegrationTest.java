@@ -147,6 +147,83 @@ class DemoWorkspaceIntegrationTest {
                 .isEqualTo(1);
     }
 
+    HttpResponse<String> asTab(String method, String path, String id, String body, String key)
+            throws Exception {
+        var builder = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path));
+        if (id != null) builder.header("X-Workspace-Id", id);
+        if (key != null) builder.header("Idempotency-Key", key);
+        if (body != null) builder.header("Content-Type", "application/json");
+        return client.send(
+                builder.method(
+                                method,
+                                body == null
+                                        ? HttpRequest.BodyPublishers.noBody()
+                                        : HttpRequest.BodyPublishers.ofString(body))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
+    @Test
+    void eachTabHasItsOwnWorkspaceEvenWithTheSameCookie() throws Exception {
+        String cookie = workspace();
+        String tabA = json.readTree(asTab("POST", "/api/v1/workspace", null, null, null).body())
+                .path("id").asText();
+        String tabB = json.readTree(asTab("POST", "/api/v1/workspace", null, null, null).body())
+                .path("id").asText();
+        assertThat(tabA).isNotEmpty().isNotEqualTo(tabB);
+        var created = asTab("POST", "/api/v1/payouts", tabA, INTENT, "tab-key");
+        assertThat(created.statusCode()).isEqualTo(201);
+        String id = json.readTree(created.body()).path("id").asText();
+        // The same browser cookie is sent with both tabs, and the header decides the workspace.
+        assertThat(asTab("GET", "/api/v1/payouts", tabA, null, null).body()).contains(id);
+        assertThat(asTab("GET", "/api/v1/payouts", tabB, null, null).body()).doesNotContain(id);
+        assertThat(asTab("GET", "/api/v1/payouts/" + id, tabB, null, null).statusCode())
+                .isEqualTo(404);
+        // Starting over from a tab expires its old workspace and issues a new id.
+        var restarted = asTab("POST", "/api/v1/workspace?reset=true", tabA, null, null);
+        String fresh = json.readTree(restarted.body()).path("id").asText();
+        assertThat(fresh).isNotEqualTo(tabA);
+        assertThat(asTab("GET", "/api/v1/payouts", tabA, null, null).statusCode()).isEqualTo(410);
+        assertThat(asTab("GET", "/api/v1/payouts", fresh, null, null).body()).doesNotContain(id);
+        assertThat(asTab("GET", "/api/v1/payouts", tabB, null, null).statusCode()).isEqualTo(200);
+        assertThat(cookie).startsWith("payout_workspace=");
+        // A new tab sends "new", so starting it never touches the workspace the cookie names.
+        var cookieWorkspace = request("GET", "/api/v1/payouts", cookie, null, null);
+        assertThat(cookieWorkspace.statusCode()).isEqualTo(200);
+        var opened = asTab("POST", "/api/v1/workspace?reset=true", "new", null, null);
+        assertThat(json.readTree(opened.body()).path("id").asText()).isNotEmpty();
+        assertThat(request("GET", "/api/v1/payouts", cookie, null, null).statusCode())
+                .isEqualTo(200);
+    }
+
+    @Test
+    void anEmptyWorkspaceIsKeptForLessTimeThanOneHoldingPayments() throws Exception {
+        String cookie = workspace();
+        UUID session = UUID.fromString(cookie.substring(cookie.indexOf('=') + 1));
+        java.util.function.Supplier<java.time.Duration> remaining =
+                () ->
+                        java.time.Duration.between(
+                                java.time.Instant.now(),
+                                jdbc.queryForObject(
+                                                "SELECT expires_at FROM demo_sessions WHERE id=?",
+                                                java.sql.Timestamp.class,
+                                                session)
+                                        .toInstant());
+        // Nothing sent yet: the 30 minute allowance for an empty workspace.
+        jdbc.update(
+                "UPDATE demo_sessions SET expires_at=CURRENT_TIMESTAMP+INTERVAL '2 minutes' WHERE id=?",
+                session);
+        assertThat(request("GET", "/api/v1/payouts", cookie, null, null).statusCode()).isEqualTo(200);
+        assertThat(remaining.get()).isBetween(java.time.Duration.ofMinutes(25), java.time.Duration.ofMinutes(31));
+        // Once it holds a payment, ordinary use keeps it for the full six hours.
+        create(cookie, "empty-vs-used");
+        jdbc.update(
+                "UPDATE demo_sessions SET expires_at=CURRENT_TIMESTAMP+INTERVAL '2 minutes' WHERE id=?",
+                session);
+        assertThat(request("GET", "/api/v1/payouts", cookie, null, null).statusCode()).isEqualTo(200);
+        assertThat(remaining.get()).isGreaterThan(java.time.Duration.ofHours(5));
+    }
+
     @Test
     void ledgerAccountTotalsCountOnlyTheCallersWorkspace() throws Exception {
         String a = workspace(), b = workspace();

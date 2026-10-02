@@ -23,26 +23,35 @@ import java.util.UUID;
 @Service
 public class DemoWorkspace {
     public static final String COOKIE = "payout_workspace";
+    // The page sends its own workspace id here, so each browser tab has its own workspace.
+    public static final String HEADER = "X-Workspace-Id";
     public static final String ATTRIBUTE = DemoWorkspace.class.getName();
     private final JdbcTemplate jdbc;
     private final SimulationScenarioRegistry scenarios;
     private final boolean enabled;
     // Inactivity allowance: every request extends it, so an active visitor never expires.
     private final int seconds;
+    // A workspace with no payments has nothing to keep, so it is removed sooner.
+    private final int emptySeconds;
     private final int maxPayouts;
+    private final int maxSessions;
 
     public DemoWorkspace(
             JdbcTemplate jdbc,
             SimulationScenarioRegistry scenarios,
             @Value("${payments.demo.enabled:false}") boolean enabled,
             @Value("${payments.demo.session-seconds:21600}") int seconds,
-            @Value("${payments.demo.max-payouts:40}") int maxPayouts) {
+            @Value("${payments.demo.empty-session-seconds:1800}") int emptySeconds,
+            @Value("${payments.demo.max-payouts:40}") int maxPayouts,
+            @Value("${payments.demo.max-sessions:3000}") int maxSessions) {
         this.jdbc = jdbc;
         this.scenarios = scenarios;
         this.enabled = enabled;
         this.seconds = seconds;
+        this.emptySeconds = emptySeconds;
         this.maxPayouts = maxPayouts;
-        if (seconds < 60 || maxPayouts < 1)
+        this.maxSessions = maxSessions;
+        if (seconds < 60 || emptySeconds < 60 || maxPayouts < 1 || maxSessions < 1)
             throw new IllegalArgumentException("Invalid demo workspace limits");
     }
 
@@ -62,6 +71,14 @@ public class DemoWorkspace {
     }
 
     public UUID cookieId(HttpServletRequest request) {
+        String header = request.getHeader(HEADER);
+        if (header != null) {
+            try {
+                return UUID.fromString(header.trim());
+            } catch (IllegalArgumentException ignored) {
+                return null;
+            }
+        }
         if (request.getCookies() != null)
             for (var cookie : request.getCookies()) {
                 if (cookie.getName().equals(COOKIE)) {
@@ -98,7 +115,13 @@ public class DemoWorkspace {
 
     // Pushes the expiry back after activity. Skips the write unless it moves by a minute or more.
     private void touch(UUID id) {
-        Instant next = Instant.now().plusSeconds(seconds);
+        boolean used =
+                Boolean.TRUE.equals(
+                        jdbc.queryForObject(
+                                "SELECT EXISTS(SELECT 1 FROM payouts WHERE demo_session_id=?)",
+                                Boolean.class,
+                                id));
+        Instant next = Instant.now().plusSeconds(used ? seconds : emptySeconds);
         jdbc.update(
                 "UPDATE demo_sessions SET expires_at=? WHERE id=? AND expires_at<?",
                 Timestamp.from(next),
@@ -120,7 +143,7 @@ public class DemoWorkspace {
 
     @Transactional
     public Workspace open(HttpServletRequest request, HttpServletResponse response, boolean reset) {
-        if (!enabled) return new Workspace(false, null, 0, maxPayouts, null);
+        if (!enabled) return new Workspace(false, null, 0, maxPayouts, null, null);
         // Serialize admissions across application instances, bounding public demo storage.
         jdbc.execute("SELECT pg_advisory_xact_lock(782145991)");
         UUID id = cookieId(request);
@@ -140,11 +163,11 @@ public class DemoWorkspace {
                     jdbc.queryForObject(
                             "SELECT COUNT(*) FROM demo_sessions WHERE expires_at>CURRENT_TIMESTAMP",
                             Integer.class);
-            if (count != null && count >= 300)
+            if (count != null && count >= maxSessions)
                 throw new DemoException(429, "The demo is busy. Please try again shortly.");
             id = UUID.randomUUID();
             Instant now = Instant.now();
-            expires = now.plusSeconds(seconds);
+            expires = now.plusSeconds(emptySeconds);
             jdbc.update(
                     "INSERT INTO demo_sessions(id,created_at,expires_at,max_payouts)"
                         + " VALUES(?,?,?,?)",
@@ -162,7 +185,7 @@ public class DemoWorkspace {
                         .path("/")
                         .build()
                         .toString());
-        return new Workspace(true, expires, seconds, maxPayouts, startedAt(id));
+        return new Workspace(true, expires, seconds, maxPayouts, startedAt(id), id);
     }
 
     @Scheduled(fixedDelayString = "${payments.demo.cleanup-ms:60000}")
@@ -209,12 +232,13 @@ public class DemoWorkspace {
         }
     }
 
-    // The cookie is a browser-session cookie. `startedAt` identifies the session without
-    // exposing the HttpOnly cookie value to the page.
+    // The id is returned so the page can send it back in the X-Workspace-Id header. Without the
+    // header, requests fall back to the browser-session cookie.
     public record Workspace(
             boolean temporary,
             Instant expiresAt,
             int durationSeconds,
             int maxPayouts,
-            Instant startedAt) {}
+            Instant startedAt,
+            UUID id) {}
 }
