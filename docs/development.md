@@ -58,6 +58,8 @@ The browser tests need a running backend with `DEMO_ENABLED=true`, `RECONCILIATI
 E2E_BASE_URL=http://localhost:8080 npm run test:e2e
 ```
 
+The simulated network’s steps are paced (about a second each) so a viewer can follow them. Browser tests remove the pause by setting `localStorage["payment-simulator-pace"]` to `"0"`; one test sets it to `"500"` and checks that steps appear one at a time.
+
 The live Mastercard browser test is skipped by default. After configuring private sandbox credentials, explicitly opt in:
 
 ```bash

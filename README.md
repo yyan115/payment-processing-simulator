@@ -11,18 +11,18 @@ A Java 21 / Spring Boot / PostgreSQL payment engine with a small React demo. Exp
 
 ## Use it
 
-Choose participants and a scenario, then **Send payment**. The app creates and processes the payment, checks uncertain outcomes, and safely repeats a request that never reached the simulated provider. Expand a row in **History** for its events, idempotency key, ledger and captured API requests.
+Pick a sender, recipient and scenario, then **Send payment**. A diagram shows the payment platform, which sends the payment and keeps the records, and the payment network, which moves the money. Each side shows its own status, and the messages between them are animated step by step, with a short explanation of each step underneath. Expand a row in **History** for its events, idempotency key, ledger and captured API requests.
 
-| Scenario | Automatic behavior |
-| --- | --- |
-| Payment succeeds | Confirm success and post one balanced journal |
-| Payment declined | Record decline; no journal |
-| Response lost | Reconcile the provider’s successful record |
-| Request never arrives | Look up the original reference, then safely repeat it |
-| Still processing | Simulate a later provider approval, then reconcile |
-| Provider is uncertain | Keep `UNKNOWN` when the provider cannot confirm a result |
+| Scenario | What happens | How the platform handles it |
+| --- | --- | --- |
+| Approved payment | The network approves the payment | Records `SUCCEEDED` and posts two ledger entries |
+| Declined payment | The network declines the payment | Records `FAILED` and posts nothing |
+| Response lost | The network completes the payment, but its response is lost | Records `UNKNOWN`, reconciles by asking the network, finds the payment was made, and records `SUCCEEDED` |
+| Request lost | The request never reaches the network | Records `UNKNOWN`, reconciles, finds no record, and sends again with the same reference |
+| Pending payment | The network has not finished the payment | Records `UNKNOWN`, waits, reconciles, and records the final result |
+| Unknown outcome | The network cannot report a result | Keeps `UNKNOWN` and does not send again |
 
-The simulator uses SGD without currency conversion. Participant names are demo labels, not bank accounts. The optional **Mastercard sandbox** provider uses configured official test fixtures in USD and cannot be controlled by the scenario selector. Both providers run through the same backend state machine and ledger. No real money moves.
+The simulator uses SGD without currency conversion. Participants are three fixed demo names, not bank accounts. The optional **Mastercard sandbox** network uses configured official test fixtures in USD and has no scenarios. Both networks run through the same backend state machine and ledger. No real money moves.
 
 ## Run locally
 
@@ -30,7 +30,7 @@ The simulator uses SGD without currency conversion. Participant names are demo l
 docker compose up --build
 ```
 
-Open **http://localhost:8080**. Mastercard credentials are optional. The UI and Java API run in one application; PostgreSQL stores the actual payment records. Each visitor has an isolated temporary workspace. Refresh preserves it; expired workspaces are cleaned up by the server.
+Open **http://localhost:8080**. Mastercard credentials are optional. The UI and Java API run in one application; PostgreSQL stores the actual payment records. Each visitor has an isolated workspace that lasts until the browser is closed. Refreshing keeps it, and the server removes workspaces that have been idle for 30 minutes.
 
 ## What the backend guarantees
 

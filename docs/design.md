@@ -43,7 +43,7 @@ Reconciliation queries the original provider reference and records every attempt
 
 The optional scheduled worker checks `UNKNOWN` and stale `PROCESSING` payments with persisted exponential backoff. Stale processing covers a crash after external success but before local confirmation. Fresh processing is left alone until the stale threshold.
 
-The browser demo orchestrates creation, processing and recovery in one Send action. Lost-response payments reconcile; simulated requests that never arrived are safely repeated. The pending scenario advances the simulated provider to approval before reconciliation. The uncertain scenario remains unresolved. These are calls to the real API, not JavaScript-generated payment results.
+The browser demo orchestrates creation, processing and recovery in one Send action and shows each step as a diagram of the payment platform and the payment network, with a short explanation underneath. Every step is derived from the real API responses and the network’s own record, so a viewer can see the two sides disagree (for example, the network shows the payment completed while the platform’s status is `UNKNOWN`). The simulated network’s steps are paced so they can be followed; Mastercard steps show real timing. Lost-response payments reconcile; simulated requests that never arrived are safely repeated. The pending scenario advances the simulated provider to approval before reconciliation. The uncertain scenario remains unresolved.
 
 After an ambiguous HTTP failure, the browser retains the original intent and key. Resuming checks existing state before processing; a confirmed payment is never sent again. Browser interruption can pause this demo orchestration; the scheduled worker is the separate persistent-recovery option.
 
@@ -55,7 +55,7 @@ Provider routing follows the payout’s stored selection. Simulated snapshots in
 
 ## Public demo
 
-A random HttpOnly, SameSite=Strict cookie identifies an isolated 15-minute workspace. Resource access checks ownership, lists are scoped, and idempotency keys are namespaced. Quotas bound payouts, admissions and requests. Expired workspaces are removed in batches after a grace period; reset does not undo external sandbox transactions.
+A random HttpOnly, SameSite=Strict cookie identifies an isolated workspace. The cookie is a browser-session cookie, so the workspace ends when the browser closes; the server also expires a workspace after 30 minutes without requests, and each request extends that allowance. Resource access checks ownership, lists are scoped, and idempotency keys are namespaced. Quotas bound payouts, admissions and requests. Expired workspaces are removed in batches after a grace period; reset does not undo external sandbox transactions.
 
 The database also stores shared and per-session Mastercard call budgets. Optional Turnstile validation grants external-provider access only until the workspace expires. The adapter accepts sandbox hosts only, and signing credentials stay on the server.
 
