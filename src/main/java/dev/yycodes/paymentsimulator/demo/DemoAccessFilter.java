@@ -24,10 +24,18 @@ public class DemoAccessFilter extends OncePerRequestFilter {
     private final DemoWorkspace workspace;
     private final JsonMapper mapper;
     private final HashMap<String, Window> rates = new HashMap<>();
+    // New workspaces and resets allowed per minute from one address.
+    private final int admissions;
 
-    public DemoAccessFilter(DemoWorkspace workspace, JsonMapper mapper) {
+    public DemoAccessFilter(
+            DemoWorkspace workspace,
+            JsonMapper mapper,
+            @org.springframework.beans.factory.annotation.Value(
+                            "${payments.demo.admissions-per-minute:30}")
+                    int admissions) {
         this.workspace = workspace;
         this.mapper = mapper;
+        this.admissions = admissions;
     }
 
     @Override
@@ -59,10 +67,11 @@ public class DemoAccessFilter extends OncePerRequestFilter {
                 try {
                     UUID session = workspace.requireActive(request);
                     limit(session.toString(), 120);
-                    if ("true".equals(request.getParameter("reset"))) limit("admission:" + request.getRemoteAddr(), 30);
+                    if ("true".equals(request.getParameter("reset")))
+                        limit("admission:" + request.getRemoteAddr(), admissions);
                 } catch (DemoException error) {
                     if (error.status() != 410) throw error;
-                    limit("admission:" + request.getRemoteAddr(), 30);
+                    limit("admission:" + request.getRemoteAddr(), admissions);
                 }
             } else if (!path.equals("/api/v1/config")) {
                 UUID session = workspace.requireActive(request);

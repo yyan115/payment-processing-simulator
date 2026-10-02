@@ -27,6 +27,7 @@ payments:
     enabled: ${DEMO_ENABLED:false}
     session-seconds: ${DEMO_SESSION_SECONDS:1800}
     max-payouts: ${DEMO_MAX_PAYOUTS:40}
+    admissions-per-minute: ${DEMO_ADMISSIONS_PER_MINUTE:30}
     turnstile-required: ${TURNSTILE_REQUIRED:false}
     turnstile-site-key: ${TURNSTILE_SITE_KEY:}
     turnstile-secret: ${TURNSTILE_SECRET_KEY:}

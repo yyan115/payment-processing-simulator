@@ -148,6 +148,38 @@ class DemoWorkspaceIntegrationTest {
     }
 
     @Test
+    void ledgerAccountTotalsCountOnlyTheCallersWorkspace() throws Exception {
+        String a = workspace(), b = workspace();
+        String id = create(a, "totals-key");
+        assertThat(request("GET", "/api/v1/ledger/accounts", a, null, null).body())
+                .isEqualTo("[]");
+        process(a, id);
+        var totals = json.readTree(request("GET", "/api/v1/ledger/accounts", a, null, null).body());
+        assertThat(totals).hasSize(2);
+        for (var account : totals) {
+            boolean payable = account.path("accountCode").asText().equals("SELLER_PAYABLE:seller-one");
+            assertThat(payable || account.path("accountCode").asText().equals("CASH_CLEARING"))
+                    .isTrue();
+            assertThat(account.path(payable ? "debits" : "credits").decimalValue())
+                    .isEqualByComparingTo("100");
+            assertThat(account.path(payable ? "credits" : "debits").decimalValue())
+                    .isEqualByComparingTo("0");
+            assertThat(account.path("entries").asInt()).isEqualTo(1);
+        }
+        assertThat(request("GET", "/api/v1/ledger/accounts", b, null, null).body())
+                .isEqualTo("[]");
+        var lines = json.readTree(request("GET", "/api/v1/ledger/entries", a, null, null).body());
+        assertThat(lines).hasSize(2);
+        assertThat(lines.get(0).path("direction").asText()).isEqualTo("DEBIT");
+        assertThat(lines.get(0).path("accountCode").asText()).isEqualTo("SELLER_PAYABLE:seller-one");
+        assertThat(lines.get(1).path("direction").asText()).isEqualTo("CREDIT");
+        assertThat(lines.get(1).path("accountCode").asText()).isEqualTo("CASH_CLEARING");
+        assertThat(lines.get(0).path("payoutId").asText()).isEqualTo(id);
+        assertThat(request("GET", "/api/v1/ledger/entries", b, null, null).body())
+                .isEqualTo("[]");
+    }
+
+    @Test
     void concurrentAdmissionCannotExceedWorkspaceLimit() throws Exception {
         String cookie = workspace();
         try (var pool = Executors.newFixedThreadPool(4)) {
