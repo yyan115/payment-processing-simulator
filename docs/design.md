@@ -55,7 +55,7 @@ Provider routing follows the payout’s stored selection. Simulated snapshots in
 
 ## Public demo
 
-A random HttpOnly, SameSite=Strict cookie identifies an isolated workspace. The cookie is a browser-session cookie, so the workspace ends when the browser closes; the server also expires a workspace after 30 minutes without requests, and each request extends that allowance. Resource access checks ownership, lists are scoped, and idempotency keys are namespaced. Quotas bound payouts, admissions and requests. Expired workspaces are removed in batches after a grace period; reset does not undo external sandbox transactions.
+A random HttpOnly, SameSite=Strict cookie identifies an isolated workspace. The cookie is a browser-session cookie, so the workspace ends when the browser closes; the server also expires a workspace after 6 hours without requests, and each request extends that allowance. Resource access checks ownership, lists are scoped, and idempotency keys are namespaced. Quotas bound payouts, admissions and requests. Expired workspaces are removed in batches after a grace period; reset does not undo external sandbox transactions.
 
 The database also stores shared and per-session Mastercard call budgets. Optional Turnstile validation grants external-provider access only until the workspace expires. The adapter accepts sandbox hosts only, and signing credentials stay on the server.
 

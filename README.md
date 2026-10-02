@@ -30,7 +30,7 @@ The simulator uses SGD without currency conversion. Participants are three fixed
 docker compose up --build
 ```
 
-Open **http://localhost:8080**. Mastercard credentials are optional. The UI and Java API run in one application; PostgreSQL stores the actual payment records. Each visitor has an isolated workspace that lasts until the browser is closed. Refreshing keeps it, and the server removes workspaces that have been idle for 30 minutes.
+Open **http://localhost:8080**. Mastercard credentials are optional. The UI and Java API run in one application; PostgreSQL stores the actual payment records. Each visitor has an isolated workspace that lasts until the browser is closed. Refreshing keeps it, and the server removes workspaces that have been idle for 6 hours.
 
 ## What the backend guarantees
 
