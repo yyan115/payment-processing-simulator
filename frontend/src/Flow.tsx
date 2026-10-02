@@ -18,12 +18,20 @@ export function viewOf(steps: Step[]): FlowView {
   view.current = steps.at(-1);
   return view;
 }
-function Status({ label, chip }: { label: string; chip?: Chip }) {
+function Status({
+  label,
+  chip,
+  empty,
+}: {
+  label: string;
+  chip?: Chip;
+  empty: string;
+}) {
   return (
     <div className="party-row">
       <span className="party-label">{label}</span>
       <span className={`chip ${chip?.tone ?? "neutral"}`}>
-        {chip?.text ?? "—"}
+        {chip?.text ?? empty}
       </span>
     </div>
   );
@@ -44,8 +52,10 @@ export function Flow({
     <div className="flow" role="group" aria-label="Payment flow">
       <div className="party">
         <strong>Payment platform</strong>
-        <Status label="Status" chip={view.platform} />
-        <Status label="Ledger" chip={view.ledger} />
+        <div className="party-rows">
+          <Status label="Status" chip={view.platform} empty="Nothing yet" />
+          <Status label="Ledger" chip={view.ledger} empty="Nothing posted" />
+        </div>
       </div>
       <div className="channel" aria-hidden="true">
         <div
@@ -70,7 +80,9 @@ export function Flow({
       </div>
       <div className="party">
         <strong>{network}</strong>
-        <Status label="Record" chip={view.network} />
+        <div className="party-rows">
+          <Status label="Record" chip={view.network} empty="Nothing yet" />
+        </div>
       </div>
     </div>
   );

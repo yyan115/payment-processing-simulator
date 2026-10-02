@@ -102,7 +102,7 @@ for (const [scenario, status, ledger, story, final] of [
     await page.reload();
     await expect(page.locator(".connection")).toHaveText("Connected");
     await expect(page.locator(".payment-row")).toHaveCount(1);
-    await expect(page.getByText(/inactivity/)).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.locator(".payment-summary").click();
     await expect(
       page
@@ -342,9 +342,14 @@ test("missing session renews without resending a payment", async ({
   await page.locator(".payment-summary").click();
   await expect(page.locator(".connection")).toHaveText("Connected");
   await expect(page.locator(".payment-row")).toHaveCount(0);
-  await expect(
-    page.getByRole("status").filter({ hasText: "inactivity" }),
-  ).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Session expired" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("inactive for more than 6 hours");
+  // It stays until the visitor acknowledges it.
+  await page.waitForTimeout(1500);
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "OK" }).click();
+  await expect(dialog).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Send payment", exact: true }),
   ).toBeEnabled();
@@ -467,7 +472,7 @@ test("clear history starts a fresh workspace", async ({ page }) => {
     .getByRole("button", { name: "Clear history", exact: true })
     .click();
   await expect(page.locator(".payment-row")).toHaveCount(0);
-  await expect(page.getByText(/inactivity/)).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await send(page, "DECLINED");
   await expect(page.locator(".payment-row")).toHaveCount(1);
 });

@@ -425,28 +425,37 @@ fieldset {
   align-items: stretch;
 }
 .party {
+  display: flex;
+  flex-direction: column;
   padding: 14px 16px;
+  text-align: center;
   background: var(--input);
   border: 1px solid var(--line);
   border-radius: 10px;
 }
 .party > strong {
   display: block;
-  margin-bottom: 4px;
   font-size: 15px;
+}
+.party-rows {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 12px;
+  padding-top: 10px;
 }
 .party-row {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  margin-top: 10px;
+  align-items: center;
+  gap: 4px;
 }
 .party-label {
   font-size: 12.5px;
   color: var(--muted);
 }
 .chip {
-  align-self: flex-start;
   padding: 2px 9px;
   font-size: 13.5px;
   font-weight: 600;
@@ -584,7 +593,8 @@ fieldset {
   scroll-margin-bottom: 24px;
 }
 .next-step {
-  margin-top: 14px;
+  display: block;
+  margin: 18px auto 0;
   padding: 10px 20px;
   color: var(--accent);
   background: none;
@@ -954,6 +964,11 @@ footer button {
   .party {
     padding: 10px;
   }
+  .party-rows {
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+  }
   .chip {
     padding: 2px 7px;
     font-size: 12px;
@@ -991,4 +1006,34 @@ footer button {
   .timeline li {
     animation: none;
   }
+}
+
+.expired {
+  width: min(420px, calc(100vw - 40px));
+  padding: 26px;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+.expired::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+.expired h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+.expired p {
+  margin: 0 0 20px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.expired button {
+  padding: 11px 28px;
+  color: var(--on-accent);
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  font-weight: 600;
 }

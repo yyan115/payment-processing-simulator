@@ -51,8 +51,13 @@ const statusText = {
   FAILED: "FAILED",
   UNKNOWN: "UNKNOWN",
 };
-const sessionEnded =
-  "Your previous session ended after a period of inactivity, so its history was cleared.";
+// How long a workspace may sit idle, as a phrase for the expiry message.
+function idlePhrase(seconds: number) {
+  const hours = Math.round(seconds / 3600);
+  if (seconds >= 3600) return `${hours} hour${hours === 1 ? "" : "s"}`;
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+}
 export default function App() {
   const [theme, setTheme] = useState(
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
@@ -78,7 +83,9 @@ export default function App() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [expired, setExpired] = useState<{ action: boolean } | null>(null);
+  const [idleSeconds, setIdleSeconds] = useState(21600);
+  const expiredDialog = useRef<HTMLDialogElement>(null);
   const [accounts, setAccounts] = useState<LedgerAccount[]>([]);
   const [postings, setPostings] = useState<LedgerPosting[]>([]);
   const [playback, setPlayback] = useState<Playback>(savedPlayback);
@@ -127,6 +134,10 @@ export default function App() {
     // Switching to automatic while a step is waiting lets the run carry on.
     if (value === "auto") release.current?.();
   };
+  useEffect(() => {
+    const dialog = expiredDialog.current;
+    if (expired && dialog && !dialog.open) dialog.showModal?.();
+  }, [expired]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try {
@@ -182,9 +193,11 @@ export default function App() {
             setExpanded(null);
             setTraceMap({});
             store("payment-requests", {});
-            setNotice(reset ? "" : sessionEnded);
+            if (!reset) setExpired({ action: false });
           }
           store("workspace-identity", identity);
+          if (workspace.durationSeconds > 0)
+            setIdleSeconds(workspace.durationSeconds);
           const configuration = await engine.config();
           await refresh();
           await refreshLedger();
@@ -262,7 +275,6 @@ export default function App() {
     active.current = run;
     setBusy(true);
     setError("");
-    setNotice("");
     setTrace({
       title: `${run.sender} → ${run.intent.recipientReference} · ${money(run.intent.amount, run.intent.currency)}${
         run.intent.provider === "simulated"
@@ -278,7 +290,7 @@ export default function App() {
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 410) {
         await connect();
-        setNotice(sessionEnded);
+        setExpired({ action: true });
       } else {
         setError(
           failure instanceof Error ? failure.message : "Request failed.",
@@ -603,11 +615,6 @@ export default function App() {
                   )}
                 </button>
               </div>
-              {notice && (
-                <p role="status" className="notice">
-                  {notice}
-                </p>
-              )}
               {error && (
                 <p role="alert" className="error">
                   {error}
@@ -870,7 +877,6 @@ export default function App() {
           </section>
         </div>
         <footer>
-          Test payments only. No real money moves.{" "}
           <button
             disabled={busy || connection !== "ready"}
             onClick={() => {
@@ -882,6 +888,24 @@ export default function App() {
           </button>
         </footer>
       </div>
+      {expired && (
+        <dialog
+          ref={expiredDialog}
+          className="expired"
+          aria-labelledby="expired-title"
+          onCancel={(event) => event.preventDefault()}
+        >
+          <h2 id="expired-title">Session expired</h2>
+          <p>
+            This page was inactive for more than {idlePhrase(idleSeconds)}, so
+            its payments and ledger were cleared.
+            {expired.action ? " Your last action was not carried out." : ""}
+          </p>
+          <button type="button" autoFocus onClick={() => setExpired(null)}>
+            OK
+          </button>
+        </dialog>
+      )}
     </main>
   );
 }
