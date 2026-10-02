@@ -45,6 +45,9 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps chromium
       - name: Build and start the complete runtime
+        env:
+          # The browser suite opens one workspace per test, faster than a visitor would.
+          DEMO_ADMISSIONS_PER_MINUTE: 120
         run: |
           docker compose config --quiet
           docker compose up --build --detach postgres app

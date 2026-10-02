@@ -47,6 +47,7 @@ All paths below start with `/api/v1`.
 | GET | `/payouts/{id}/provider` | Explicit provider lookup; does not alter the local payout |
 | GET | `/payouts/{id}/events` | Audit trail |
 | GET | `/payouts/{id}/ledger` | Confirmed journal; 404 before confirmation |
+| GET | `/ledger/accounts` | Debit and credit totals per account and currency, for this workspace's payments |
 | PUT | `/simulation/payouts/{id}/next-outcome` | Configure the next simulated submission using `{ "outcome": "PENDING" }` |
 | PUT | `/simulation/payouts/{id}/provider-status` | Advance an uncertain simulated record using `{ "status": "SUCCEEDED" }` or `DECLINED` |
 

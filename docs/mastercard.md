@@ -34,7 +34,7 @@ Recipient account URI is required. Sender account URI and other route fields dep
 docker compose -f docker-compose.yml -f docker-compose.mastercard.yml up --build
 ```
 
-Select **Mastercard sandbox** in the provider field and **Send payment**. The workflow submits the payment, checks its status and tests creation-request replay automatically. Participant names are display labels for fixed sandbox accounts, not arbitrary card recipients. No card data or credentials are collected in the browser.
+Select **Mastercard API sandbox** in the payment network field and **Send payment**. The workflow submits the payment, checks its status and tests creation-request replay automatically. Participant names are display labels for fixed sandbox accounts, not arbitrary card recipients. No card data or credentials are collected in the browser.
 
 ## API behavior
 

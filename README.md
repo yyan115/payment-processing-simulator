@@ -11,18 +11,18 @@ A Java 21 / Spring Boot / PostgreSQL payment engine with a small React demo. Exp
 
 ## Use it
 
-Pick a sender, recipient and scenario, then **Send payment**. A diagram shows the payment platform, which sends the payment and keeps the records, and the payment network, which moves the money. Each side shows its own status, and the messages between them are animated step by step, with a short explanation of each step underneath. Expand a row in **History** for its events, idempotency key, ledger and captured API requests.
+Pick a sender, recipient and scenario, then **Send payment**. A diagram shows the payment platform, which sends the payment and keeps the records, and the payment network, which moves the money. Each side shows its own status, and the messages between them are animated step by step, with a short explanation of each step underneath. **Playback** switches between Automatic and Step by step, where each step waits for **Next step**. Expand a row in **History** for its events, idempotency key, journal entry and captured API requests. The **Ledger** section shows running totals per account across the session.
 
 | Scenario | What happens | How the platform handles it |
 | --- | --- | --- |
-| Approved payment | The network approves the payment | Records `SUCCEEDED` and posts two ledger entries |
+| Approved payment | The network approves the payment | Records `SUCCEEDED` and posts a journal entry, one debit and one credit |
 | Declined payment | The network declines the payment | Records `FAILED` and posts nothing |
 | Response lost | The network completes the payment, but its response is lost | Records `UNKNOWN`, reconciles by asking the network, finds the payment was made, and records `SUCCEEDED` |
 | Request lost | The request never reaches the network | Records `UNKNOWN`, reconciles, finds no record, and sends again with the same reference |
 | Pending payment | The network has not finished the payment | Records `UNKNOWN`, waits, reconciles, and records the final result |
 | Unknown outcome | The network cannot report a result | Keeps `UNKNOWN` and does not send again |
 
-The simulator uses SGD without currency conversion. Participants are three fixed demo names, not bank accounts. The optional **Mastercard sandbox** network uses configured official test fixtures in USD and has no scenarios. Both networks run through the same backend state machine and ledger. No real money moves.
+The simulator uses SGD without currency conversion. Participants are three fixed demo names, not bank accounts. The optional **Mastercard API sandbox** network uses configured official test fixtures in USD and has no scenarios. Both networks run through the same backend state machine and ledger. No real money moves.
 
 ## Run locally
 
