@@ -25,7 +25,7 @@ payments:
   provider: ${PAYMENTS_PROVIDER:simulated}
   demo:
     enabled: ${DEMO_ENABLED:false}
-    session-seconds: ${DEMO_SESSION_SECONDS:1800}
+    session-seconds: ${DEMO_SESSION_SECONDS:21600}
     max-payouts: ${DEMO_MAX_PAYOUTS:40}
     admissions-per-minute: ${DEMO_ADMISSIONS_PER_MINUTE:30}
     turnstile-required: ${TURNSTILE_REQUIRED:false}

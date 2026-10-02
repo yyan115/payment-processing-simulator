@@ -35,7 +35,7 @@ public class DemoWorkspace {
             JdbcTemplate jdbc,
             SimulationScenarioRegistry scenarios,
             @Value("${payments.demo.enabled:false}") boolean enabled,
-            @Value("${payments.demo.session-seconds:1800}") int seconds,
+            @Value("${payments.demo.session-seconds:21600}") int seconds,
             @Value("${payments.demo.max-payouts:40}") int maxPayouts) {
         this.jdbc = jdbc;
         this.scenarios = scenarios;
