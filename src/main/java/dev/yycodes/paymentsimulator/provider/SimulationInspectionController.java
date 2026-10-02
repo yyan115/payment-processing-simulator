@@ -74,7 +74,7 @@ public class SimulationInspectionController {
     @GetMapping("/api/v1/payouts/{id}/provider")
     public ProviderObservation provider(@PathVariable UUID id) {
         var payout = payouts.get(id);
-        if ("mastercard".equals(payout.getProvider())) verification.authorize(id);
+        if (!"simulated".equals(payout.getProvider())) verification.authorize(id);
         var result = catalog.require(payout.getProvider()).findByClientReference(id);
         return new ProviderObservation(result.orElse(null), Instant.now());
     }

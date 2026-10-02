@@ -118,6 +118,6 @@ public class SandboxVerification {
                         (rs, n) -> rs.getObject(1, UUID.class),
                         payment);
         if (sessions.size() != 1 || sessions.getFirst() == null || !verified(sessions.getFirst()))
-            throw new DemoException(403, "Verify this demo session before using Mastercard.");
+            throw new DemoException(403, "Verify this demo session before using an external sandbox.");
     }
 }

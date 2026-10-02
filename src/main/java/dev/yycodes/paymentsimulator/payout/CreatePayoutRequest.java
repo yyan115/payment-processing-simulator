@@ -13,7 +13,7 @@ public record CreatePayoutRequest(
         @NotBlank @Size(max = 255) String recipientReference,
         @NotNull @Positive @Digits(integer = 15, fraction = 4) BigDecimal amount,
         @NotBlank @Pattern(regexp = "[A-Za-z]{3}") String currency,
-        @Pattern(regexp = "simulated|mastercard") String provider) {
+        @Pattern(regexp = "simulated|mastercard|visa") String provider) {
     public CreatePayoutRequest(String recipientReference, BigDecimal amount, String currency) {
         this(recipientReference, amount, currency, null);
     }

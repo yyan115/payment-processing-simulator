@@ -46,7 +46,7 @@ public class SandboxRequestBudget {
                         sessionLimit);
         if (changed == 0)
             throw new ProviderRejectedException(
-                    429, "This session has used its Mastercard allowance.");
+                    429, "This session has used its external sandbox allowance.");
         consume();
     }
 
@@ -74,6 +74,6 @@ public class SandboxRequestBudget {
                         limit);
         if (changed == 0)
             throw new ProviderRejectedException(
-                    429, "Mastercard sandbox demo request limit reached");
+                    429, "External sandbox demo request limit reached");
     }
 }

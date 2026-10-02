@@ -38,6 +38,7 @@ public class DemoController {
                 providers.defaultProvider(),
                 automaticReconciliation,
                 providers.mastercardAvailable(),
+                providers.visaAvailable(),
                 workspace.enabled());
     }
 
@@ -45,5 +46,6 @@ public class DemoController {
             String defaultProvider,
             boolean automaticReconciliation,
             boolean mastercardAvailable,
+            boolean visaAvailable,
             boolean temporaryWorkspaces) {}
 }

@@ -26,6 +26,8 @@ payments:
   demo:
     enabled: ${DEMO_ENABLED:false}
     session-seconds: ${DEMO_SESSION_SECONDS:21600}
+    empty-session-seconds: ${DEMO_EMPTY_SESSION_SECONDS:1800}
+    max-sessions: ${DEMO_MAX_SESSIONS:3000}
     max-payouts: ${DEMO_MAX_PAYOUTS:40}
     admissions-per-minute: ${DEMO_ADMISSIONS_PER_MINUTE:30}
     turnstile-required: ${TURNSTILE_REQUIRED:false}
@@ -41,6 +43,20 @@ payments:
     processing-stale-ms: ${RECONCILIATION_PROCESSING_STALE_MS:60000}
     backoff-base-ms: ${RECONCILIATION_BACKOFF_BASE_MS:30000}
     backoff-max-ms: ${RECONCILIATION_BACKOFF_MAX_MS:240000}
+  visa:
+    enabled: ${VISA_ENABLED:false}
+    base-url: ${VISA_BASE_URL:https://sandbox.api.visa.com}
+    user-id: ${VISA_USER_ID:}
+    password: ${VISA_PASSWORD:}
+    client-cert-base64: ${VISA_CERT_PEM_BASE64:}
+    client-key-base64: ${VISA_KEY_PEM_BASE64:}
+    mle-key-id: ${VISA_MLE_KEY_ID:}
+    mle-server-cert-base64: ${VISA_MLE_SERVER_CERT_BASE64:}
+    mle-private-key-base64: ${VISA_MLE_PRIVATE_KEY_BASE64:}
+    acquiring-bin: ${VISA_ACQUIRING_BIN:408999}
+    recipient-pan: ${VISA_RECIPIENT_PAN:4957030420210454}
+    sender-account-number: ${VISA_SENDER_ACCOUNT_NUMBER:4653459515756154}
+    business-application-id: ${VISA_BUSINESS_APPLICATION_ID:MD}
   mastercard:
     enabled: ${MASTERCARD_ENABLED:false}
     base-url: ${MASTERCARD_BASE_URL:https://sandbox.api.move.mastercard.com}

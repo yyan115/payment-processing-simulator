@@ -1,0 +1,13 @@
+# Optional Visa Direct sandbox adapter, using secrets from the shell or an ignored .env file.
+# Combine with the base file: docker compose -f docker-compose.yml -f docker-compose.visa.yml up --build
+services:
+  app:
+    environment:
+      VISA_ENABLED: "true"
+      VISA_USER_ID: ${VISA_USER_ID:?Set your Visa sandbox user ID}
+      VISA_PASSWORD: ${VISA_PASSWORD:?Set your Visa sandbox password}
+      VISA_CERT_PEM_BASE64: ${VISA_CERT_PEM_BASE64:?Set the base64-encoded two-way SSL certificate}
+      VISA_KEY_PEM_BASE64: ${VISA_KEY_PEM_BASE64:?Set the base64-encoded two-way SSL private key}
+      VISA_MLE_KEY_ID: ${VISA_MLE_KEY_ID:?Set the message level encryption key ID}
+      VISA_MLE_SERVER_CERT_BASE64: ${VISA_MLE_SERVER_CERT_BASE64:?Set the base64-encoded Visa server certificate}
+      VISA_MLE_PRIVATE_KEY_BASE64: ${VISA_MLE_PRIVATE_KEY_BASE64:?Set the base64-encoded encryption private key}

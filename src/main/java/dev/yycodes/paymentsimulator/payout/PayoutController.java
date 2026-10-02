@@ -33,7 +33,7 @@ public class PayoutController {
     }
 
     private void guard(UUID id) {
-        if ("mastercard".equals(payouts.get(id).getProvider())) verification.authorize(id);
+        if (!"simulated".equals(payouts.get(id).getProvider())) verification.authorize(id);
     }
 
     @PostMapping
