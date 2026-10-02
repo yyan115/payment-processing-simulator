@@ -341,20 +341,22 @@ export async function runPayment(
     detail:
       "The original request is repeated with the same idempotency key. The platform returns the existing payment and creates no second one.",
   });
-  if (run.intent.provider === "mastercard") {
+  if (run.intent.provider !== "simulated") {
+    const name = run.intent.provider === "visa" ? "Visa" : "Mastercard";
     try {
       const lookup = await engine.lookup(run.id);
       await progress(snapshot, {
         title: "Status lookup",
-        detail: `Mastercard reports the payment as ${lookup.provider?.status ?? "not found"}.`,
+        detail: `${name} reports the payment as ${lookup.provider?.status ?? "not found"}.`,
         arrow: { dir: "to-platform", label: "Status" },
+        // The sandbox's own record is only known once it has been asked.
+        network: networkChip(lookup.provider?.status),
         tone: lookup.provider?.status === "SUCCEEDED" ? "good" : "warn",
       });
     } catch {
       await progress(snapshot, {
         title: "Status lookup",
-        detail:
-          "The Mastercard status lookup was unavailable. The saved payment result is unchanged.",
+        detail: `The ${name} status lookup was unavailable. The saved payment result is unchanged.`,
         tone: "warn",
       });
     }

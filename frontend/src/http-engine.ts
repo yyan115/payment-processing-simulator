@@ -15,6 +15,25 @@ import type {
   Workspace,
 } from "./model";
 
+// Each tab keeps its own workspace id, so two tabs never share a workspace.
+const idKey = "payment-simulator-workspace";
+function savedId(): string | null {
+  try {
+    return sessionStorage.getItem(idKey);
+  } catch {
+    return null;
+  }
+}
+let workspaceId: string | null = savedId();
+function rememberId(id: string | null) {
+  workspaceId = id;
+  try {
+    if (id) sessionStorage.setItem(idKey, id);
+    else sessionStorage.removeItem(idKey);
+  } catch {
+    /* The id only lasts for this page load when storage is unavailable. */
+  }
+}
 let report: ((trace: Trace) => void) | undefined;
 export function observeRequests(listener: (trace: Trace) => void) {
   report = listener;
@@ -35,6 +54,9 @@ async function request<T>(
       method,
       headers: {
         ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        // A tab with no workspace yet sends "new", so the server never falls back to the
+        // browser cookie, which belongs to whichever tab opened a workspace last.
+        "X-Workspace-Id": workspaceId ?? "new",
         ...headers,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -55,6 +77,7 @@ async function request<T>(
     throw new ApiError(
       "No server response. The request may have completed; check the payout before retrying.",
       503,
+      true,
     );
   }
   const data =
@@ -86,7 +109,11 @@ async function request<T>(
 }
 export class HttpEngine implements Engine {
   async workspace(reset = false) {
-    return (await request<Workspace>(`/workspace?reset=${reset}`, "POST")).data;
+    const workspace = (
+      await request<Workspace>(`/workspace?reset=${reset}`, "POST")
+    ).data;
+    rememberId(workspace.id);
+    return workspace;
   }
   async config() {
     return (await request<Configuration>("/config")).data;

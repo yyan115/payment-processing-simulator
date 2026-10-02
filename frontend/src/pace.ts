@@ -1,6 +1,6 @@
 import type { Mode } from "./model";
 // Delay between visible steps, so a viewer can follow what the system does.
-// Only the simulated network is staged; Mastercard shows its real timing.
+// Only the simulated network is staged; the external sandboxes show their real timing.
 export const defaultStepDelay = 2000;
 export function stepDelay(provider: Mode): number {
   if (provider !== "simulated") return 0;

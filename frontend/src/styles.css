@@ -379,14 +379,6 @@ fieldset {
 .error {
   color: var(--error);
 }
-.resume-button {
-  margin-top: 14px;
-  padding: 9px 14px;
-  color: inherit;
-  background: var(--input);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
 .verification {
   margin-top: 16px;
   overflow: auto;

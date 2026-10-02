@@ -8,7 +8,13 @@ export type Outcome =
   | "TIMEOUT_BEFORE_PROCESSING"
   | "PENDING"
   | "UNKNOWN";
-export type Mode = "simulated" | "mastercard";
+export type Mode = "simulated" | "mastercard" | "visa";
+// Names of the external sandboxes, as shown to visitors.
+export const networkNames: Record<Mode, string> = {
+  simulated: "Simulated network",
+  mastercard: "Mastercard API sandbox",
+  visa: "Visa API sandbox",
+};
 export type Intent = {
   recipientReference: string;
   amount: string;
@@ -87,9 +93,11 @@ export type Configuration = {
   defaultProvider: Mode;
   automaticReconciliation: boolean;
   mastercardAvailable: boolean;
+  visaAvailable: boolean;
   temporaryWorkspaces: boolean;
 };
 export type Workspace = {
+  id: string | null;
   temporary: boolean;
   startedAt: string | null;
   expiresAt: string | null;
@@ -130,6 +138,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status = 400,
+    // True when the request may have reached the server but no answer came back.
+    public retryable = false,
   ) {
     super(message);
   }

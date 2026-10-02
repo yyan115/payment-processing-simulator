@@ -99,16 +99,6 @@ for (const [scenario, status, ledger, story, final] of [
     );
     await row.getByText(/^Journal entry ·/).click();
     await expect(row.locator(".journal-lines li")).toHaveCount(ledger ? 2 : 0);
-    await page.reload();
-    await expect(page.locator(".connection")).toHaveText("Connected");
-    await expect(page.locator(".payment-row")).toHaveCount(1);
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-    await page.locator(".payment-summary").click();
-    await expect(
-      page
-        .locator(".payment-details")
-        .getByText("Idempotency key", { exact: true }),
-    ).toBeVisible();
   });
 }
 test("multiple scenarios keep separate history and request evidence", async ({
@@ -277,10 +267,7 @@ test("steps appear one at a time, not all at once", async ({ page }) => {
   expect(seen.size).toBeGreaterThanOrEqual(4);
   expect(Math.min(...[...seen].filter(Boolean))).toBeLessThanOrEqual(2);
 });
-test("the session lasts until the browser closes", async ({
-  page,
-  context,
-}) => {
+test("the session cookie ends with the browser", async ({ page, context }) => {
   await open(page);
   const cookie = (await context.cookies()).find(
     (c) => c.name === "payout_workspace",
@@ -288,30 +275,64 @@ test("the session lasts until the browser closes", async ({
   // A session cookie has no expiry date, so it is removed when the browser closes.
   expect(cookie?.expires).toBe(-1);
   await expect(page.getByText(/Demo · test funds/)).toHaveCount(0);
-  await expect(page.getByText(/expired/i)).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });
-test("lost creation response resumes the same intent and key", async ({
+test("refreshing the page starts from scratch", async ({ page }) => {
+  await open(page);
+  await send(page, "SUCCESS");
+  await expect(page.locator(".payment-row")).toHaveCount(1);
+  await page.reload();
+  await expect(page.locator(".connection")).toHaveText("Connected");
+  await expect(page.locator(".payment-row")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Ledger" })).toContainText(
+    "No entries yet.",
+  );
+  await expect(page.locator(".run")).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+test("two tabs in one browser are separate workspaces", async ({ context }) => {
+  const first = await context.newPage();
+  await open(first);
+  await send(first, "SUCCESS");
+  const second = await context.newPage();
+  await open(second);
+  // Opening the second tab leaves the first one alone.
+  await expect(second.locator(".payment-row")).toHaveCount(0);
+  await expect(first.locator(".payment-row")).toHaveCount(1);
+  await send(second, "DECLINED");
+  await expect(second.locator(".payment-row")).toHaveCount(1);
+  await expect(second.locator(".payment-status")).toHaveText("FAILED");
+  await expect(first.locator(".payment-status")).toHaveText("SUCCEEDED");
+  // The first tab keeps working with no dialog and no lost history.
+  await send(first, "SUCCESS");
+  await expect(first.locator(".payment-row")).toHaveCount(2);
+  await expect(first.getByRole("dialog")).toHaveCount(0);
+  await expect(second.locator(".payment-row")).toHaveCount(1);
+});
+test("a lost creation response is retried automatically with the same key", async ({
   page,
 }) => {
   await open(page);
+  const keys: string[] = [];
   let lost = false;
   await page.route("**/api/v1/payouts", async (route) => {
-    if (!lost && route.request().method() === "POST") {
+    if (route.request().method() !== "POST") return route.continue();
+    keys.push(route.request().headers()["idempotency-key"]);
+    if (!lost) {
       lost = true;
       await route.fetch();
       await route.abort();
     } else await route.continue();
   });
   await page.getByRole("button", { name: "Send payment", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Resume unfinished request" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Resume unfinished request" }).click();
-  await expect(
-    page.getByRole("button", { name: "Send payment", exact: true }),
-  ).toBeEnabled();
+  await expect(page.locator("li.final")).toContainText("Result: SUCCEEDED", {
+    timeout: 30000,
+  });
   await expect(page.locator(".payment-row")).toHaveCount(1);
   await expect(page.locator(".payment-status")).toHaveText("SUCCEEDED");
+  // The first attempt created the payment, the retry and the final repeat reused its key.
+  expect(keys.length).toBeGreaterThanOrEqual(2);
+  expect(new Set(keys).size).toBe(1);
 });
 test("backend startup failures recover automatically", async ({ page }) => {
   let requests = 0;
@@ -332,19 +353,25 @@ test("backend startup failures recover automatically", async ({ page }) => {
     page.getByRole("button", { name: "Send payment", exact: true }),
   ).toBeEnabled();
 });
-test("missing session renews without resending a payment", async ({
+test("an expired session renews without resending a payment", async ({
   page,
-  context,
 }) => {
   await open(page);
   await send(page, "SUCCESS");
-  await context.clearCookies();
+  // End this tab's workspace on the server, as the inactivity limit does.
+  await page.evaluate(async () => {
+    const id = sessionStorage.getItem("payment-simulator-workspace")!;
+    await fetch("/api/v1/workspace?reset=true", {
+      method: "POST",
+      headers: { "X-Workspace-Id": id },
+    });
+  });
   await page.locator(".payment-summary").click();
   await expect(page.locator(".connection")).toHaveText("Connected");
   await expect(page.locator(".payment-row")).toHaveCount(0);
   const dialog = page.getByRole("dialog", { name: "Session expired" });
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText("inactive for more than 6 hours");
+  await expect(dialog).toContainText("inactive for too long");
   // It stays until the visitor acknowledges it.
   await page.waitForTimeout(1500);
   await expect(dialog).toBeVisible();
@@ -384,14 +411,16 @@ test("mobile layout and icon theme toggle persist", async ({ page }) => {
   ).toBe(true);
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(page.locator(".payment-row")).toHaveCount(1);
 });
 test("authenticated Mastercard payout and lookup", async ({ page }) => {
   test.skip(process.env.MASTERCARD_E2E !== "true");
   await open(page);
+  await page.getByRole("button", { name: "Step by step" }).click();
   await page
     .getByLabel("Payment network", { exact: true })
     .selectOption("mastercard");
+  // Stepping is for the simulated network only, so it is not offered here and never waits.
+  await expect(page.getByRole("group", { name: "Playback" })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Send payment", exact: true }),
   ).toBeEnabled();
@@ -415,7 +444,7 @@ test("authenticated Mastercard payout and lookup", async ({ page }) => {
   );
 });
 
-test("lost processing response recovers without a second submission", async ({
+test("a lost processing response recovers automatically without a second submission", async ({
   page,
 }) => {
   await open(page);
@@ -427,42 +456,13 @@ test("lost processing response recovers without a second submission", async ({
     await route.abort();
   });
   await page.getByRole("button", { name: "Send payment", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Resume unfinished request" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Resume unfinished request" }).click();
-  await expect(
-    page.getByRole("button", { name: "Send payment", exact: true }),
-  ).toBeEnabled();
+  await expect(page.locator("li.final")).toContainText("Result: SUCCEEDED", {
+    timeout: 30000,
+  });
   expect(calls).toBe(1);
   await expect(page.locator(".payment-row")).toHaveCount(1);
   await expect(page.locator(".payment-status")).toHaveText("SUCCEEDED");
-});
-test("unfinished request survives reload and preserves participant intent", async ({
-  page,
-}) => {
-  await open(page);
-  let lost = false;
-  await page.route("**/api/v1/payouts", async (route) => {
-    if (!lost && route.request().method() === "POST") {
-      lost = true;
-      await route.fetch();
-      await route.abort();
-    } else await route.continue();
-  });
-  await page.getByRole("button", { name: "Send payment", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Resume unfinished request" }),
-  ).toBeVisible();
-  await page.reload();
-  await expect(page.locator(".connection")).toHaveText("Connected");
-  await page.getByLabel("To", { exact: true }).selectOption("Alex Morgan");
-  await page.getByRole("button", { name: "Resume unfinished request" }).click();
-  await expect(
-    page.getByRole("button", { name: "Send payment", exact: true }),
-  ).toBeEnabled();
-  await expect(page.locator(".payment-row")).toHaveCount(1);
-  await expect(page.locator(".payment-summary")).toContainText("John Lim");
+  await expect(page.getByRole("button", { name: /Resume/ })).toHaveCount(0);
 });
 test("clear history starts a fresh workspace", async ({ page }) => {
   await open(page);
@@ -577,14 +577,6 @@ test("bot verification gates Mastercard, supports retry and leaves simulation op
     page.getByText("Session verified", { exact: true }),
   ).toBeVisible();
   await expect(sendButton).toBeEnabled();
-  await page.reload();
-  await page
-    .getByLabel("Payment network", { exact: true })
-    .selectOption("mastercard");
-  await expect(
-    page.getByText("Session verified", { exact: true }),
-  ).toBeVisible();
-  await expect(sendButton).toBeEnabled();
 });
 test("step by step waits for the viewer, and Automatic carries on", async ({
   page,
@@ -651,9 +643,6 @@ test("the ledger is a book of postings with balances, apart from History", async
   await expect(cards.filter({ hasText: "Payable to John Lim" })).toContainText(
     "SGD 200.00 debit",
   );
-  await page.reload();
-  await expect(page.locator(".connection")).toHaveText("Connected");
-  await expect(lines).toHaveCount(4);
   // History describes payments. It has no accounting table.
   await expect(
     page.getByRole("region", { name: "Payment history" }).locator("table"),
@@ -672,7 +661,11 @@ test("Mastercard is offered only when it is configured, and never as unavailable
       const response = await route.fetch();
       await route.fulfill({
         response,
-        json: { ...(await response.json()), mastercardAvailable: available },
+        json: {
+          ...(await response.json()),
+          mastercardAvailable: available,
+          visaAvailable: false,
+        },
       });
     });
     await open(page);
@@ -735,4 +728,87 @@ test.describe("phone", () => {
       await next.click();
     }
   });
+});
+test("authenticated Visa Direct payout and lookup", async ({ page }) => {
+  test.skip(process.env.VISA_E2E !== "true");
+  await open(page);
+  await page.getByRole("button", { name: "Step by step" }).click();
+  await page
+    .getByLabel("Payment network", { exact: true })
+    .selectOption("visa");
+  await expect(page.getByRole("group", { name: "Playback" })).toHaveCount(0);
+  await expect(page.getByLabel("Amount")).toHaveValue("50.00");
+  const lookup = page.waitForResponse(
+    (response) =>
+      /\/api\/v1\/payouts\/[^/]+\/provider$/.test(response.url()) &&
+      response.request().method() === "GET",
+  );
+  await page.getByRole("button", { name: "Send payment", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Send payment", exact: true }),
+  ).toBeEnabled({ timeout: 40000 });
+  await expect(page.locator(".payment-status")).toHaveText("SUCCEEDED");
+  const observed = await lookup;
+  expect(observed.status()).toBe(200);
+  expect((await observed.json()).provider.status).toBe("SUCCEEDED");
+  await expect(page.locator(".flow")).toContainText("Visa API sandbox");
+  await expect(page.locator(".flow .party").nth(1)).toContainText(
+    "Payment completed",
+  );
+  await page.locator(".payment-summary").click();
+  await expect(page.locator(".identifiers")).toContainText("Visa API sandbox");
+  await expect(page.locator(".payment-details .journal-lines li")).toHaveCount(
+    2,
+  );
+});
+test("Visa is offered only when it is configured", async ({ page }) => {
+  for (const available of [false, true]) {
+    await page.route("**/api/v1/config", async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({
+        response,
+        json: {
+          ...(await response.json()),
+          mastercardAvailable: false,
+          visaAvailable: available,
+        },
+      });
+    });
+    await open(page);
+    const options = page
+      .getByLabel("Payment network", { exact: true })
+      .locator("option");
+    await expect(options).toHaveText(
+      available
+        ? ["Simulated network", "Visa API sandbox"]
+        : ["Simulated network"],
+    );
+    await page.unroute("**/api/v1/config");
+  }
+});
+
+test("the playback switch is offered for the simulated network only", async ({
+  page,
+}) => {
+  await page.route("**/api/v1/config", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: {
+        ...(await response.json()),
+        mastercardAvailable: true,
+        visaAvailable: true,
+      },
+    });
+  });
+  await open(page);
+  const playback = page.getByRole("group", { name: "Playback" });
+  const network = page.getByLabel("Payment network", { exact: true });
+  await expect(playback).toBeVisible();
+  for (const external of ["mastercard", "visa"]) {
+    await network.selectOption(external);
+    await expect(playback).toHaveCount(0);
+    await network.selectOption("simulated");
+    await expect(playback).toBeVisible();
+  }
 });

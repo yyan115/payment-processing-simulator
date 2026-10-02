@@ -4,6 +4,7 @@ import { HttpEngine, observeRequests } from "./http-engine";
 import {
   ApiError,
   money,
+  networkNames,
   normalizeIntent,
   participants,
   recipientAfterSenderChange,
@@ -51,13 +52,6 @@ const statusText = {
   FAILED: "FAILED",
   UNKNOWN: "UNKNOWN",
 };
-// How long a workspace may sit idle, as a phrase for the expiry message.
-function idlePhrase(seconds: number) {
-  const hours = Math.round(seconds / 3600);
-  if (seconds >= 3600) return `${hours} hour${hours === 1 ? "" : "s"}`;
-  const minutes = Math.max(1, Math.round(seconds / 60));
-  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
-}
 export default function App() {
   const [theme, setTheme] = useState(
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
@@ -84,7 +78,6 @@ export default function App() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [expired, setExpired] = useState<{ action: boolean } | null>(null);
-  const [idleSeconds, setIdleSeconds] = useState(21600);
   const expiredDialog = useRef<HTMLDialogElement>(null);
   const [accounts, setAccounts] = useState<LedgerAccount[]>([]);
   const [postings, setPostings] = useState<LedgerPosting[]>([]);
@@ -186,6 +179,8 @@ export default function App() {
           const identity = workspace.startedAt ?? "persistent";
           const old = read<string | null>("workspace-identity", null);
           if (reset || (old && old !== identity)) {
+            // Only tell the visitor when there was something to lose.
+            const hadPayments = Object.keys(runs.current).length > 0;
             runs.current = {};
             save();
             setSnapshots({});
@@ -193,11 +188,9 @@ export default function App() {
             setExpanded(null);
             setTraceMap({});
             store("payment-requests", {});
-            if (!reset) setExpired({ action: false });
+            if (!reset && hadPayments) setExpired({ action: false });
           }
           store("workspace-identity", identity);
-          if (workspace.durationSeconds > 0)
-            setIdleSeconds(workspace.durationSeconds);
           const configuration = await engine.config();
           await refresh();
           await refreshLedger();
@@ -225,7 +218,7 @@ export default function App() {
     let attempts = 0;
     const poll = async () => {
       if (cancelled) return;
-      const ok = await connect();
+      const ok = await connect(true);
       if (!ok && !cancelled)
         timer = setTimeout(
           () => void poll(),
@@ -258,7 +251,12 @@ export default function App() {
     }
     if (step.ledger && snapshot?.ledger) void refreshLedger();
     if (step.final) return;
-    if (playbackRef.current === "step") {
+    // Stepping only makes sense for the simulated network. The real sandboxes have already
+    // answered by the time their steps are shown.
+    if (
+      playbackRef.current === "step" &&
+      active.current?.intent.provider === "simulated"
+    ) {
       setWaiting(true);
       await new Promise<void>((resolve) => {
         release.current = resolve;
@@ -284,7 +282,18 @@ export default function App() {
       mode: run.intent.provider,
     });
     try {
-      await runPayment(engine, run, save, progress);
+      // A lost reply is retried automatically with the same idempotency key, so it can
+      // never create a second payment.
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await runPayment(engine, run, save, progress);
+          break;
+        } catch (failure) {
+          const retryable = failure instanceof ApiError && failure.retryable;
+          if (!retryable || attempt >= 3 || !mounted.current) throw failure;
+          await sleep(1000 * attempt);
+        }
+      }
       await refresh();
       await refreshLedger();
     } catch (failure) {
@@ -318,21 +327,12 @@ export default function App() {
   };
   const send = () => {
     try {
-      const unfinished = Object.values(runs.current).find(
-        (run) => !run.complete,
-      );
-      if (unfinished) {
-        setError(
-          "A previous request is unfinished. Resume it before sending another payment.",
-        );
-        return;
-      }
       const run: Run = {
         key: `demo-${crypto.randomUUID()}`,
         intent: normalizeIntent({
           recipientReference: recipient,
           amount,
-          currency: mode === "mastercard" ? "USD" : "SGD",
+          currency: mode === "simulated" ? "SGD" : "USD",
           provider: mode,
         }),
         scenario,
@@ -366,7 +366,6 @@ export default function App() {
         );
     }
   };
-  const unfinished = Object.values(runs.current).find((run) => !run.complete);
   // Names a payment in the ledger, using what this browser knows about it.
   const paymentLabel = (id: string) => {
     const payment = items.find((item) => item.id === id);
@@ -493,13 +492,14 @@ export default function App() {
                   </div>
                 ) : (
                   <p className="field-note">
-                    This sends a request to the Mastercard API sandbox, a test
-                    environment that uses Mastercard’s official test accounts.
-                    Amounts are in USD and no real money moves. The names are
-                    labels only.
+                    This sends a request to the {networkNames[mode]}, a test
+                    environment that uses{" "}
+                    {mode === "visa" ? "Visa’s" : "Mastercard’s"} official test
+                    accounts. Amounts are in USD and no real money moves. The
+                    names are labels only.
                   </p>
                 )}
-                {mode === "mastercard" && (
+                {mode !== "simulated" && (
                   <Verification onReady={verificationReady} />
                 )}
               </fieldset>
@@ -528,7 +528,7 @@ export default function App() {
                       required
                     />
                     <span className="currency">
-                      {mode === "mastercard" ? "USD" : "SGD"}
+                      {mode === "simulated" ? "SGD" : "USD"}
                     </span>
                   </div>
                 </div>
@@ -571,39 +571,49 @@ export default function App() {
                     onChange={(e) => {
                       setMode(e.target.value as Mode);
                       setAmount(
-                        e.target.value === "mastercard" ? "53.00" : "100.00",
+                        e.target.value === "mastercard"
+                          ? "53.00"
+                          : e.target.value === "visa"
+                            ? "50.00"
+                            : "100.00",
                       );
                     }}
                   >
                     <option value="simulated">Simulated network</option>
                     {config?.mastercardAvailable && (
-                      <option value="mastercard">Mastercard API sandbox</option>
+                      <option value="mastercard">
+                        {networkNames.mastercard}
+                      </option>
+                    )}
+                    {config?.visaAvailable && (
+                      <option value="visa">{networkNames.visa}</option>
                     )}
                   </select>
                 </label>
               </fieldset>
               <div className="send-row">
-                <div className="playback" role="group" aria-label="Playback">
-                  <span>Playback</span>
-                  {(["auto", "step"] as const).map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      aria-pressed={playback === value}
-                      onClick={() => changePlayback(value)}
-                    >
-                      {value === "auto" ? "Automatic" : "Step by step"}
-                    </button>
-                  ))}
-                </div>
+                {mode === "simulated" && (
+                  <div className="playback" role="group" aria-label="Playback">
+                    <span>Playback</span>
+                    {(["auto", "step"] as const).map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-pressed={playback === value}
+                        onClick={() => changePlayback(value)}
+                      >
+                        {value === "auto" ? "Automatic" : "Step by step"}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <button
                   className="send-button"
                   type="submit"
                   disabled={
                     busy ||
                     connection !== "ready" ||
-                    !!unfinished ||
-                    (mode === "mastercard" && !verified)
+                    (mode !== "simulated" && !verified)
                   }
                 >
                   {busy ? (
@@ -620,15 +630,6 @@ export default function App() {
                   {error}
                 </p>
               )}
-              {unfinished && !busy && connection === "ready" && (
-                <button
-                  type="button"
-                  className="resume-button"
-                  onClick={() => void execute(unfinished)}
-                >
-                  Resume unfinished request
-                </button>
-              )}
             </section>
           </form>
         </div>
@@ -641,9 +642,9 @@ export default function App() {
               <Flow
                 view={viewOf(steps)}
                 network={
-                  trace.mode === "mastercard"
-                    ? "Mastercard API sandbox"
-                    : "Payment network"
+                  trace.mode === "simulated"
+                    ? "Payment network"
+                    : networkNames[trace.mode]
                 }
                 working={busy && !waiting}
               />
@@ -734,11 +735,7 @@ export default function App() {
                                 </>
                               )}
                               <dt>Payment network</dt>
-                              <dd>
-                                {payment.provider === "mastercard"
-                                  ? "Mastercard API sandbox"
-                                  : "Simulated network"}
-                              </dd>
+                              <dd>{networkNames[payment.provider]}</dd>
                               {run?.intent.provider === "simulated" && (
                                 <>
                                   <dt>Scenario</dt>
@@ -897,8 +894,8 @@ export default function App() {
         >
           <h2 id="expired-title">Session expired</h2>
           <p>
-            This page was inactive for more than {idlePhrase(idleSeconds)}, so
-            its payments and ledger were cleared.
+            This page was inactive for too long, so its payments and ledger were
+            cleared.
             {expired.action ? " Your last action was not carried out." : ""}
           </p>
           <button type="button" autoFocus onClick={() => setExpired(null)}>
