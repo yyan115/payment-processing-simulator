@@ -500,8 +500,12 @@ export default function App() {
                   </div>
                 ) : (
                   <p className="field-note">
-                    This sends a request to the official {networkNames[mode]},{" "}
-                    {mode === "visa" ? "Visa’s" : "Mastercard’s"} test
+                    This sends a request to the official {networkNames[mode]}{" "}
+                    using the{" "}
+                    {mode === "visa"
+                      ? "Visa Direct API"
+                      : "Mastercard Send API"}
+                    , within {mode === "visa" ? "Visa’s" : "Mastercard’s"} test
                     environment.
                   </p>
                 )}

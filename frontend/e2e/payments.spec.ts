@@ -497,7 +497,7 @@ test("Mastercard configuration removes simulator scenarios", async ({
   await expect(page.getByLabel("Amount")).toHaveValue("50.00");
   await expect(
     page.getByText(
-      /official Mastercard API sandbox, Mastercard’s test environment/,
+      /official Mastercard API sandbox using the Mastercard Send API, within Mastercard’s test environment/,
     ),
   ).toBeVisible();
   await page
@@ -754,6 +754,11 @@ test("authenticated Visa Direct payout and lookup", async ({ page }) => {
     .selectOption("visa");
   await expect(page.getByRole("group", { name: "Playback" })).toHaveCount(0);
   await expect(page.getByLabel("Amount")).toHaveValue("50.00");
+  await expect(
+    page.getByText(
+      /official Visa API sandbox using the Visa Direct API, within Visa’s test environment/,
+    ),
+  ).toBeVisible();
   const lookup = page.waitForResponse(
     (response) =>
       /\/api\/v1\/payouts\/[^/]+\/provider$/.test(response.url()) &&
