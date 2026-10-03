@@ -448,9 +448,8 @@ export default function App() {
               <div className="intro">
                 <p>
                   This simulator shows how a payment system and a payment
-                  network work together and what happens when something goes
-                  wrong, using techniques that real payment systems use, such as
-                  idempotency keys and reconciliation.
+                  network work together, using techniques that real payment
+                  systems use, such as idempotency keys and reconciliation.
                 </p>
                 <p>
                   Every payment involves two parties. The payment platform takes

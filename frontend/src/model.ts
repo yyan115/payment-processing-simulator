@@ -238,7 +238,8 @@ export const scenarios: Scenario[] = [
     summary: "The payment is made, but the response never arrives.",
     explanation: ({ from, to, amount }) => [
       `${from} sends ${to} ${amount}. The network approves it and moves the money, but its reply never arrives, so the platform cannot tell if the payment happened.`,
-      `It records UNKNOWN and does not send again, because ${to} could be paid twice. Instead it reconciles, asking the network what happened to this payment using its payment reference ID. The network answers that it was approved and the platform records SUCCEEDED.`,
+      `It records UNKNOWN and does not send again, because ${to} could be paid twice. Instead it reconciles, asking the network what happened to this payment using its reference ID.`,
+      `In this scenario the network answers that it was approved, so the platform records SUCCEEDED.`,
     ],
   },
   {
@@ -247,7 +248,8 @@ export const scenarios: Scenario[] = [
     summary: "The request never reaches the network.",
     explanation: ({ from, to, amount }) => [
       `${from} sends ${to} ${amount}, but the request is lost before it reaches the network, so no money is transferred. The platform gets no reply and records UNKNOWN.`,
-      `The platform reconciles by asking the network about the payment's reference ID. The network has no record of it, so nothing was paid. The platform sends the request again with the same reference ID. This is safe because if the network had already received the first request, the reference ID would let it recognise the repeat and not pay twice. The reference ID works as the network's version of an idempotency key.`,
+      `It asks the network about the payment using its reference ID, and the network has no record of it, so nothing was paid.`,
+      `The platform sends the request again with the same reference ID. As an idempotency key, it lets the network recognise a repeat and not pay twice, even if the first request had arrived.`,
     ],
   },
   {
@@ -256,7 +258,8 @@ export const scenarios: Scenario[] = [
     summary: "The network has not finished processing the payment.",
     explanation: ({ from, to, amount }) => [
       `${from} sends ${to} ${amount}. The network accepts the request but replies that the payment is still being processed.`,
-      `The platform cannot record SUCCEEDED or FAILED yet, because a wrong guess means a lost payment or a double payment. It records UNKNOWN, waits briefly and reconciles. When the network reports approval, it records SUCCEEDED.`,
+      `The platform cannot record SUCCEEDED or FAILED yet, because a wrong guess means a lost payment or a double payment. It records UNKNOWN, waits briefly and checks again.`,
+      `In this scenario the network then reports approval and the platform records SUCCEEDED. A decline would be recorded as FAILED.`,
     ],
   },
   {
@@ -265,7 +268,8 @@ export const scenarios: Scenario[] = [
     summary: "The network cannot report a result.",
     explanation: ({ from, to, amount }) => [
       `${from} sends ${to} ${amount}. The network cannot report a result, and still cannot when the platform checks again.`,
-      `Any status the platform picks would be a guess, and a wrong guess means paying twice or never paying. So the payment stays UNKNOWN, nothing is posted to the ledger and it is not sent again. In real systems the network's settlement report, which arrives later, gives the final answer, and the platform matches it to its records automatically.`,
+      `The platform cannot guess, because a wrong guess means paying twice or never paying. So the payment stays UNKNOWN, nothing is posted to the ledger and it is not sent again.`,
+      `It stays UNKNOWN until the network reports a result. Real networks also send a settlement report listing every payment they processed, which the platform checks its records against.`,
     ],
   },
 ];

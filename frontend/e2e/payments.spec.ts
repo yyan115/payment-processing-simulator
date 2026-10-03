@@ -192,7 +192,9 @@ test("each scenario is explained in plain prose before it is run", async ({
   for (const id of Object.keys(names)) {
     await choose(page, id);
     await expect(text).toHaveCount(1);
-    await expect(text.locator("p")).toHaveCount(2);
+    const paragraphs = await text.locator("p").count();
+    expect(paragraphs).toBeGreaterThanOrEqual(2);
+    expect(paragraphs).toBeLessThanOrEqual(3);
     expect((await text.textContent())!.length).toBeGreaterThan(200);
   }
   await expect(page.getByText("What happens", { exact: true })).toHaveCount(0);
@@ -809,6 +811,22 @@ test("Visa is selectable only when it is configured, otherwise listed as unavail
   }
 });
 
+test("no scenario paragraph runs past four lines", async ({ page }) => {
+  await open(page);
+  for (const id of Object.keys(names)) {
+    await choose(page, id);
+    const lines = await page
+      .locator(".scenario-explanation p")
+      .evaluateAll((paragraphs) =>
+        paragraphs.map(
+          (p) =>
+            p.getBoundingClientRect().height /
+            parseFloat(getComputedStyle(p).lineHeight),
+        ),
+      );
+    for (const count of lines) expect(Math.round(count)).toBeLessThanOrEqual(4);
+  }
+});
 test("a help icon explains the playback switch", async ({ page }) => {
   await open(page);
   const tip = page.getByRole("tooltip");

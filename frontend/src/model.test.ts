@@ -62,13 +62,20 @@ describe("participants", () => {
 });
 describe("scenario descriptions", () => {
   it("name the people and amount and use the real payment terms", () => {
-    const party = { from: "Sarah Lim", to: "Daniel Wong", amount: "SGD 100.00" };
+    const party = {
+      from: "Sarah Lim",
+      to: "Daniel Wong",
+      amount: "SGD 100.00",
+    };
     expect(new Set(scenarios.map((s) => s.name)).size).toBe(6);
     for (const s of scenarios) {
       expect(s.summary.endsWith(".")).toBe(true);
       const paragraphs = s.explanation(party);
       const text = paragraphs.join(" ");
-      expect(paragraphs).toHaveLength(2);
+      expect(paragraphs.length).toBeGreaterThanOrEqual(2);
+      expect(paragraphs.length).toBeLessThanOrEqual(3);
+      for (const paragraph of paragraphs)
+        expect(paragraph.length).toBeLessThanOrEqual(200);
       expect(text).toContain("Sarah Lim sends Daniel Wong SGD 100.00");
       expect(text).toMatch(/SUCCEEDED|FAILED|UNKNOWN/);
     }
