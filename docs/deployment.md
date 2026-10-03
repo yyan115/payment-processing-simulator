@@ -7,6 +7,7 @@ The app runs on Azure Container Apps (one always-on replica, 0.25 vCPU, 0.5 GiB)
 - `ops/azure/deploy.sh` creates the resource group, database, environment and app, and saves the generated database password to `~/.config/payment-processing-simulator/azure/credentials.env`. It tries each region the student subscription allows until the database can be created.
 - `ops/azure/providers.sh` reads the ignored `.env` file and stores the Mastercard and Visa sandbox credentials as Container App secrets.
 - To roll out a new image, deploy it by commit tag (`...:<sha>`). A repeated `:latest` is not pulled again.
+- The `Publish image` workflow deploys each build to Azure in a separate `deploy` job that uses the `production` environment, so GitHub's Deployments box links to the live URL. The job runs only when the repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID` exist. The Azure identity needs a federated credential for the subject `repo:yyan115/payment-processing-simulator:environment:production` and the Contributor role on the resource group.
 - Secret changes need a new revision to take effect. Changing any environment variable creates one.
 
 ## Blitz (not in use)
