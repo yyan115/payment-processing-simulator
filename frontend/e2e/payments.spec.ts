@@ -143,21 +143,21 @@ test("three fixed participants; sender and recipient can never match", async ({
   const from = page.getByLabel("From", { exact: true });
   const to = page.getByLabel("To", { exact: true });
   await expect(from.locator("option")).toHaveText([
-    "Mei Tan",
-    "Raj Patel",
-    "Alex Morgan",
+    "Sarah Lim",
+    "Daniel Wong",
+    "Rachel Koh",
   ]);
-  for (const sender of ["Mei Tan", "Raj Patel", "Alex Morgan"]) {
+  for (const sender of ["Sarah Lim", "Daniel Wong", "Rachel Koh"]) {
     await from.selectOption(sender);
     const options = await to.locator("option").allTextContents();
     expect(options).toHaveLength(2);
     expect(options).not.toContain(sender);
     expect(await to.inputValue()).not.toBe(sender);
   }
-  await from.selectOption("Mei Tan");
-  await to.selectOption("Raj Patel");
-  await from.selectOption("Raj Patel");
-  await expect(to).not.toHaveValue("Raj Patel");
+  await from.selectOption("Sarah Lim");
+  await to.selectOption("Daniel Wong");
+  await from.selectOption("Daniel Wong");
+  await expect(to).not.toHaveValue("Daniel Wong");
 });
 test("amount validation and fixed currency", async ({ page }) => {
   await open(page);
@@ -176,18 +176,18 @@ test("each scenario is explained in plain prose before it is run", async ({
   await choose(page, "TIMEOUT_AFTER_SUCCESS");
   await expect(text).toHaveCount(1);
   await expect(text).toContainText(
-    "Mei Tan sends Raj Patel SGD 100.00. The network approves it and moves the money",
+    "Sarah Lim sends Daniel Wong SGD 100.00. The network approves it and moves the money",
   );
   await expect(text).toContainText("records UNKNOWN");
   await expect(text).toContainText("reconciles");
   await expect(text).toContainText("reference");
-  await expect(text).toContainText("Raj Patel could be paid twice");
-  await page.getByLabel("From", { exact: true }).selectOption("Alex Morgan");
+  await expect(text).toContainText("Daniel Wong could be paid twice");
+  await page.getByLabel("From", { exact: true }).selectOption("Rachel Koh");
   await page.getByLabel("Amount").fill("42.50");
-  await expect(text).toContainText("Alex Morgan sends");
+  await expect(text).toContainText("Rachel Koh sends");
   await expect(text).toContainText("SGD 42.50");
   await choose(page, "SUCCESS");
-  await expect(text).toContainText("This is the normal path");
+  await expect(text).toContainText("This is the expected outcome");
   await expect(text).toContainText("ledger");
   for (const id of Object.keys(names)) {
     await choose(page, id);
@@ -624,15 +624,15 @@ test("the ledger is a book of postings with balances, apart from History", async
   await expect(cards.filter({ hasText: "Cash clearing" })).toContainText(
     "SGD 100.00 credit",
   );
-  await expect(cards.filter({ hasText: "Payable to Raj Patel" })).toContainText(
-    "SGD 100.00 debit",
-  );
+  await expect(
+    cards.filter({ hasText: "Payable to Daniel Wong" }),
+  ).toContainText("SGD 100.00 debit");
   await expect(ledger).not.toContainText("Debits equal credits");
   // Newest posting first: the credit follows the debit, so it is listed above it.
   await expect(lines).toHaveCount(2);
   await expect(lines.first()).toContainText("Cash clearing");
-  await expect(lines.first()).toContainText("Mei Tan → Raj Patel");
-  await expect(lines.last()).toContainText("Payable to Raj Patel");
+  await expect(lines.first()).toContainText("Sarah Lim → Daniel Wong");
+  await expect(lines.last()).toContainText("Payable to Daniel Wong");
   // A declined payment moves no money, so the ledger does not change.
   await send(page, "DECLINED");
   await expect(lines).toHaveCount(2);
@@ -640,9 +640,9 @@ test("the ledger is a book of postings with balances, apart from History", async
   await send(page, "SUCCESS");
   await expect(lines).toHaveCount(4);
   await expect(lines.first()).toContainText("SGD 200.00 credit");
-  await expect(cards.filter({ hasText: "Payable to Raj Patel" })).toContainText(
-    "SGD 200.00 debit",
-  );
+  await expect(
+    cards.filter({ hasText: "Payable to Daniel Wong" }),
+  ).toContainText("SGD 200.00 debit");
   // History describes payments. It has no accounting table.
   await expect(
     page.getByRole("region", { name: "Payment history" }).locator("table"),
