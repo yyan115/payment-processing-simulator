@@ -580,14 +580,17 @@ export default function App() {
                     }}
                   >
                     <option value="simulated">Simulated network</option>
-                    {config?.mastercardAvailable && (
-                      <option value="mastercard">
-                        {networkNames.mastercard}
-                      </option>
-                    )}
-                    {config?.visaAvailable && (
-                      <option value="visa">{networkNames.visa}</option>
-                    )}
+                    <option
+                      value="mastercard"
+                      disabled={!config?.mastercardAvailable}
+                    >
+                      {networkNames.mastercard}
+                      {config?.mastercardAvailable ? "" : " (unavailable)"}
+                    </option>
+                    <option value="visa" disabled={!config?.visaAvailable}>
+                      {networkNames.visa}
+                      {config?.visaAvailable ? "" : " (unavailable)"}
+                    </option>
                   </select>
                 </label>
               </fieldset>

@@ -653,7 +653,7 @@ test("the ledger is a book of postings with balances, apart from History", async
     .click();
   await expect(ledger).toContainText("No entries yet.");
 });
-test("Mastercard is offered only when it is configured, and never as unavailable", async ({
+test("Mastercard is selectable only when it is configured, otherwise listed as unavailable", async ({
   page,
 }) => {
   for (const available of [false, true]) {
@@ -674,10 +674,22 @@ test("Mastercard is offered only when it is configured, and never as unavailable
       .locator("option");
     await expect(options).toHaveText(
       available
-        ? ["Simulated network", "Mastercard API sandbox"]
-        : ["Simulated network"],
+        ? [
+            "Simulated network",
+            "Mastercard API sandbox",
+            "Visa API sandbox (unavailable)",
+          ]
+        : [
+            "Simulated network",
+            "Mastercard API sandbox (unavailable)",
+            "Visa API sandbox (unavailable)",
+          ],
     );
-    await expect(page.getByText(/unavailable/i)).toHaveCount(0);
+    if (available) {
+      await expect(options.nth(1)).not.toHaveAttribute("disabled");
+    } else {
+      await expect(options.nth(1)).toHaveAttribute("disabled", "");
+    }
     await page.unroute("**/api/v1/config");
   }
 });
@@ -761,7 +773,9 @@ test("authenticated Visa Direct payout and lookup", async ({ page }) => {
     2,
   );
 });
-test("Visa is offered only when it is configured", async ({ page }) => {
+test("Visa is selectable only when it is configured, otherwise listed as unavailable", async ({
+  page,
+}) => {
   for (const available of [false, true]) {
     await page.route("**/api/v1/config", async (route) => {
       const response = await route.fetch();
@@ -780,8 +794,16 @@ test("Visa is offered only when it is configured", async ({ page }) => {
       .locator("option");
     await expect(options).toHaveText(
       available
-        ? ["Simulated network", "Visa API sandbox"]
-        : ["Simulated network"],
+        ? [
+            "Simulated network",
+            "Mastercard API sandbox (unavailable)",
+            "Visa API sandbox",
+          ]
+        : [
+            "Simulated network",
+            "Mastercard API sandbox (unavailable)",
+            "Visa API sandbox (unavailable)",
+          ],
     );
     await page.unroute("**/api/v1/config");
   }
