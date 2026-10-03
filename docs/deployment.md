@@ -1,6 +1,17 @@
 # Deployment
 
-The public app is at **https://payment-processing-simulator.yyan115.blitz.cloud**.
+## Azure (primary)
+
+The app runs on Azure Container Apps (one always-on replica, 0.25 vCPU, 0.5 GiB) with a managed PostgreSQL Flexible Server (Burstable B1ms). Azure patches the host and the database. The image comes from `ghcr.io/yyan115/payment-processing-simulator`, built by the `Publish image` workflow on every push to `main`.
+
+- `ops/azure/deploy.sh` creates the resource group, database, environment and app, and saves the generated database password to `~/.config/payment-processing-simulator/azure/credentials.env`. It tries each region the student subscription allows until the database can be created.
+- `ops/azure/providers.sh` reads the ignored `.env` file and stores the Mastercard and Visa sandbox credentials as Container App secrets.
+- To roll out a new image, deploy it by commit tag (`...:<sha>`). A repeated `:latest` is not pulled again.
+- Secret changes need a new revision to take effect. Changing any environment variable creates one.
+
+## Blitz (backup)
+
+The backup app is at **https://payment-processing-simulator.yyan115.blitz.cloud**.
 
 Blitz builds the root Dockerfile from GitHub `main` and serves the React UI and Java API over HTTPS. Pushes trigger deployment. Its managed PostgreSQL database supplies `DATABASE_URL`; the application converts that URI into JDBC settings automatically. This setting takes precedence over older `SPRING_DATASOURCE_*` connection settings.
 
