@@ -500,11 +500,9 @@ export default function App() {
                   </div>
                 ) : (
                   <p className="field-note">
-                    This sends a request to the {networkNames[mode]}, a test
-                    environment that uses{" "}
-                    {mode === "visa" ? "Visa’s" : "Mastercard’s"} official test
-                    accounts. Amounts are in USD and no real money moves. The
-                    names are labels only.
+                    This sends a request to the official {networkNames[mode]},{" "}
+                    {mode === "visa" ? "Visa’s" : "Mastercard’s"} test
+                    environment.
                   </p>
                 )}
                 {mode !== "simulated" && (
@@ -579,11 +577,7 @@ export default function App() {
                     onChange={(e) => {
                       setMode(e.target.value as Mode);
                       setAmount(
-                        e.target.value === "mastercard"
-                          ? "53.00"
-                          : e.target.value === "visa"
-                            ? "50.00"
-                            : "100.00",
+                        e.target.value === "simulated" ? "100.00" : "50.00",
                       );
                     }}
                   >

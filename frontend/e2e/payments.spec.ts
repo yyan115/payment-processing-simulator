@@ -494,9 +494,11 @@ test("Mastercard configuration removes simulator scenarios", async ({
     .getByLabel("Payment network", { exact: true })
     .selectOption("mastercard");
   await expect(page.getByRole("radio")).toHaveCount(0);
-  await expect(page.getByLabel("Amount")).toHaveValue("53.00");
+  await expect(page.getByLabel("Amount")).toHaveValue("50.00");
   await expect(
-    page.getByText(/Mastercard API sandbox, a test environment/),
+    page.getByText(
+      /official Mastercard API sandbox, Mastercard’s test environment/,
+    ),
   ).toBeVisible();
   await page
     .getByLabel("Payment network", { exact: true })
