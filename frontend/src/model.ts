@@ -269,7 +269,7 @@ export const scenarios: Scenario[] = [
     explanation: ({ from, to, amount }) => [
       `${from} sends ${to} ${amount}. The network cannot report a result, and still cannot when the platform checks again.`,
       `The platform cannot tell whether the payment happened, and guessing wrong means paying twice or never paying. So it keeps the payment as UNKNOWN, posts nothing to the ledger and does not send it again.`,
-      `In this scenario the network never reports a result, so the payment stays UNKNOWN. In a real network, the settlement report, a list of every payment it processed, would settle the question.`,
+      `In this scenario the network never reports a result, so the payment stays UNKNOWN. A real network's settlement report, a list of every payment it processed, would settle it.`,
     ],
   },
 ];
