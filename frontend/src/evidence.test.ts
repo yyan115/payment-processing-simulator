@@ -25,7 +25,7 @@ const posting = (
 });
 describe("ledger display", () => {
   it("names the accounts the way an accountant would read them", () => {
-    expect(accountName("SELLER_PAYABLE:John Lim")).toBe("Payable to John Lim");
+    expect(accountName("SELLER_PAYABLE:Raj Patel")).toBe("Payable to Raj Patel");
     expect(accountName("CASH_CLEARING")).toBe("Cash clearing");
     expect(accountName("OTHER")).toBe("OTHER");
   });
@@ -37,9 +37,9 @@ describe("ledger display", () => {
   });
   it("carries a running balance per account through the postings", () => {
     const lines = withRunningBalances([
-      posting("1", "SELLER_PAYABLE:John Lim", "DEBIT", 100),
+      posting("1", "SELLER_PAYABLE:Raj Patel", "DEBIT", 100),
       posting("2", "CASH_CLEARING", "CREDIT", 100),
-      posting("3", "SELLER_PAYABLE:John Lim", "DEBIT", 50),
+      posting("3", "SELLER_PAYABLE:Raj Patel", "DEBIT", 50),
       posting("4", "CASH_CLEARING", "CREDIT", 50),
     ]);
     expect(lines.map((l) => text(l.balance))).toEqual([

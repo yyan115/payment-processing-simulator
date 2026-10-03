@@ -196,7 +196,7 @@ export function money(amount: string | number, currency: string) {
     currencyDisplay: "code",
   }).format(Number(amount));
 }
-export const participants = ["Jane Tan", "John Lim", "Alex Morgan"] as const;
+export const participants = ["Mei Tan", "Raj Patel", "Alex Morgan"] as const;
 export const recipientsFor = (sender: string) =>
   participants.filter((name) => name !== sender);
 // Keep the current recipient unless it just became the sender.
@@ -219,8 +219,8 @@ export const scenarios: Scenario[] = [
     name: "Approved payment",
     summary: "The network approves the payment.",
     explanation: ({ from, to, amount }) => [
-      `${from} sends ${to} ${amount}. The platform attaches an idempotency key to the request, so a repeated request is recognised as the same payment, and sends it to the network.`,
-      `The network approves it. The platform records SUCCEEDED and posts a journal entry to the ledger.`,
+      `${from} sends ${to} ${amount}. The platform passes the payment to the network and the network approves it.`,
+      `The platform records SUCCEEDED and posts a journal entry to the ledger. This is the normal path.`,
     ],
   },
   {
@@ -228,8 +228,8 @@ export const scenarios: Scenario[] = [
     name: "Declined payment",
     summary: "The network declines the payment.",
     explanation: ({ from, to, amount }) => [
-      `${from} sends ${to} ${amount}, and the network declines it. A decline is a final answer, so no money moved.`,
-      `The platform records FAILED and posts nothing to the ledger. It does not retry, because a declined payment needs a new decision, not the same request again.`,
+      `${from} sends ${to} ${amount} and the network declines it. A decline is final, so no money moves. This happens for reasons such as insufficient funds.`,
+      `The platform records FAILED and posts nothing to the ledger.`,
     ],
   },
   {
@@ -237,8 +237,8 @@ export const scenarios: Scenario[] = [
     name: "Response lost",
     summary: "The payment is made, but the response never arrives.",
     explanation: ({ from, to, amount }) => [
-      `${from} sends ${to} ${amount}. The network approves it and moves the money, but its reply is lost, so the platform cannot tell whether the payment happened.`,
-      `It records UNKNOWN and does not resend, because ${to} could be paid twice. It reconciles by asking the network for the payment's status using its reference, then records SUCCEEDED. Mastercard Send supports this lookup by reference.`,
+      `${from} sends ${to} ${amount}. The network approves it and moves the money, but its reply never arrives, so the platform cannot tell if the payment happened.`,
+      `It records UNKNOWN and does not send again, because ${to} could be paid twice. Instead it reconciles, which means asking the network what happened to this payment, using the payment's reference ID. The network answers that it was approved and the platform records SUCCEEDED.`,
     ],
   },
   {
@@ -246,8 +246,8 @@ export const scenarios: Scenario[] = [
     name: "Request lost",
     summary: "The request never reaches the network.",
     explanation: ({ from, to, amount }) => [
-      `${from} sends ${to} ${amount}, but the request is lost before it reaches the network, so no money moves. The platform gets no reply, the same as in Response lost.`,
-      `It records UNKNOWN and reconciles. The network has no record of the payment, so it is safe to resend it with the same reference. Mastercard Send marks the resend with a repeat flag.`,
+      `${from} sends ${to} ${amount}, but the request is lost before it reaches the network, so no money moves. The platform gets no reply and records UNKNOWN.`,
+      `It reconciles by asking the network about the payment's reference ID, and the network has no record of it. Nothing was paid, so it is safe to send again with the same reference ID, which also stops a double payment if the first request had arrived.`,
     ],
   },
   {
@@ -256,7 +256,7 @@ export const scenarios: Scenario[] = [
     summary: "The network has not finished processing the payment.",
     explanation: ({ from, to, amount }) => [
       `${from} sends ${to} ${amount}. The network accepts the request but replies that the payment is still being processed.`,
-      `The platform cannot call an unfinished payment paid or failed, so it records UNKNOWN. It reconciles after a short wait, and when the network reports approval it records SUCCEEDED.`,
+      `The platform cannot record SUCCEEDED or FAILED yet, because a wrong guess means a lost payment or a double payment. It records UNKNOWN, waits briefly and reconciles. When the network reports approval, it records SUCCEEDED.`,
     ],
   },
   {
@@ -265,7 +265,7 @@ export const scenarios: Scenario[] = [
     summary: "The network cannot report a result.",
     explanation: ({ from, to, amount }) => [
       `${from} sends ${to} ${amount}. The network replies that it cannot give a result, and it still cannot when the platform reconciles.`,
-      `Any status would be a guess, and a wrong guess means paying twice or not at all. The payment stays UNKNOWN and is not resent until someone confirms its status with the network.`,
+      `Any status the platform picks would be a guess, and a wrong guess means paying twice or never paying. So the payment stays UNKNOWN and is not sent again. In real systems someone checks the network's settlement report or contacts the network to find out whether the money moved, and only then marks the payment paid or failed.`,
     ],
   },
 ];

@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, Github, Moon, Sun, LoaderCircle } from "lucide-react";
+import {
+  ChevronDown,
+  CircleHelp,
+  Github,
+  Moon,
+  Sun,
+  LoaderCircle,
+} from "lucide-react";
 import { HttpEngine, observeRequests } from "./http-engine";
 import {
   ApiError,
@@ -440,14 +447,16 @@ export default function App() {
             <div className="hero-copy">
               <div className="intro">
                 <p>
-                  This simulator sends a test payment and shows how a payment
-                  system deals with things going wrong.
+                  This simulator shows how a payment system and a payment
+                  network work together, and what happens when something goes
+                  wrong. It uses techniques that real payment systems use, such
+                  as idempotency keys and reconciliation.
                 </p>
                 <p>
-                  Every payment involves two parties: the payment platform,
-                  which sends the payment and keeps the records, and the payment
-                  network, which moves the money. Choose a scenario, then send
-                  the payment to see each step.
+                  Every payment involves two parties. The payment platform takes
+                  the request and keeps the records. The payment network moves
+                  the money. Choose a scenario and send the payment to see how a
+                  real payment system handles it, step by step.
                 </p>
               </div>
               <fieldset disabled={busy || connection !== "ready"}>
@@ -608,6 +617,17 @@ export default function App() {
                         {value === "auto" ? "Automatic" : "Step by step"}
                       </button>
                     ))}
+                    <div
+                      className="hint"
+                      tabIndex={0}
+                      aria-describedby="playback-hint"
+                    >
+                      <CircleHelp size={16} aria-label="About playback" />
+                      <div role="tooltip" id="playback-hint">
+                        Automatic runs the steps by itself. Step by step waits
+                        for you to press Next step after each one.
+                      </div>
+                    </div>
                   </div>
                 )}
                 <button

@@ -143,21 +143,21 @@ test("three fixed participants; sender and recipient can never match", async ({
   const from = page.getByLabel("From", { exact: true });
   const to = page.getByLabel("To", { exact: true });
   await expect(from.locator("option")).toHaveText([
-    "Jane Tan",
-    "John Lim",
+    "Mei Tan",
+    "Raj Patel",
     "Alex Morgan",
   ]);
-  for (const sender of ["Jane Tan", "John Lim", "Alex Morgan"]) {
+  for (const sender of ["Mei Tan", "Raj Patel", "Alex Morgan"]) {
     await from.selectOption(sender);
     const options = await to.locator("option").allTextContents();
     expect(options).toHaveLength(2);
     expect(options).not.toContain(sender);
     expect(await to.inputValue()).not.toBe(sender);
   }
-  await from.selectOption("Jane Tan");
-  await to.selectOption("John Lim");
-  await from.selectOption("John Lim");
-  await expect(to).not.toHaveValue("John Lim");
+  await from.selectOption("Mei Tan");
+  await to.selectOption("Raj Patel");
+  await from.selectOption("Raj Patel");
+  await expect(to).not.toHaveValue("Raj Patel");
 });
 test("amount validation and fixed currency", async ({ page }) => {
   await open(page);
@@ -176,18 +176,18 @@ test("each scenario is explained in plain prose before it is run", async ({
   await choose(page, "TIMEOUT_AFTER_SUCCESS");
   await expect(text).toHaveCount(1);
   await expect(text).toContainText(
-    "Jane Tan sends John Lim SGD 100.00. The network approves it and moves the money",
+    "Mei Tan sends Raj Patel SGD 100.00. The network approves it and moves the money",
   );
   await expect(text).toContainText("records UNKNOWN");
   await expect(text).toContainText("reconciles");
   await expect(text).toContainText("reference");
-  await expect(text).toContainText("John Lim could be paid twice");
+  await expect(text).toContainText("Raj Patel could be paid twice");
   await page.getByLabel("From", { exact: true }).selectOption("Alex Morgan");
   await page.getByLabel("Amount").fill("42.50");
   await expect(text).toContainText("Alex Morgan sends");
   await expect(text).toContainText("SGD 42.50");
   await choose(page, "SUCCESS");
-  await expect(text).toContainText("idempotency key");
+  await expect(text).toContainText("This is the normal path");
   await expect(text).toContainText("ledger");
   for (const id of Object.keys(names)) {
     await choose(page, id);
@@ -624,15 +624,15 @@ test("the ledger is a book of postings with balances, apart from History", async
   await expect(cards.filter({ hasText: "Cash clearing" })).toContainText(
     "SGD 100.00 credit",
   );
-  await expect(cards.filter({ hasText: "Payable to John Lim" })).toContainText(
+  await expect(cards.filter({ hasText: "Payable to Raj Patel" })).toContainText(
     "SGD 100.00 debit",
   );
   await expect(ledger).not.toContainText("Debits equal credits");
   // Newest posting first: the credit follows the debit, so it is listed above it.
   await expect(lines).toHaveCount(2);
   await expect(lines.first()).toContainText("Cash clearing");
-  await expect(lines.first()).toContainText("Jane Tan → John Lim");
-  await expect(lines.last()).toContainText("Payable to John Lim");
+  await expect(lines.first()).toContainText("Mei Tan → Raj Patel");
+  await expect(lines.last()).toContainText("Payable to Raj Patel");
   // A declined payment moves no money, so the ledger does not change.
   await send(page, "DECLINED");
   await expect(lines).toHaveCount(2);
@@ -640,7 +640,7 @@ test("the ledger is a book of postings with balances, apart from History", async
   await send(page, "SUCCESS");
   await expect(lines).toHaveCount(4);
   await expect(lines.first()).toContainText("SGD 200.00 credit");
-  await expect(cards.filter({ hasText: "Payable to John Lim" })).toContainText(
+  await expect(cards.filter({ hasText: "Payable to Raj Patel" })).toContainText(
     "SGD 200.00 debit",
   );
   // History describes payments. It has no accounting table.
@@ -809,6 +809,15 @@ test("Visa is selectable only when it is configured, otherwise listed as unavail
   }
 });
 
+test("a help icon explains the playback switch", async ({ page }) => {
+  await open(page);
+  const tip = page.getByRole("tooltip");
+  await expect(tip).toBeHidden();
+  await page.locator(".playback .hint").hover();
+  await expect(tip).toBeVisible();
+  await expect(tip).toContainText("Automatic runs the steps by itself");
+  await expect(tip).toContainText("Step by step waits for you");
+});
 test("the playback switch is offered for the simulated network only", async ({
   page,
 }) => {

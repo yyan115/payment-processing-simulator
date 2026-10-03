@@ -62,20 +62,20 @@ describe("participants", () => {
 });
 describe("scenario descriptions", () => {
   it("name the people and amount and use the real payment terms", () => {
-    const party = { from: "Jane Tan", to: "John Lim", amount: "SGD 100.00" };
+    const party = { from: "Mei Tan", to: "Raj Patel", amount: "SGD 100.00" };
     expect(new Set(scenarios.map((s) => s.name)).size).toBe(6);
     for (const s of scenarios) {
       expect(s.summary.endsWith(".")).toBe(true);
       const paragraphs = s.explanation(party);
       const text = paragraphs.join(" ");
       expect(paragraphs).toHaveLength(2);
-      expect(text).toContain("Jane Tan sends John Lim SGD 100.00");
+      expect(text).toContain("Mei Tan sends Raj Patel SGD 100.00");
       expect(text).toMatch(/SUCCEEDED|FAILED|UNKNOWN/);
     }
     const lost = scenarios.find((s) => s.id === "TIMEOUT_AFTER_SUCCESS");
     expect(lost?.explanation(party).join(" ")).toContain("reconciles");
-    expect(scenarios[0].explanation(party).join(" ")).toContain(
-      "idempotency key",
-    );
+    for (const s of scenarios) {
+      expect(s.explanation(party).join(" ")).not.toMatch(/Mastercard|Visa/);
+    }
   });
 });

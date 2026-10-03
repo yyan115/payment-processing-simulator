@@ -353,6 +353,36 @@ fieldset {
   border-color: var(--accent);
   font-weight: 600;
 }
+.playback .hint {
+  position: relative;
+  display: flex;
+  margin-left: auto;
+  color: var(--muted);
+  cursor: help;
+}
+.playback .hint [role="tooltip"] {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 5;
+  width: 240px;
+  padding: 10px 12px;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  line-height: 1.4;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.playback .hint:hover [role="tooltip"],
+.playback .hint:focus [role="tooltip"] {
+  visibility: visible;
+  opacity: 1;
+}
 .send-button {
   display: flex;
   align-items: center;
