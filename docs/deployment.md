@@ -9,9 +9,9 @@ The app runs on Azure Container Apps (one always-on replica, 0.25 vCPU, 0.5 GiB)
 - To roll out a new image, deploy it by commit tag (`...:<sha>`). A repeated `:latest` is not pulled again.
 - Secret changes need a new revision to take effect. Changing any environment variable creates one.
 
-## Blitz (backup)
+## Blitz (not in use)
 
-The backup app is at **https://payment-processing-simulator.yyan115.blitz.cloud**.
+The Blitz app at payment-processing-simulator.yyan115.blitz.cloud stopped answering on 3 October 2026 (no HTTPS certificate for the account subdomain, and the Blitz dashboard returns an error for the account). Azure replaced it. The notes below describe how it was set up.
 
 Blitz builds the root Dockerfile from GitHub `main` and serves the React UI and Java API over HTTPS. Pushes trigger deployment. Its managed PostgreSQL database supplies `DATABASE_URL`; the application converts that URI into JDBC settings automatically. This setting takes precedence over older `SPRING_DATASOURCE_*` connection settings.
 

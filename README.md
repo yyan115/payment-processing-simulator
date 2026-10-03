@@ -5,7 +5,7 @@
 
 A Java 21 / Spring Boot / PostgreSQL payment engine with a small React demo. Explore what happens when a payment succeeds but its confirmation is lost, and recover without paying twice.
 
-**[Open the demo](https://payment-simulator.redforest-1d69de67.eastasia.azurecontainerapps.io)** · Backup: [Blitz](https://payment-processing-simulator.yyan115.blitz.cloud), which sleeps between visits and can take about a minute to start.
+**[Open the demo](https://payment-simulator.redforest-1d69de67.eastasia.azurecontainerapps.io)**
 
 ![Payment simulator](docs/images/simulator.png)
 
