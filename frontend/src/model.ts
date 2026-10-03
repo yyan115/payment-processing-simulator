@@ -248,8 +248,8 @@ export const scenarios: Scenario[] = [
     summary: "The request never reaches the network.",
     explanation: ({ from, to, amount }) => [
       `${from} sends ${to} ${amount}, but the request is lost before it reaches the network, so no money is transferred. The platform gets no reply and records UNKNOWN.`,
-      `It asks the network about the payment using its reference ID, and the network has no record of it, so nothing was paid.`,
-      `The platform sends the request again with the same reference ID. As an idempotency key, it lets the network recognise a repeat and not pay twice, even if the first request had arrived.`,
+      `It then asks the network about the payment using its reference ID. The network has no record of it, so the platform knows nothing was paid.`,
+      `The platform sends the request again with the same reference ID, so the network treats it as the same payment.`,
     ],
   },
   {
@@ -268,8 +268,8 @@ export const scenarios: Scenario[] = [
     summary: "The network cannot report a result.",
     explanation: ({ from, to, amount }) => [
       `${from} sends ${to} ${amount}. The network cannot report a result, and still cannot when the platform checks again.`,
-      `The platform cannot guess, because a wrong guess means paying twice or never paying. So the payment stays UNKNOWN, nothing is posted to the ledger and it is not sent again.`,
-      `It stays UNKNOWN until the network reports a result. Real networks also send a settlement report listing every payment they processed, which the platform checks its records against.`,
+      `The platform cannot tell whether the payment happened, and guessing wrong means paying twice or never paying. So it keeps the payment as UNKNOWN, posts nothing to the ledger and does not send it again.`,
+      `In this scenario the network never reports a result, so the payment stays UNKNOWN. In a real network, the settlement report, a list of every payment it processed, would settle the question.`,
     ],
   },
 ];
