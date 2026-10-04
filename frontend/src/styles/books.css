@@ -1,0 +1,243 @@
+/* History and Ledger. */
+.books {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  gap: 0;
+  align-items: start;
+}
+.history-section {
+  padding-right: 40px;
+}
+.ledger-section {
+  padding-left: 40px;
+  border-left: 1px solid var(--line);
+}
+.section-heading h2 {
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 600;
+}
+.section-heading h2 span {
+  margin-left: 6px;
+  font-size: 13px;
+  font-weight: normal;
+  color: var(--muted);
+}
+.section-note {
+  margin: -4px 0 14px;
+  color: var(--muted);
+}
+.empty-history {
+  padding: 16px 0;
+  color: var(--muted);
+}
+.payment-row {
+  border-top: 1px solid var(--line);
+}
+.payment-row:last-of-type {
+  border-bottom: 1px solid var(--line);
+}
+.payment-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 0;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+}
+.payment-summary > span:first-child {
+  flex: 1;
+}
+.payment-summary strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+}
+.payment-summary small {
+  display: block;
+  margin-top: 4px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.payment-status {
+  font-size: 13px;
+  color: var(--muted);
+}
+.payment-status.succeeded {
+  color: var(--good);
+}
+.payment-status.failed {
+  color: var(--error);
+}
+.payment-status.unknown {
+  color: var(--warn);
+}
+.rotated {
+  transform: rotate(180deg);
+}
+.payment-details {
+  padding: 0 0 20px;
+  font-size: 14px;
+}
+.identifiers {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 8px;
+  margin: 4px 0 18px;
+}
+.identifiers dt {
+  color: var(--muted);
+}
+.identifiers dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+h3 {
+  margin: 20px 0 8px;
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.events {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.events li {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 6px 0;
+  line-height: 1.6;
+}
+.events time {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.events small {
+  margin-left: 5px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.payment-details details {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+}
+summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 0;
+  cursor: pointer;
+}
+summary code {
+  overflow-wrap: anywhere;
+}
+pre {
+  max-height: 340px;
+  overflow: auto;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  background: var(--input);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.journal-lines {
+  margin: 6px 0;
+  padding: 0;
+  list-style: none;
+}
+.journal-lines li {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 5px 0;
+}
+.journal-lines .side {
+  color: var(--muted);
+}
+.account-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.account-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  padding: 12px 16px;
+  font-size: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.account-card span {
+  color: var(--muted);
+}
+.account-card strong {
+  font-size: 17px;
+  font-weight: 600;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.ledger-table {
+  width: 100%;
+  margin-top: 12px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.ledger-table th,
+.ledger-table td {
+  padding: 10px 12px 10px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.ledger-table td:nth-child(1),
+.ledger-table td:nth-child(n + 4) {
+  white-space: nowrap;
+}
+.ledger-table th {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.ledger-table td:nth-child(n + 4),
+.ledger-table th:nth-child(n + 4) {
+  text-align: right;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+  font-size: 13.5px;
+}
+.pagination button {
+  padding: 8px 12px;
+  color: inherit;
+  background: var(--input);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+footer {
+  margin-top: 48px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  text-align: center;
+  color: var(--muted);
+}
+footer button {
+  padding: 0;
+  font-size: inherit;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+}

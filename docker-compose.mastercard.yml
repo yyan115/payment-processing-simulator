@@ -1,4 +1,5 @@
-# Optional sandbox adapter, using secrets from the shell or an ignored .env file.
+# Adds the Mastercard Send sandbox. Credentials come from the shell or an ignored .env file.
+# docker compose -f docker-compose.yml -f docker-compose.mastercard.yml up --build
 services:
   app:
     environment:

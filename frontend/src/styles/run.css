@@ -1,0 +1,273 @@
+/* The live trace of a payment: both parties, then the steps. */
+.below {
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+.run {
+  scroll-margin-top: 16px;
+  margin-bottom: 44px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 0 28px 24px;
+}
+.flow-wrap {
+  padding: 22px 0 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  border-radius: 16px 16px 0 0;
+}
+.run h2 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.7fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+.party {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  text-align: center;
+  background: var(--input);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.party > strong {
+  display: block;
+  font-size: 15px;
+}
+.party-rows {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 12px;
+  padding-top: 10px;
+}
+.party-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.party-label {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.chip {
+  padding: 2px 9px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.chip.good {
+  color: var(--good);
+  border-color: var(--good);
+}
+.chip.bad {
+  color: var(--error);
+  border-color: var(--error);
+}
+.chip.warn {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+.channel {
+  position: relative;
+  align-self: center;
+  height: 64px;
+}
+.message {
+  position: absolute;
+  inset: 0;
+}
+.message .line {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 38px;
+  border-top: 2px solid var(--line);
+}
+.message.idle .line {
+  border-top-style: dashed;
+}
+.message .line::after {
+  content: "";
+  position: absolute;
+  top: -6px;
+  border: 5px solid transparent;
+}
+.message.to-network .line::after {
+  right: -6px;
+  border-left: 8px solid var(--line);
+}
+.message.to-platform .line::after {
+  left: -6px;
+  border-right: 8px solid var(--line);
+}
+.message-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 10px;
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.2;
+  color: var(--muted);
+}
+.packet {
+  position: absolute;
+  top: 33px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: travel-right 0.9s ease-in-out forwards;
+}
+.to-platform .packet {
+  animation-name: travel-left;
+}
+.lost .packet {
+  animation-name: vanish-right;
+}
+.lost.to-platform .packet {
+  animation-name: vanish-left;
+}
+.cross {
+  position: absolute;
+  left: 50%;
+  top: 28px;
+  margin-left: -7px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--error);
+  opacity: 0;
+  animation: show-late 0.9s forwards;
+}
+.working {
+  position: absolute;
+  right: 50%;
+  bottom: -14px;
+  margin-right: -7px;
+  color: var(--muted);
+}
+.timeline {
+  max-width: 820px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.timeline li {
+  margin-left: 2px;
+  padding: 11px 0 11px 16px;
+  border-left: 3px solid var(--line);
+  animation: appear 0.35s ease-out;
+}
+.timeline li.good {
+  border-left-color: var(--good);
+}
+.timeline li.bad {
+  border-left-color: var(--error);
+}
+.timeline li.warn {
+  border-left-color: var(--warn);
+}
+.timeline strong {
+  font-size: 15px;
+}
+.timeline p {
+  margin: 3px 0 0;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.timeline li.final strong {
+  font-size: 16px;
+}
+.timeline li.final p {
+  color: inherit;
+}
+.scroll-end {
+  scroll-margin-bottom: 24px;
+}
+.next-step {
+  display: block;
+  margin: 18px auto 0;
+  padding: 10px 20px;
+  color: var(--accent);
+  background: none;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  font-weight: 600;
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes travel-right {
+  from {
+    left: 6%;
+  }
+  to {
+    left: 94%;
+  }
+}
+@keyframes travel-left {
+  from {
+    left: 94%;
+  }
+  to {
+    left: 6%;
+  }
+}
+@keyframes vanish-right {
+  from {
+    left: 6%;
+    opacity: 1;
+  }
+  70% {
+    left: 50%;
+    opacity: 1;
+  }
+  to {
+    left: 50%;
+    opacity: 0;
+  }
+}
+@keyframes vanish-left {
+  from {
+    left: 94%;
+    opacity: 1;
+  }
+  70% {
+    left: 50%;
+    opacity: 1;
+  }
+  to {
+    left: 50%;
+    opacity: 0;
+  }
+}
+@keyframes show-late {
+  60% {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}

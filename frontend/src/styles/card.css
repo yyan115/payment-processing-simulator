@@ -1,0 +1,160 @@
+/* The payment card. */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: var(--shadow);
+}
+.card label {
+  display: block;
+  margin-bottom: 18px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.amount {
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.amount > label {
+  margin-bottom: 6px;
+}
+.amount-field {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.amount-field input {
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  color: inherit;
+}
+.amount-field input:focus {
+  outline: 0;
+}
+.amount-field:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+  border-radius: 6px;
+}
+.currency {
+  padding: 6px 12px;
+  background: var(--band);
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.card select {
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  color: var(--text, inherit);
+  background: var(--input);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.card select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.send-row {
+  display: grid;
+  gap: 14px;
+  margin-top: 4px;
+}
+.playback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.playback > span {
+  margin-right: 4px;
+  color: var(--muted);
+}
+.playback button {
+  padding: 6px 12px;
+  color: inherit;
+  background: var(--input);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 14px;
+}
+.playback button[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.playback .hint {
+  position: relative;
+  display: flex;
+  margin-left: auto;
+  color: var(--muted);
+  cursor: help;
+}
+.playback .hint [role="tooltip"] {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 5;
+  width: 240px;
+  padding: 10px 12px;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  line-height: 1.4;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.playback .hint:hover [role="tooltip"],
+.playback .hint:focus [role="tooltip"] {
+  visibility: visible;
+  opacity: 1;
+}
+.send-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 15px;
+  color: var(--on-accent);
+  background: var(--accent);
+  border: 0;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.error {
+  margin: 16px 0 0;
+  color: var(--error);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.verification {
+  margin-top: 16px;
+  overflow: auto;
+}
+.verification button {
+  color: inherit;
+}

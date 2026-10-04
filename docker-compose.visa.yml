@@ -1,5 +1,5 @@
-# Optional Visa Direct sandbox adapter, using secrets from the shell or an ignored .env file.
-# Combine with the base file: docker compose -f docker-compose.yml -f docker-compose.visa.yml up --build
+# Adds the Visa Direct sandbox. Credentials come from the shell or an ignored .env file.
+# docker compose -f docker-compose.yml -f docker-compose.visa.yml up --build
 services:
   app:
     environment:

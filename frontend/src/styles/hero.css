@@ -1,0 +1,175 @@
+/* Hero: scenarios on the left, the payment on the right. */
+.hero {
+  background: var(--band);
+  border-bottom: 1px solid var(--line);
+}
+.topbar {
+  border-bottom: 1px solid var(--line);
+}
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+.hero-body {
+  padding-top: 56px;
+  padding-bottom: 56px;
+}
+h1 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin: 0;
+}
+.header-tools {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.header-tools a,
+.header-tools button {
+  display: flex;
+  padding: 7px;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+}
+.connection {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-right: 6px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a48a54;
+}
+.dot.ready {
+  background: #49865e;
+}
+.connection-notice {
+  display: flex;
+  gap: 12px;
+  margin: 0 0 24px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.connection-notice p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 460px;
+  grid-template-areas:
+    "copy card"
+    "copy note";
+  grid-template-rows: auto 1fr;
+  column-gap: 64px;
+  row-gap: 28px;
+  align-items: start;
+}
+.hero-copy {
+  grid-area: copy;
+}
+.card {
+  grid-area: card;
+}
+.scenario-explanation {
+  grid-area: note;
+}
+.intro {
+  margin: 0 0 32px;
+}
+.intro p {
+  margin: 0 0 12px;
+  font-size: 16px;
+  line-height: 1.65;
+}
+.intro p:first-child {
+  font-size: 20px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+.intro p:last-child {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.section-label {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.option {
+  margin-bottom: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.option.on {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.option label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 11px 14px;
+  cursor: pointer;
+}
+.option label > span {
+  display: block;
+}
+.option input {
+  width: auto;
+  min-height: 0;
+  margin: 3px 0 0;
+  accent-color: var(--accent);
+}
+.option-name {
+  display: block;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+.option-summary {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.scenario-explanation {
+  padding-left: 16px;
+  border-left: 3px solid var(--accent);
+  font-size: 15px;
+  line-height: 1.7;
+}
+.scenario-explanation p {
+  margin: 0 0 10px;
+}
+.scenario-explanation p:last-child {
+  margin-bottom: 0;
+}
+.field-note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}

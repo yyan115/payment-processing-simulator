@@ -1,0 +1,30 @@
+/* The session expired dialog. */
+.expired {
+  width: min(420px, calc(100vw - 40px));
+  padding: 26px;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+.expired::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+.expired h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+.expired p {
+  margin: 0 0 20px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.expired button {
+  padding: 11px 28px;
+  color: var(--on-accent);
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  font-weight: 600;
+}

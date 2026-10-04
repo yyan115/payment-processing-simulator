@@ -1,0 +1,79 @@
+/* Design tokens, base elements and the top bar. */
+:root {
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  color: #232323;
+  background: #f6f5f2;
+  font-synthesis: none;
+  color-scheme: light;
+  accent-color: var(--accent);
+  --bg: #f6f5f2;
+  --band: #ebe7df;
+  --surface: #fff;
+  --line: #dcd9d2;
+  --muted: #67645e;
+  --accent: #a54820;
+  --on-accent: #fff;
+  --input: #fff;
+  --error: #ad2929;
+  --good: #2f7a4a;
+  --warn: #9a6a12;
+  --shadow: 0 12px 40px rgb(60 40 20 / 12%);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  color: #e3e7ee;
+  background: #121927;
+  --bg: #121927;
+  --band: #0d1420;
+  --surface: #182231;
+  --line: #344153;
+  --muted: #a4afbd;
+  --accent: #8eafe7;
+  --on-accent: #132039;
+  --input: #121b29;
+  --error: #ffaaaa;
+  --good: #86d3a0;
+  --warn: #e0b45a;
+  --shadow: 0 12px 40px rgb(0 0 0 / 35%);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  font-size: 15px;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+code {
+  font-size: 12.5px;
+}
+.container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 32px;
+}

@@ -1,0 +1,126 @@
+/* Layout changes for tall, narrow and phone screens, and for reduced motion. */
+/* The diagram stays in view beside the steps only where the screen is tall enough. */
+@media (min-width: 1001px) and (min-height: 900px) {
+  .flow-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+}
+@media (max-width: 1000px) {
+  .container {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .hero-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "copy" "note" "card";
+    row-gap: 28px;
+  }
+  .books {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .history-section {
+    padding-right: 0;
+    padding-bottom: 36px;
+  }
+  .ledger-section {
+    padding-left: 0;
+    padding-top: 36px;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  .books {
+    gap: 40px;
+  }
+}
+@media (max-width: 560px) {
+  .card {
+    padding: 20px;
+  }
+  .run {
+    padding: 0 18px 18px;
+  }
+  .amount-field input {
+    font-size: 38px;
+  }
+  .flow {
+    grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr);
+  }
+  .party {
+    padding: 10px;
+  }
+  .party-rows {
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+  }
+  .chip {
+    padding: 2px 7px;
+    font-size: 12px;
+  }
+  .message-label {
+    display: none;
+  }
+  .connection-text {
+    display: none;
+  }
+  /* On a phone each posting becomes a small card, so no column is hidden behind a sideways scroll. */
+  .ledger-table,
+  .ledger-table tbody,
+  .ledger-table tr,
+  .ledger-table td {
+    display: block;
+  }
+  .ledger-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .ledger-table tr {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .ledger-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 3px 0;
+    text-align: right;
+    border: 0;
+  }
+  .ledger-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    text-align: left;
+  }
+  .ledger-table td:empty {
+    display: none;
+  }
+  .account-card {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+    padding: 10px 12px;
+  }
+  .account-card strong {
+    font-size: 15px;
+  }
+  .identifiers {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .packet {
+    animation: none;
+    left: 50%;
+  }
+  .cross {
+    animation: none;
+    opacity: 1;
+  }
+  .timeline li {
+    animation: none;
+  }
+}

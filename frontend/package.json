@@ -1,7 +1,9 @@
 {
   "name": "payment-processing-simulator-ui",
+  "version": "0.1.0",
   "private": true,
-  "version": "1.0.0",
+  "description": "Demo UI for the payment processing simulator",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
