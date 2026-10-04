@@ -99,7 +99,7 @@ CREDIT  CASH_CLEARING                100.00 SGD
 The status change, its audit event and the journal commit in one transaction, and `LedgerPostingService` refuses to run outside one. PostgreSQL enforces the rest:
 
 - One journal per payout, through a unique constraint.
-- Deferred constraint triggers check at commit that a journal has exactly two entries, in opposite directions, with the same amount and currency. A bad journal rolls back the status change with it.
+- Deferred constraint triggers check at commit that a journal has exactly two entries, that its debits and its credits each equal the journal amount, and that every entry uses the journal's currency. A bad journal rolls back the status change with it.
 - Triggers reject updates and deletes of ledger and audit rows. Only expired demo workspaces can be removed.
 
 Amounts are `BigDecimal` in the API and `NUMERIC(19,4)` in the database. Conversion to minor units follows ISO 4217 and never rounds. The page parses amounts as integers of minor units.
