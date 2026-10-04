@@ -1,5 +1,5 @@
 import { LoaderCircle } from "lucide-react";
-import type { Chip, Step } from "./workflow";
+import type { Chip, Step } from "../domain/workflow";
 export type FlowView = {
   platform?: Chip;
   network?: Chip;

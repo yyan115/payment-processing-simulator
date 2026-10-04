@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { runPayment } from "./workflow";
 import type { Run } from "./workflow";
-import type { Engine, Outcome, Snapshot } from "./model";
+import type { Outcome, PaymentApi, Snapshot } from "../api/types";
 import type { Step } from "./workflow";
 function fixture(scenario: Outcome) {
   let status: Snapshot["payout"]["status"] = "CREATED";
@@ -34,7 +34,7 @@ function fixture(scenario: Outcome) {
     events: [...events],
     attempts: [...attempts],
   });
-  const engine = {
+  const api = {
     create: vi.fn(async () => ({ created: false, payout: snapshot().payout })),
     snapshot: vi.fn(async () => snapshot()),
     configure: vi.fn(async () => {}),
@@ -92,7 +92,7 @@ function fixture(scenario: Outcome) {
       provider = { providerReference: "provider-one", status: "SUCCEEDED" };
     }),
     lookup: vi.fn(async () => ({ provider, checkedAt: "2026-01-01" })),
-  } as unknown as Engine;
+  } as unknown as PaymentApi;
   const run: Run = {
     key: "original-key",
     scenario,
@@ -105,7 +105,7 @@ function fixture(scenario: Outcome) {
     },
   };
   return {
-    engine,
+    api,
     run,
     sent: () => sent,
     setStatus: (s: typeof status) => {
@@ -152,12 +152,12 @@ describe("automatic payment workflow", () => {
     it(scenario, async () => {
       const f = fixture(scenario);
       const steps: Step[] = [];
-      const result = await runPayment(f.engine, f.run, vi.fn(), (_, step) => {
+      const result = await runPayment(f.api, f.run, vi.fn(), (_, step) => {
         steps.push(step);
       });
       expect(result.payout.status).toBe(status);
       expect(f.run.complete).toBe(true);
-      expect(f.engine.create).toHaveBeenNthCalledWith(
+      expect(f.api.create).toHaveBeenNthCalledWith(
         2,
         "original-key",
         f.run.intent,
@@ -176,20 +176,19 @@ describe("automatic payment workflow", () => {
       const duplicate = steps.find((s) => s.title === "Duplicate protection");
       expect(duplicate?.detail).toContain("idempotency key");
       if (scenario === "TIMEOUT_AFTER_SUCCESS")
-        expect(f.engine.retry).not.toHaveBeenCalled();
-      if (scenario === "UNKNOWN")
-        expect(f.engine.advance).not.toHaveBeenCalled();
+        expect(f.api.retry).not.toHaveBeenCalled();
+      if (scenario === "UNKNOWN") expect(f.api.advance).not.toHaveBeenCalled();
     });
   }
   it("preserves key and intent after a lost creation response", async () => {
     const f = fixture("SUCCESS");
-    vi.mocked(f.engine.create).mockRejectedValueOnce(new Error("network"));
-    await expect(runPayment(f.engine, f.run, vi.fn(), vi.fn())).rejects.toThrow(
+    vi.mocked(f.api.create).mockRejectedValueOnce(new Error("network"));
+    await expect(runPayment(f.api, f.run, vi.fn(), vi.fn())).rejects.toThrow(
       "network",
     );
-    expect(f.engine.process).not.toHaveBeenCalled();
-    await runPayment(f.engine, f.run, vi.fn(), vi.fn());
-    expect(f.engine.create).toHaveBeenNthCalledWith(
+    expect(f.api.process).not.toHaveBeenCalled();
+    await runPayment(f.api, f.run, vi.fn(), vi.fn());
+    expect(f.api.create).toHaveBeenNthCalledWith(
       2,
       "original-key",
       f.run.intent,
@@ -200,22 +199,22 @@ describe("automatic payment workflow", () => {
     const f = fixture("SUCCESS");
     f.run.id = "one";
     f.setStatus("SUCCEEDED");
-    await runPayment(f.engine, f.run, vi.fn(), vi.fn());
-    expect(f.engine.process).not.toHaveBeenCalled();
-    expect(f.engine.retry).not.toHaveBeenCalled();
+    await runPayment(f.api, f.run, vi.fn(), vi.fn());
+    expect(f.api.process).not.toHaveBeenCalled();
+    expect(f.api.retry).not.toHaveBeenCalled();
   });
   it("does not mark a broken duplicate contract complete", async () => {
     const f = fixture("SUCCESS");
-    vi.mocked(f.engine.create)
+    vi.mocked(f.api.create)
       .mockResolvedValueOnce({
         created: true,
-        payout: (await f.engine.snapshot("one")).payout,
+        payout: (await f.api.snapshot("one")).payout,
       })
       .mockResolvedValueOnce({
         created: true,
-        payout: (await f.engine.snapshot("one")).payout,
+        payout: (await f.api.snapshot("one")).payout,
       });
-    await expect(runPayment(f.engine, f.run, vi.fn(), vi.fn())).rejects.toThrow(
+    await expect(runPayment(f.api, f.run, vi.fn(), vi.fn())).rejects.toThrow(
       "Duplicate protection",
     );
     expect(f.run.complete).not.toBe(true);
@@ -223,9 +222,9 @@ describe("automatic payment workflow", () => {
   it("keeps confirmed payment state and reports a failed Mastercard lookup", async () => {
     const f = fixture("SUCCESS");
     f.run.intent.provider = "mastercard";
-    vi.mocked(f.engine.lookup).mockRejectedValue(new Error("Unavailable"));
+    vi.mocked(f.api.lookup).mockRejectedValue(new Error("Unavailable"));
     const progress = vi.fn();
-    const result = await runPayment(f.engine, f.run, vi.fn(), progress);
+    const result = await runPayment(f.api, f.run, vi.fn(), progress);
     expect(result.payout.status).toBe("SUCCEEDED");
     expect(f.run.complete).toBe(true);
     expect(
@@ -241,7 +240,7 @@ describe("what the diagram shows", () => {
   it("response lost: the network shows completed while the platform shows UNKNOWN", async () => {
     const f = fixture("TIMEOUT_AFTER_SUCCESS");
     const steps: Step[] = [];
-    await runPayment(f.engine, f.run, vi.fn(), (_, step) => {
+    await runPayment(f.api, f.run, vi.fn(), (_, step) => {
       steps.push(step);
     });
     const lost = steps.find((s) => s.title === "No response");
@@ -253,7 +252,7 @@ describe("what the diagram shows", () => {
   it("request lost: the request itself is shown not arriving", async () => {
     const f = fixture("TIMEOUT_BEFORE_PROCESSING");
     const steps: Step[] = [];
-    await runPayment(f.engine, f.run, vi.fn(), (_, step) => {
+    await runPayment(f.api, f.run, vi.fn(), (_, step) => {
       steps.push(step);
     });
     expect(steps[0].arrow).toMatchObject({ dir: "to-network", lost: true });

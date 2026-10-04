@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountName, balanceText, withRunningBalances } from "./Evidence";
+import { accountName, balanceText, withRunningBalances } from "./Ledger";
 // Intl puts a no-break space between the currency code and the number.
 const text = (value: string) => value.replaceAll(" ", " ");
 const account = (debits: number, credits: number) => ({
@@ -25,7 +25,9 @@ const posting = (
 });
 describe("ledger display", () => {
   it("names the accounts the way an accountant would read them", () => {
-    expect(accountName("SELLER_PAYABLE:Daniel Wong")).toBe("Payable to Daniel Wong");
+    expect(accountName("SELLER_PAYABLE:Daniel Wong")).toBe(
+      "Payable to Daniel Wong",
+    );
     expect(accountName("CASH_CLEARING")).toBe("Cash clearing");
     expect(accountName("OTHER")).toBe("OTHER");
   });

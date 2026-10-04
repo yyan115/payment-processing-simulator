@@ -1,6 +1,6 @@
-import { money } from "./model";
-import type { LedgerAccount, LedgerPosting, Snapshot } from "./model";
-import { shortId, time } from "./presentation";
+import type { LedgerAccount, LedgerPosting, Snapshot } from "../api/types";
+import { shortId, time } from "../domain/format";
+import { money } from "../domain/money";
 // The backend stores one payable account per recipient, plus a shared clearing account.
 export const accountName = (code: string) =>
   code.startsWith("SELLER_PAYABLE:")
@@ -34,7 +34,7 @@ export function JournalEntry({ snapshot }: { snapshot: Snapshot | null }) {
 }
 // Round to four decimal places, the precision the backend stores.
 const round = (value: number) => Math.round(value * 1e4) / 1e4;
-export function signed(net: number, currency: string) {
+function signed(net: number, currency: string) {
   const value = round(net);
   if (value === 0) return money(0, currency);
   return `${money(Math.abs(value), currency)} ${value > 0 ? "debit" : "credit"}`;

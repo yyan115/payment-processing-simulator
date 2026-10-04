@@ -1,7 +1,7 @@
-import { ApiError } from "./model";
+import { ApiError } from "./types";
 import type {
   Configuration,
-  Engine,
+  PaymentApi,
   Intent,
   LedgerAccount,
   LedgerPosting,
@@ -13,7 +13,7 @@ import type {
   Snapshot,
   Trace,
   Workspace,
-} from "./model";
+} from "./types";
 
 // Each tab keeps its own workspace id, so two tabs never share a workspace.
 const idKey = "payment-simulator-workspace";
@@ -107,7 +107,7 @@ async function request<T>(
     throw new ApiError("Unexpected server response. Try reconnecting.", 502);
   return { data, status: response.status };
 }
-export class HttpEngine implements Engine {
+export class ApiClient implements PaymentApi {
   async workspace(reset = false) {
     const workspace = (
       await request<Workspace>(`/workspace?reset=${reset}`, "POST")

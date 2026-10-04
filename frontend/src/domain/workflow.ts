@@ -1,12 +1,12 @@
 import type {
-  Engine,
   Intent,
   Outcome,
+  PaymentApi,
   ProviderStatus,
   Snapshot,
   Status,
-} from "./model";
-import { money } from "./model";
+} from "../api/types";
+import { money } from "./money";
 export type Run = {
   key: string;
   intent: Intent;
@@ -15,10 +15,10 @@ export type Run = {
   id?: string;
   complete?: boolean;
 };
-export type Tone = "neutral" | "good" | "bad" | "warn";
+type Tone = "neutral" | "good" | "bad" | "warn";
 export type Chip = { text: string; tone?: Tone };
 // A message travelling between the two parties in the diagram.
-export type Arrow = {
+type Arrow = {
   dir: "to-network" | "to-platform";
   label: string;
   lost?: boolean;
@@ -268,7 +268,7 @@ function finish(snapshot: Snapshot): Step {
       "The payment was made once, and the ledger holds a single journal entry for it.",
     FAILED: "No money moved, so nothing was added to the ledger.",
     UNKNOWN:
-      "The payment was not sent again. It stays UNKNOWN until someone confirms its status with the network.",
+      "The payment was not sent again. It stays UNKNOWN until the network reports a result.",
     PROCESSING:
       "The payment is still processing. There is no final result yet.",
     CREATED: "The payment has not been sent.",
@@ -283,21 +283,21 @@ function finish(snapshot: Snapshot): Step {
   };
 }
 export async function runPayment(
-  engine: Engine,
+  api: PaymentApi,
   run: Run,
   save: () => void,
   progress: Progress,
 ): Promise<Snapshot> {
   const simulated = run.intent.provider === "simulated";
   // Replaying creation after a lost HTTP response uses the exact original intent and key.
-  const result = await engine.create(run.key, run.intent);
+  const result = await api.create(run.key, run.intent);
   run.id = result.payout.id;
   save();
-  let snapshot = await engine.snapshot(run.id);
+  let snapshot = await api.snapshot(run.id);
   if (snapshot.payout.status === "CREATED") {
-    if (simulated) await engine.configure(run.id, run.scenario);
-    await engine.process(run.id);
-    snapshot = await engine.snapshot(run.id);
+    if (simulated) await api.configure(run.id, run.scenario);
+    await api.process(run.id);
+    snapshot = await api.snapshot(run.id);
     await progress(snapshot, sent(snapshot, run, simulated, false));
     await progress(snapshot, response(snapshot, simulated));
   } else {
@@ -315,9 +315,9 @@ export async function runPayment(
     const waits = simulated && run.scenario === "PENDING";
     await progress(snapshot, reconcileAsk(waits));
     // This is a controlled simulator transition, not a claim about an external provider.
-    if (waits) await engine.advance(run.id, "SUCCEEDED");
-    await engine.reconcile(run.id);
-    snapshot = await engine.snapshot(run.id);
+    if (waits) await api.advance(run.id, "SUCCEEDED");
+    await api.reconcile(run.id);
+    snapshot = await api.snapshot(run.id);
     const willRepeat =
       snapshot.payout.status === "UNKNOWN" &&
       simulated &&
@@ -325,17 +325,17 @@ export async function runPayment(
       !snapshot.provider;
     await progress(snapshot, reconcileAnswer(snapshot, willRepeat));
     if (willRepeat) {
-      await engine.retry(run.id);
-      snapshot = await engine.snapshot(run.id);
+      await api.retry(run.id);
+      snapshot = await api.snapshot(run.id);
       await progress(snapshot, sent(snapshot, run, simulated, true));
       await progress(snapshot, response(snapshot, simulated));
     }
   }
   // A duplicate creation request must return the same payment, without a second send.
-  const replay = await engine.create(run.key, run.intent);
+  const replay = await api.create(run.key, run.intent);
   if (replay.created || replay.payout.id !== run.id)
     throw new Error("Duplicate protection returned an unexpected payment.");
-  snapshot = await engine.snapshot(run.id);
+  snapshot = await api.snapshot(run.id);
   await progress(snapshot, {
     title: "Duplicate protection",
     detail:
@@ -344,7 +344,7 @@ export async function runPayment(
   if (run.intent.provider !== "simulated") {
     const name = run.intent.provider === "visa" ? "Visa" : "Mastercard";
     try {
-      const lookup = await engine.lookup(run.id);
+      const lookup = await api.lookup(run.id);
       await progress(snapshot, {
         title: "Status lookup",
         detail: `${name} reports the payment as ${lookup.provider?.status ?? "not found"}.`,
