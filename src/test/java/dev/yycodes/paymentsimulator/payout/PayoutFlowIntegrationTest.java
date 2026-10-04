@@ -1,4 +1,4 @@
-package dev.yycodes.paymentsimulator;
+package dev.yycodes.paymentsimulator.payout;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -6,11 +6,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import dev.yycodes.paymentsimulator.audit.PayoutEventRepository;
 import dev.yycodes.paymentsimulator.audit.PayoutEventType;
 import dev.yycodes.paymentsimulator.ledger.*;
-import dev.yycodes.paymentsimulator.payout.*;
 import dev.yycodes.paymentsimulator.provider.*;
 import dev.yycodes.paymentsimulator.reconciliation.ReconciliationAttemptRepository;
 import dev.yycodes.paymentsimulator.reconciliation.ReconciliationOutcome;
 import dev.yycodes.paymentsimulator.shared.ConflictException;
+import dev.yycodes.paymentsimulator.support.TestDatabaseCleaner;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

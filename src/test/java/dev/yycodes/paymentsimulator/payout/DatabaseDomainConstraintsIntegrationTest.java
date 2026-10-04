@@ -1,9 +1,8 @@
-package dev.yycodes.paymentsimulator;
+package dev.yycodes.paymentsimulator.payout;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import dev.yycodes.paymentsimulator.payout.CreatePayoutRequest;
-import dev.yycodes.paymentsimulator.payout.PayoutService;
+import dev.yycodes.paymentsimulator.support.TestDatabaseCleaner;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

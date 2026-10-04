@@ -1,16 +1,13 @@
-package dev.yycodes.paymentsimulator;
+package dev.yycodes.paymentsimulator.payout;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.yycodes.paymentsimulator.audit.PayoutEventRepository;
 import dev.yycodes.paymentsimulator.ledger.LedgerEntryRepository;
 import dev.yycodes.paymentsimulator.ledger.LedgerTransactionRepository;
-import dev.yycodes.paymentsimulator.payout.CreatePayoutRequest;
-import dev.yycodes.paymentsimulator.payout.PayoutCreationResult;
-import dev.yycodes.paymentsimulator.payout.PayoutRepository;
-import dev.yycodes.paymentsimulator.payout.PayoutService;
 import dev.yycodes.paymentsimulator.provider.ProviderTransactionRepository;
 import dev.yycodes.paymentsimulator.reconciliation.ReconciliationAttemptRepository;
+import dev.yycodes.paymentsimulator.support.TestDatabaseCleaner;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;

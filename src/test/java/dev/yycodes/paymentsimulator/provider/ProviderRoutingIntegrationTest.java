@@ -1,14 +1,14 @@
-package dev.yycodes.paymentsimulator;
+package dev.yycodes.paymentsimulator.provider;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import dev.yycodes.paymentsimulator.payout.*;
-import dev.yycodes.paymentsimulator.provider.*;
 import dev.yycodes.paymentsimulator.provider.mastercard.MastercardSendDisbursementsProvider;
 import dev.yycodes.paymentsimulator.shared.BadRequestException;
 import dev.yycodes.paymentsimulator.shared.ConflictException;
+import dev.yycodes.paymentsimulator.support.TestDatabaseCleaner;
 import java.math.BigDecimal;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;

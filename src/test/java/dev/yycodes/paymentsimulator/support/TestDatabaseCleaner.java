@@ -1,12 +1,12 @@
-package dev.yycodes.paymentsimulator;
+package dev.yycodes.paymentsimulator.support;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 
-final class TestDatabaseCleaner {
+public final class TestDatabaseCleaner {
 
     private TestDatabaseCleaner() {}
 
-    static void clean(JdbcTemplate jdbc) {
+    public static void clean(JdbcTemplate jdbc) {
         jdbc.execute(
                 """
                 TRUNCATE TABLE

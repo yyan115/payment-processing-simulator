@@ -1,9 +1,9 @@
-package dev.yycodes.paymentsimulator;
+package dev.yycodes.paymentsimulator.demo;
 
 import static org.assertj.core.api.Assertions.*;
 
-import dev.yycodes.paymentsimulator.demo.*;
 import dev.yycodes.paymentsimulator.provider.ProviderRejectedException;
+import dev.yycodes.paymentsimulator.support.TestDatabaseCleaner;
 import java.net.*;
 import java.net.http.*;
 import java.util.UUID;
