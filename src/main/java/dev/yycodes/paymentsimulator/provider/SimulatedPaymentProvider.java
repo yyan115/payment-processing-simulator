@@ -5,6 +5,11 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
+/**
+ * The simulated payment network. Each payout's next outcome is set in advance, and the network
+ * keeps its own record of every payment, so a lookup by reference answers the way a real network
+ * would.
+ */
 @Service
 public class SimulatedPaymentProvider implements PaymentProvider {
 

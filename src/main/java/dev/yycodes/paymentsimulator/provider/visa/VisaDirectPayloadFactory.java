@@ -5,6 +5,7 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -105,7 +106,7 @@ public class VisaDirectPayloadFactory {
                             .digest((reference + ":" + field).getBytes(StandardCharsets.UTF_8));
             String number = new BigInteger(1, hash).toString();
             return number.substring(0, length);
-        } catch (java.security.NoSuchAlgorithmException impossible) {
+        } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 is unavailable", impossible);
         }
     }

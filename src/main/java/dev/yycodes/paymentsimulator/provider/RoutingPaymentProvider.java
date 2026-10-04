@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
+/** Sends each call to the network stored on the payout, not to a global setting. */
 @Service
 @Primary
 public class RoutingPaymentProvider implements PaymentProvider {

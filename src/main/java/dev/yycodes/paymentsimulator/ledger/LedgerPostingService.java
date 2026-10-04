@@ -8,6 +8,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Posts the journal for a confirmed payout: a debit to the recipient's payable account and a credit
+ * to cash clearing, for the same amount. It must run inside the transaction that confirms the
+ * payout, and a payout can only be posted once.
+ */
 @Service
 public class LedgerPostingService {
 

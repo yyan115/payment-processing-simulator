@@ -7,6 +7,8 @@ import dev.yycodes.paymentsimulator.demo.SandboxRequestBudget;
 import dev.yycodes.paymentsimulator.provider.ProviderRejectedException;
 import java.net.URI;
 import java.net.http.*;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
@@ -202,10 +204,10 @@ class DemoWorkspaceIntegrationTest {
     void anEmptyWorkspaceIsKeptForLessTimeThanOneHoldingPayments() throws Exception {
         String cookie = workspace();
         UUID session = UUID.fromString(cookie.substring(cookie.indexOf('=') + 1));
-        Supplier<java.time.Duration> remaining =
+        Supplier<Duration> remaining =
                 () ->
-                        java.time.Duration.between(
-                                java.time.Instant.now(),
+                        Duration.between(
+                                Instant.now(),
                                 jdbc.queryForObject(
                                                 "SELECT expires_at FROM demo_sessions WHERE id=?",
                                                 java.sql.Timestamp.class,
@@ -217,8 +219,7 @@ class DemoWorkspaceIntegrationTest {
                 session);
         assertThat(request("GET", "/api/v1/payouts", cookie, null, null).statusCode())
                 .isEqualTo(200);
-        assertThat(remaining.get())
-                .isBetween(java.time.Duration.ofMinutes(25), java.time.Duration.ofMinutes(31));
+        assertThat(remaining.get()).isBetween(Duration.ofMinutes(25), Duration.ofMinutes(31));
         // Once it holds a payment, ordinary use keeps it for the full six hours.
         create(cookie, "empty-vs-used");
         jdbc.update(
@@ -226,7 +227,7 @@ class DemoWorkspaceIntegrationTest {
                 session);
         assertThat(request("GET", "/api/v1/payouts", cookie, null, null).statusCode())
                 .isEqualTo(200);
-        assertThat(remaining.get()).isGreaterThan(java.time.Duration.ofHours(5));
+        assertThat(remaining.get()).isGreaterThan(Duration.ofHours(5));
     }
 
     @Test
@@ -306,7 +307,7 @@ class DemoWorkspaceIntegrationTest {
                                 java.sql.Timestamp.class,
                                 session)
                         .toInstant();
-        assertThat(expires).isAfter(java.time.Instant.now().plus(java.time.Duration.ofMinutes(20)));
+        assertThat(expires).isAfter(Instant.now().plus(Duration.ofMinutes(20)));
         // The session keeps one identity however often it is extended.
         String first =
                 json.readTree(request("POST", "/api/v1/workspace", cookie, null, null).body())

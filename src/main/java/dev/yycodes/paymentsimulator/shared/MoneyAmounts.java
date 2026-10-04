@@ -5,6 +5,10 @@ import java.math.RoundingMode;
 import java.util.Currency;
 import java.util.Locale;
 
+/**
+ * Money rules shared by the API and the network adapters: amounts stay exact decimals, and
+ * conversion to minor units never rounds.
+ */
 public final class MoneyAmounts {
 
     private MoneyAmounts() {}

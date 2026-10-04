@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+/** Maps exceptions to API error responses. */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

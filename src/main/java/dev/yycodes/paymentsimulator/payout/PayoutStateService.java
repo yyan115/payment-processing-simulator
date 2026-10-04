@@ -13,6 +13,11 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Every payout state change. Each one runs in a single transaction with its audit event, and
+ * confirming a payout also posts its journal, so the status, the audit trail and the ledger commit
+ * together or not at all.
+ */
 @Service
 public class PayoutStateService {
 

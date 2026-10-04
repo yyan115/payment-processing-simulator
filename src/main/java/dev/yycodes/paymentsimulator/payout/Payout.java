@@ -6,6 +6,11 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * A payout and its status. A payout starts CREATED, becomes PROCESSING when it is sent, and ends
+ * SUCCEEDED, FAILED or UNKNOWN. An UNKNOWN payout can still resolve. Any other change is rejected,
+ * and the version column makes concurrent updates fail instead of overwriting each other.
+ */
 @Entity
 @Table(name = "payouts")
 public class Payout {

@@ -4,12 +4,17 @@ import dev.yycodes.paymentsimulator.provider.ProviderRejectedException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Limits calls to the Mastercard and Visa sandboxes per workspace, per minute and per day, so a
+ * public demo cannot exhaust them.
+ */
 @Service
 @ConditionalOnProperty(name = "payments.demo.enabled", havingValue = "true")
 public class SandboxRequestBudget {
@@ -33,7 +38,7 @@ public class SandboxRequestBudget {
     }
 
     @Transactional
-    public void consume(java.util.UUID payment) {
+    public void consume(UUID payment) {
         verification.authorize(payment);
         int changed =
                 jdbc.update(

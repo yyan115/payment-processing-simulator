@@ -17,6 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+/**
+ * Isolated, temporary workspaces for the public demo. A workspace owns its payouts, expires after a
+ * period without requests, and is capped in number and size.
+ */
 @Service
 public class DemoWorkspace {
     public static final String COOKIE = "payout_workspace";

@@ -10,6 +10,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+/**
+ * Sends a payout to its payment network and turns the answer into a state change. If the network
+ * does not answer, the payout becomes UNKNOWN, because the network may have paid. UNKNOWN payouts
+ * can then be retried or reconciled.
+ */
 @Service
 public class PayoutProcessor {
 

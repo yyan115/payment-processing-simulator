@@ -18,6 +18,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+/**
+ * Creates payouts and enforces idempotency. A repeated key with the same request returns the
+ * original payout, and the same key with a different request is a conflict.
+ */
 @Service
 public class PayoutService {
     private final PayoutRepository repository;

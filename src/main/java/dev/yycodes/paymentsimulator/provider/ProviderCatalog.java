@@ -7,6 +7,10 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+/**
+ * The payment networks this deployment offers. Mastercard and Visa exist only when they are
+ * configured.
+ */
 @Component
 public class ProviderCatalog {
     private final SimulatedPaymentProvider simulated;

@@ -2,6 +2,10 @@ package dev.yycodes.paymentsimulator.reconciliation;
 
 import java.time.Instant;
 
+/**
+ * How long to wait before reconciling a payout again. The delay doubles after each attempt, up to a
+ * maximum.
+ */
 public class ReconciliationBackoffPolicy {
 
     private final long baseDelayMs;

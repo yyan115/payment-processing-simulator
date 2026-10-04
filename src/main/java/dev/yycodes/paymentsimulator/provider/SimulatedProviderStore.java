@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/** The simulated network's own record of payments, kept apart from the platform's payouts. */
 @Service
 public class SimulatedProviderStore {
 

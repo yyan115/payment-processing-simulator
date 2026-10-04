@@ -8,6 +8,7 @@ import dev.yycodes.paymentsimulator.payout.PayoutStatus;
 import dev.yycodes.paymentsimulator.shared.ConflictException;
 import java.time.Instant;
 import java.util.*;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -18,6 +19,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+/**
+ * Resolves UNKNOWN payouts, and PROCESSING ones that went stale, by asking the payment network
+ * about them. Each payout is retried with a growing delay. The public demo turns this off and
+ * reconciles from the browser instead.
+ */
 @Component
 @ConditionalOnProperty(
         prefix = "payments.reconciliation",
@@ -76,7 +82,7 @@ public class ReconciliationWorker {
                 .filter(
                         payout ->
                                 payout.getDemoSessionId() == null
-                                        || java.util.Optional.ofNullable(
+                                        || Optional.ofNullable(
                                                         workspace.expiry(payout.getDemoSessionId()))
                                                 .map(expiry -> expiry.isAfter(now))
                                                 .orElse(false))

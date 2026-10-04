@@ -11,6 +11,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.json.JsonMapper;
 
+/**
+ * Optional Cloudflare Turnstile check. Once a visitor passes it, their workspace may use the
+ * external sandboxes until it expires.
+ */
 @Service
 public class SandboxVerification {
     private final JdbcTemplate jdbc;
