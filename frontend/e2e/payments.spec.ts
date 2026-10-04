@@ -876,6 +876,27 @@ test("the dark theme also darkens the built-in controls", async ({ page }) => {
   await page.getByRole("button", { name: /Switch to dark theme/ }).click();
   expect(await scheme()).toBe("dark");
 });
+test.describe("ledger on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+  test("every ledger column is visible without sideways scrolling", async ({
+    page,
+  }) => {
+    await open(page);
+    await send(page, "SUCCESS");
+    const ledger = page.getByRole("region", { name: "Ledger" });
+    const rows = ledger.locator(".postings tbody tr");
+    await expect(rows).toHaveCount(2);
+    for (const label of ["Time", "Payment", "Account", "Credit", "Balance"])
+      await expect(
+        rows.first().locator(`td[data-label="${label}"]`),
+      ).toBeVisible();
+    await expect(rows.last().locator('td[data-label="Debit"]')).toBeVisible();
+    const scrolls = await ledger
+      .locator(".table-scroll")
+      .evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+    expect(scrolls).toBe(false);
+  });
+});
 test("a help icon explains the playback switch", async ({ page }) => {
   await open(page);
   const tip = page.getByRole("tooltip");

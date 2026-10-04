@@ -91,20 +91,20 @@ export function Ledger({
           <tbody>
             {lines.map((line) => (
               <tr key={line.id}>
-                <td>{time(line.createdAt)}</td>
-                <td>{paymentLabel(line.payoutId)}</td>
-                <td>{accountName(line.accountCode)}</td>
-                <td>
+                <td data-label="Time">{time(line.createdAt)}</td>
+                <td data-label="Payment">{paymentLabel(line.payoutId)}</td>
+                <td data-label="Account">{accountName(line.accountCode)}</td>
+                <td data-label="Debit">
                   {line.direction === "DEBIT"
                     ? money(line.amount, line.currency)
                     : ""}
                 </td>
-                <td>
+                <td data-label="Credit">
                   {line.direction === "CREDIT"
                     ? money(line.amount, line.currency)
                     : ""}
                 </td>
-                <td>{line.balance}</td>
+                <td data-label="Balance">{line.balance}</td>
               </tr>
             ))}
           </tbody>

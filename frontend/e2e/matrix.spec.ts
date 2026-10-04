@@ -99,6 +99,11 @@ async function layoutProblems(page: Page, where: string) {
       const style = getComputedStyle(el);
       if (style.visibility === "hidden" || style.display === "none") continue;
       if (el.closest("[role=tooltip]")) continue;
+      // Content hidden on purpose for screen readers only is not clipped text.
+      let hidden = false;
+      for (let a: HTMLElement | null = el; a; a = a.parentElement)
+        if (getComputedStyle(a).clipPath !== "none") hidden = true;
+      if (hidden) continue;
       const clips =
         style.overflowX === "hidden" || style.textOverflow === "ellipsis";
       if (
