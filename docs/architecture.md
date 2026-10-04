@@ -9,6 +9,7 @@
 | Payment network | The party that moves the money: the simulated network, Mastercard Send or Visa Direct. The code calls the adapter for a network a provider. |
 | Reference | The payout's own UUID. Every request to the network carries it. |
 | Idempotency key | A header chosen by the caller that makes creating a payout safe to repeat. |
+| Workspace | A visitor's private, temporary set of payouts in demo mode. The page calls its expiry a session expiring. |
 
 ## Overview
 
