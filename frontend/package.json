@@ -16,7 +16,7 @@
     "format:check": "prettier --check src e2e *.ts *.json index.html"
   },
   "dependencies": {
-    "lucide-react": "^0.468.0",
+    "lucide-react": "^0.577.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

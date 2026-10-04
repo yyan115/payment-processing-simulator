@@ -1,7 +1,8 @@
 version: 2
 
 # Weekly, with minor and patch updates grouped into one pull request per ecosystem.
-# Major versions are skipped here and upgraded by hand when they are worth the work.
+# Major versions of Maven and npm dependencies are skipped and upgraded by hand.
+# Docker base images are not tracked: the weekly image rebuild pulls the latest patch of each tag.
 updates:
   - package-ecosystem: maven
     directory: /
@@ -21,14 +22,6 @@ updates:
     groups:
       npm:
         update-types: [minor, patch]
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
-
-  - package-ecosystem: docker
-    directory: /
-    schedule:
-      interval: weekly
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
