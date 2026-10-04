@@ -10,6 +10,8 @@
   color: #232323;
   background: #f6f5f2;
   font-synthesis: none;
+  color-scheme: light;
+  accent-color: var(--accent);
   --bg: #f6f5f2;
   --band: #ebe7df;
   --surface: #fff;
@@ -24,6 +26,7 @@
   --shadow: 0 12px 40px rgb(60 40 20 / 12%);
 }
 html[data-theme="dark"] {
+  color-scheme: dark;
   color: #e3e7ee;
   background: #121927;
   --bg: #121927;

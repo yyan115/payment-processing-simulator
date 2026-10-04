@@ -834,6 +834,48 @@ test("no scenario paragraph runs past four lines", async ({ page }) => {
     for (const count of lines) expect(Math.round(count)).toBeLessThanOrEqual(4);
   }
 });
+test("each check with the network is listed once in the payment's events", async ({
+  page,
+}) => {
+  await open(page);
+  await send(page, "TIMEOUT_AFTER_SUCCESS");
+  const row = page.locator(".payment-row");
+  await row.locator(".payment-summary").click();
+  const events = row.locator(".payment-details ol li");
+  await expect(
+    events.filter({
+      hasText: "Checked with the network: the payment was made",
+    }),
+  ).toHaveCount(1);
+  await expect(events).toHaveCount(4);
+});
+test("a payment's events and checks are listed in the order they happened", async ({
+  page,
+}) => {
+  await open(page);
+  await send(page, "TIMEOUT_BEFORE_PROCESSING");
+  const row = page.locator(".payment-row");
+  await row.locator(".payment-summary").click();
+  const texts = await row
+    .locator(".payment-details ol.events li span")
+    .allTextContents();
+  const index = (needle: string) => texts.findIndex((t) => t.includes(needle));
+  expect(index("Payment created")).toBe(0);
+  expect(index("Checked with the network: it has no record")).toBeGreaterThan(
+    index("No response from the network"),
+  );
+  expect(index("Payment sent again")).toBeGreaterThan(
+    index("Checked with the network: it has no record"),
+  );
+});
+test("the dark theme also darkens the built-in controls", async ({ page }) => {
+  await open(page);
+  const scheme = () =>
+    page.evaluate(() => getComputedStyle(document.documentElement).colorScheme);
+  expect(await scheme()).toBe("light");
+  await page.getByRole("button", { name: /Switch to dark theme/ }).click();
+  expect(await scheme()).toBe("dark");
+});
 test("a help icon explains the playback switch", async ({ page }) => {
   await open(page);
   const tip = page.getByRole("tooltip");

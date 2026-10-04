@@ -780,29 +780,40 @@ export default function App() {
                                 <span>Payment created</span>
                                 <time>{time(payment.createdAt)}</time>
                               </li>
-                              {snapshot.events.map((e) => (
-                                <li key={e.id}>
-                                  <span>
-                                    {eventText[e.eventType] ??
-                                      e.eventType
-                                        .replaceAll("_", " ")
-                                        .toLowerCase()}{" "}
-                                    <small>{e.toStatus}</small>
-                                  </span>
-                                  <time>{time(e.createdAt)}</time>
-                                </li>
-                              ))}
-                              {snapshot.attempts.map((a) => (
-                                <li key={a.id}>
-                                  <span>
-                                    Checked with the network:{" "}
-                                    {a.providerRecordFound && a.providerStatus
-                                      ? networkStatusText[a.providerStatus]
-                                      : "it has no record of this payment"}
-                                  </span>
-                                  <time>{time(a.createdAt)}</time>
-                                </li>
-                              ))}
+                              {[
+                                ...snapshot.events.map((e) => ({
+                                  id: `event-${e.id}`,
+                                  at: e.createdAt,
+                                  text: `${eventText[e.eventType] ?? e.eventType.replaceAll("_", " ").toLowerCase()}`,
+                                  status: e.toStatus as string | null,
+                                })),
+                                ...snapshot.attempts
+                                  .filter((a) => a.outcome === "STILL_UNKNOWN")
+                                  .map((a) => ({
+                                    id: `check-${a.id}`,
+                                    at: a.createdAt,
+                                    text: `Checked with the network: ${
+                                      a.providerRecordFound && a.providerStatus
+                                        ? networkStatusText[a.providerStatus]
+                                        : "it has no record of this payment"
+                                    }`,
+                                    status: null as string | null,
+                                  })),
+                              ]
+                                .sort(
+                                  (x, y) => Date.parse(x.at) - Date.parse(y.at),
+                                )
+                                .map((item) => (
+                                  <li key={item.id}>
+                                    <span>
+                                      {item.text}{" "}
+                                      {item.status && (
+                                        <small>{item.status}</small>
+                                      )}
+                                    </span>
+                                    <time>{time(item.at)}</time>
+                                  </li>
+                                ))}
                             </ol>
                             <details>
                               <summary>
