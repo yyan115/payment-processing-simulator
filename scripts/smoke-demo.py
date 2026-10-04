@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Exercise the packaged UI and real payout API without third-party Python packages."""
+"""Smoke test for a running deployment. It uses the API the way the UI does and needs no packages.
+
+Usage: scripts/smoke-demo.py [base-url]    (default http://localhost:8080)
+"""
 import http.cookiejar
 import json
 import sys
@@ -7,44 +10,74 @@ import time
 import urllib.error
 import urllib.request
 
-base = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8080').rstrip('/')
-client = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
-def request(path, method='GET', body=None, key=None):
-    headers = {'Content-Type': 'application/json'}
+BASE = (sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8080").rstrip("/")
+opener = urllib.request.build_opener(
+    urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+)
+
+
+def call(path, method="GET", body=None, key=None):
+    """Returns (status, parsed JSON or raw bytes)."""
+    headers = {"Content-Type": "application/json"}
     if key:
-        headers['Idempotency-Key'] = key
-    req = urllib.request.Request(base + path, data=json.dumps(body).encode() if body is not None else None, headers=headers, method=method)
+        headers["Idempotency-Key"] = key
+    data = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)
     try:
-        with client.open(req, timeout=10) as response:
+        with opener.open(request, timeout=10) as response:
             raw = response.read()
-            return response.status, json.loads(raw) if raw and response.headers.get_content_type() == 'application/json' else raw
+            is_json = raw and response.headers.get_content_type() == "application/json"
+            return response.status, json.loads(raw) if is_json else raw
     except urllib.error.HTTPError as error:
         return error.code, json.loads(error.read())
 
-for attempt in range(60):
-    try:
-        if request('/actuator/health')[0] == 200:
-            break
-    except (OSError, ValueError):
-        pass
-    time.sleep(2)
-else:
-    raise SystemExit('Backend did not become healthy within two minutes')
-status, html = request('/')
-assert status == 200 and b'id="root"' in html, 'Packaged frontend is missing'
-assert request('/api/v1/workspace', 'POST')[0] == 200
-intent = {'recipientReference': 'smoke-seller', 'amount': '100.00', 'currency': 'SGD', 'provider': 'simulated'}
-status, payout = request('/api/v1/payouts', 'POST', intent, 'smoke-payout')
+
+def wait_until_healthy():
+    for _ in range(60):
+        try:
+            if call("/actuator/health")[0] == 200:
+                return
+        except (OSError, ValueError):
+            pass
+        time.sleep(2)
+    raise SystemExit("The application did not become healthy within two minutes")
+
+
+def snapshot(payout_id):
+    return call(f"/api/v1/payouts/{payout_id}/snapshot")[1]
+
+
+wait_until_healthy()
+
+status, page = call("/")
+assert status == 200 and b'id="root"' in page, "The packaged frontend is missing"
+assert call("/api/v1/workspace", "POST")[0] == 200
+
+intent = {
+    "recipientReference": "smoke-seller",
+    "amount": "100.00",
+    "currency": "SGD",
+    "provider": "simulated",
+}
+status, payout = call("/api/v1/payouts", "POST", intent, "smoke-payout")
 assert status == 201, (status, payout)
-id = payout['id']
-assert request(f'/api/v1/simulation/payouts/{id}/next-outcome', 'PUT', {'outcome': 'TIMEOUT_AFTER_SUCCESS'})[0] == 204
-assert request(f'/api/v1/payouts/{id}/process', 'POST')[1]['status'] == 'UNKNOWN'
-_, evidence = request(f'/api/v1/payouts/{id}/snapshot')
-assert evidence['provider']['status'] == 'SUCCEEDED' and evidence['ledger'] is None
-assert request(f'/api/v1/payouts/{id}/reconcile', 'POST')[0] == 200
-_, evidence = request(f'/api/v1/payouts/{id}/snapshot')
-assert evidence['payout']['status'] == 'SUCCEEDED'
-assert len(evidence['ledger']['entries']) == 2
-assert request('/api/v1/payouts', 'POST', intent, 'smoke-payout')[0] == 200
-assert request('/api/v1/payouts')[1]['total'] == 1
-print('Packaged UI, isolated workspace, lost response, recovery and duplicate protection passed.')
+payout_id = payout["id"]
+
+# The network completes the payment but the reply is lost, so the payout is UNKNOWN.
+outcome = {"outcome": "TIMEOUT_AFTER_SUCCESS"}
+assert call(f"/api/v1/simulation/payouts/{payout_id}/next-outcome", "PUT", outcome)[0] == 204
+assert call(f"/api/v1/payouts/{payout_id}/process", "POST")[1]["status"] == "UNKNOWN"
+evidence = snapshot(payout_id)
+assert evidence["provider"]["status"] == "SUCCEEDED" and evidence["ledger"] is None
+
+# Reconciliation finds the payment and posts one journal of two entries.
+assert call(f"/api/v1/payouts/{payout_id}/reconcile", "POST")[0] == 200
+evidence = snapshot(payout_id)
+assert evidence["payout"]["status"] == "SUCCEEDED"
+assert len(evidence["ledger"]["entries"]) == 2
+
+# The same idempotency key returns the same payout and creates no second one.
+assert call("/api/v1/payouts", "POST", intent, "smoke-payout")[0] == 200
+assert call("/api/v1/payouts")[1]["total"] == 1
+
+print("Smoke test passed: frontend, workspace, lost response, reconciliation, idempotency.")

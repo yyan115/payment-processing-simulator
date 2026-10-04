@@ -1,21 +1,27 @@
-package dev.yycodes.paymentsimulator.provider;
+package dev.yycodes.paymentsimulator.payout;
 
 import dev.yycodes.paymentsimulator.audit.*;
 import dev.yycodes.paymentsimulator.demo.SandboxVerification;
 import dev.yycodes.paymentsimulator.ledger.*;
-import dev.yycodes.paymentsimulator.payout.*;
+import dev.yycodes.paymentsimulator.provider.ProviderCatalog;
+import dev.yycodes.paymentsimulator.provider.ProviderResult;
+import dev.yycodes.paymentsimulator.provider.ProviderStatus;
+import dev.yycodes.paymentsimulator.provider.SimulatedProviderStore;
 import dev.yycodes.paymentsimulator.reconciliation.*;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-/** Consistent local evidence; simulated provider truth is only included for simulated payouts. */
+/**
+ * Read-only views of a payout. The snapshot returns the payout, its journal, events and
+ * reconciliation attempts from one consistent read. The network's own record is included only for
+ * the simulated network, because asking Mastercard or Visa is a separate, explicit call.
+ */
 @RestController
-public class SimulationInspectionController {
+public class PayoutInspectionController {
     private final SandboxVerification verification;
     private final PayoutService payouts;
     private final ProviderCatalog catalog;
@@ -24,9 +30,8 @@ public class SimulationInspectionController {
     private final LedgerTransactionRepository transactions;
     private final LedgerQueryService ledger;
     private final ReconciliationAttemptRepository attempts;
-    private final boolean automaticReconciliation;
 
-    public SimulationInspectionController(
+    public PayoutInspectionController(
             PayoutService payouts,
             SandboxVerification verification,
             ProviderCatalog catalog,
@@ -34,8 +39,7 @@ public class SimulationInspectionController {
             PayoutHistoryService history,
             LedgerTransactionRepository transactions,
             LedgerQueryService ledger,
-            ReconciliationAttemptRepository attempts,
-            @Value("${payments.reconciliation.enabled:true}") boolean automaticReconciliation) {
+            ReconciliationAttemptRepository attempts) {
         this.verification = verification;
         this.payouts = payouts;
         this.catalog = catalog;
@@ -44,15 +48,9 @@ public class SimulationInspectionController {
         this.transactions = transactions;
         this.ledger = ledger;
         this.attempts = attempts;
-        this.automaticReconciliation = automaticReconciliation;
     }
 
-    @GetMapping("/api/v1/simulation/config")
-    public Configuration configuration() {
-        return new Configuration("simulated", automaticReconciliation);
-    }
-
-    @GetMapping({"/api/v1/payouts/{id}/snapshot", "/api/v1/simulation/payouts/{id}/snapshot"})
+    @GetMapping("/api/v1/payouts/{id}/snapshot")
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Snapshot snapshot(@PathVariable UUID id) {
         var payout = PayoutResponse.from(payouts.get(id));
@@ -79,8 +77,6 @@ public class SimulationInspectionController {
     }
 
     public record ProviderObservation(ProviderResult provider, Instant checkedAt) {}
-
-    public record Configuration(String provider, boolean automaticReconciliation) {}
 
     public record Snapshot(
             PayoutResponse payout,

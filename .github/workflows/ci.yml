@@ -29,22 +29,23 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Verify backend and database invariants
+      - name: Check formatting, then run the backend tests against PostgreSQL
         run: mvn --batch-mode verify
-      - name: Verify frontend
+      - name: Check, test and build the frontend
         run: |
           npm ci --prefix frontend
+          npm run format:check --prefix frontend
           npm test --prefix frontend
           npm run build --prefix frontend
       - name: Install browser
         working-directory: frontend
         run: npx playwright install --with-deps chromium
-      - name: Build and start the complete runtime
+      - name: Start the packaged app and run the smoke test
         env:
           # The browser suite opens one workspace per test, faster than a visitor would.
           DEMO_ADMISSIONS_PER_MINUTE: 120
@@ -52,14 +53,14 @@ jobs:
           docker compose config --quiet
           docker compose up --build --detach postgres app
           python3 scripts/smoke-demo.py
-      - name: Exercise the packaged app in Chromium
+      - name: Run the browser tests against the packaged app
         env:
           E2E_BASE_URL: http://localhost:8080
         run: npm run test:e2e --prefix frontend
       - name: Container diagnostics
         if: failure()
         run: docker compose logs app postgres
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: browser-test-report

@@ -23,7 +23,7 @@ class ProviderRoutingIntegrationTest {
     @Autowired PayoutService payouts;
     @Autowired PayoutProcessor processor;
     @Autowired SimulationController simulation;
-    @Autowired SimulationInspectionController inspection;
+    @Autowired PayoutInspectionController inspection;
     @Autowired JdbcTemplate jdbc;
     @MockitoBean MastercardSendDisbursementsProvider mastercard;
 

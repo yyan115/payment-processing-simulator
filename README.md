@@ -3,53 +3,85 @@
 [![CI](https://github.com/yyan115/payment-processing-simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/yyan115/payment-processing-simulator/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/yyan115/payment-processing-simulator/actions/workflows/codeql.yml/badge.svg)](https://github.com/yyan115/payment-processing-simulator/actions/workflows/codeql.yml)
 
-A Java 21 / Spring Boot / PostgreSQL payment engine with a small React demo. Explore what happens when a payment succeeds but its confirmation is lost, and recover without paying twice.
+A payment platform that stays correct when the payment network fails. It sends payouts with idempotency keys, records an explicit `UNKNOWN` state when the outcome is not known, recovers by reconciliation, and keeps a double-entry ledger in PostgreSQL. It runs on Java 21 and Spring Boot, with a React demo that shows each failure step by step. Besides a simulated network, it pays through the Mastercard Send and Visa Direct sandboxes.
 
-**[Open the demo](https://payment-simulator.redforest-1d69de67.eastasia.azurecontainerapps.io)**
+**[Live demo](https://payment-simulator.redforest-1d69de67.eastasia.azurecontainerapps.io)**
 
-![Payment simulator](docs/images/simulator.png)
+![A lost response, step by step](docs/images/demo.gif)
 
-## Use it
+## The problem
 
-Pick a sender, recipient and scenario, then **Send payment**. A diagram shows the payment platform, which sends the payment and keeps the records, and the payment network, which moves the money. Each side shows its own status, and the messages between them are animated step by step, with a short explanation of each step underneath. **Playback** (simulated network only) switches between Automatic and Step by step, where each step waits for **Next step**. Expand a row in **History** for its events, idempotency key, journal entry and captured API requests. The **Ledger** section shows running totals per account across the session.
+When a request to a payment network times out, the platform cannot tell whether the network paid. Sending again can pay twice. Giving up can lose the payment. This project handles that case: it records `UNKNOWN`, asks the network what happened using the payout's own reference, and only then finishes the payout.
 
-| Scenario | What happens | How the platform handles it |
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant P as Platform
+    participant N as Payment network
+    C->>P: create payout (Idempotency-Key)
+    P->>N: pay (reference = payout ID)
+    N-->>N: approves, moves the money
+    N--xP: reply lost
+    Note over P: UNKNOWN, nothing posted
+    P->>N: status of this reference?
+    N-->>P: approved
+    Note over P: SUCCEEDED and the journal, in one transaction
+```
+
+## Techniques
+
+| Concern | Technique | Code |
 | --- | --- | --- |
-| Approved payment | The network approves the payment | Records `SUCCEEDED` and posts a journal entry, one debit and one credit |
-| Declined payment | The network declines the payment | Records `FAILED` and posts nothing |
-| Response lost | The network completes the payment, but its response is lost | Records `UNKNOWN`, reconciles by asking the network, finds the payment was made, and records `SUCCEEDED` |
-| Request lost | The request never reaches the network | Records `UNKNOWN`, reconciles, finds no record, and sends again with the same reference |
-| Pending payment | The network has not finished the payment | Records `UNKNOWN`, waits, reconciles, and records the final result |
-| Unknown outcome | The network cannot report a result | Keeps `UNKNOWN` and does not send again |
+| Duplicate requests | Idempotency key with a request fingerprint and a unique constraint. A changed request under the same key returns 409. | [`PayoutService`](src/main/java/dev/yycodes/paymentsimulator/payout/PayoutService.java) |
+| Paying twice | The payout's UUID is the network reference. Mastercard resends use `Repeat-Flag`, Visa resends reuse derived identifiers. | [`provider/`](src/main/java/dev/yycodes/paymentsimulator/provider) |
+| Unknown outcomes | Timeouts and unexpected errors become `UNKNOWN`, never `FAILED`. | [`PayoutProcessor`](src/main/java/dev/yycodes/paymentsimulator/payout/PayoutProcessor.java) |
+| Recovery | Reconciliation by reference, with a worker that backs off exponentially. | [`reconciliation/`](src/main/java/dev/yycodes/paymentsimulator/reconciliation) |
+| Ledger correctness | The journal posts in the same transaction as the status change. Deferred PostgreSQL triggers reject an unbalanced journal, and ledger and audit rows cannot be edited. | [`ledger/`](src/main/java/dev/yycodes/paymentsimulator/ledger), [migrations](src/main/resources/db/migration) |
+| Concurrency | Optimistic locking, unique constraints and repeatable-read snapshots. | [`Payout`](src/main/java/dev/yycodes/paymentsimulator/payout/Payout.java) |
+| Exact money | `BigDecimal` and `NUMERIC`, conversion to minor units without rounding. | [`MoneyAmounts`](src/main/java/dev/yycodes/paymentsimulator/shared/MoneyAmounts.java) |
+| A public demo | Isolated workspaces, rate limits, sandbox call budgets and an optional Turnstile check. | [`demo/`](src/main/java/dev/yycodes/paymentsimulator/demo) |
 
-The simulator uses SGD without currency conversion. Participants are three fixed demo names, not bank accounts. The optional **Mastercard API sandbox** and **Visa API sandbox** networks use configured official test fixtures in USD and have no scenarios. Both networks run through the same backend state machine and ledger. No real money moves.
+The design, with state diagrams and the reasoning behind each choice, is in [docs/architecture.md](docs/architecture.md).
 
-## Run locally
+## Scenarios
+
+The demo lets you choose what the simulated network does, then shows how the platform responds.
+
+| Scenario | The network | The platform |
+| --- | --- | --- |
+| Approved | Approves | `SUCCEEDED`, journal posted |
+| Declined | Declines | `FAILED`, nothing posted |
+| Response lost | Pays, but the reply is lost | `UNKNOWN`, reconciles, finds the payment, `SUCCEEDED` |
+| Request lost | Never receives the request | `UNKNOWN`, reconciles, finds nothing, sends again with the same reference |
+| Pending | Has not finished | `UNKNOWN`, waits, reconciles |
+| Unknown outcome | Cannot report a result | Stays `UNKNOWN` and does not send again |
+
+Choose the Mastercard or Visa sandbox as the network to send a real sandbox payment through the same state machine and ledger.
+
+![History and ledger after a payment](docs/images/records.png)
+
+## Run it
 
 ```bash
 docker compose up --build
 ```
 
-Open **http://localhost:8080**. Mastercard and Visa credentials are optional. The UI and Java API run in one application; PostgreSQL stores the actual payment records. Each browser tab has its own isolated workspace. Refreshing the page or closing the tab starts a new one, and the server removes workspaces that have been idle for 6 hours, or 30 minutes if they hold no payments.
+Open <http://localhost:8080>. Mastercard and Visa are optional and need sandbox credentials, see [Mastercard](docs/mastercard.md) and [Visa](docs/visa.md).
 
-## What the backend guarantees
+## Tests
 
-- **Idempotency:** the same creation key and intent return the original payment; changed intent returns `409`. The demo automatically checks a duplicate creation request after each run.
-- **Safe recovery:** uncertain outcomes remain explicit; retries preserve the original provider reference. Mastercard repeats use `Repeat-Flag`, and Visa resends carry the same transaction identifiers.
-- **Atomic ledger:** confirmed success, audit and two balanced ledger entries commit together. Database constraints prevent duplicate journals and unbalanced entries.
-- **Concurrency:** unique constraints and optimistic locking protect competing creation and processing requests.
-- **Isolation and limits:** workspaces cannot access one another’s payments; database-backed Mastercard budgets limit outgoing calls. Optional Turnstile verification protects external-provider actions.
+- **Backend:** integration tests on real PostgreSQL covering concurrent requests, database triggers, recovery and the Mastercard and Visa contracts.
+- **Frontend:** unit tests and Playwright browser tests. One suite runs every scenario with every sender, recipient and playback mode, on desktop and phone.
+- **CI:** formatting, all tests, a smoke test and the browser tests against the packaged container, plus CodeQL.
 
-Authenticated Mastercard sandbox creation and reference lookup were verified on the public deployment on **2026-10-02**. This is sandbox integration evidence, not production settlement. Public deployment verification is recorded in the [deployment guide](docs/deployment.md).
+## Documentation
 
-## Development
+[Architecture](docs/architecture.md) · [API](docs/api.md) · [Development](docs/development.md) · [Deployment](docs/deployment.md) · [Mastercard](docs/mastercard.md) · [Visa](docs/visa.md) · [Security](SECURITY.md)
 
-- [Setup and tests](docs/development.md)
-- [API examples](docs/api.md)
-- [Mastercard setup](docs/mastercard.md)
-- [Deployment](docs/deployment.md)
-- [Design](docs/design.md) and [security](SECURITY.md)
+## Stack
 
-Backend tests exercise real PostgreSQL transactions, concurrent requests, immutable records and provider contracts. Browser tests exercise all six scenarios, repeated payments, reload, session isolation, network failures and mobile layout. External Mastercard tests are opt-in.
+Java 21, Spring Boot 4, PostgreSQL 17, Flyway, React 19, TypeScript, Vite, Playwright, Docker, GitHub Actions, Azure Container Apps.
 
-This project models payout processing and recovery. It does not model balances, FX, fees, card-purchase authorization, bank settlement or post-success reversals.
+## License
+
+[MIT](LICENSE)

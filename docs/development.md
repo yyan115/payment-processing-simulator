@@ -1,80 +1,96 @@
-# Development and verification
+# Development
 
-The simplest run is `docker compose up --build`, then http://localhost:8080. The full frontend is bundled into the Java application. To stop it, run `docker compose down`; the database volume persists, while expired demo sessions are purged on the next run.
+Requirements: Java 21, Maven 3.9, Node 22, Docker (for PostgreSQL and the packaged app).
 
-## Develop without a containerized application
+## Layout
 
-Requirements: Java 21+, Maven 3.9+, Node 22.12+, and PostgreSQL 17. An existing local PostgreSQL installation is fine. For a disposable development database:
+```text
+src/main/java/dev/yycodes/paymentsimulator/
+  payout/           Payouts: creation, state changes, sending, inspection
+  provider/         Payment network adapters: simulated, mastercard/, visa/
+  ledger/           Journal posting and queries
+  reconciliation/   Reconciliation worker, backoff, attempt records
+  audit/            Audit events
+  demo/             Workspaces, rate limits, sandbox budgets, Turnstile
+  observability/    Metrics
+  shared/           Money rules, errors
+src/main/resources/db/migration/   Flyway migrations V1 to V14
+frontend/src/       React app: components/, hooks/, api/, domain/
+frontend/e2e/       Playwright tests
+ops/                Dockerfile entrypoint, Azure scripts, Prometheus config
+```
+
+## Run
 
 ```bash
-docker run -d --name payments-dev-db \
-  -p 127.0.0.1:5432:5432 \
+docker compose up --build        # app and PostgreSQL on http://localhost:8080
+```
+
+To work on the code, start a database and the backend, then the frontend:
+
+```bash
+docker run -d --name payments-dev-db -p 127.0.0.1:5432:5432 \
   -e POSTGRES_USER=payments -e POSTGRES_PASSWORD=payments \
-  -e POSTGRES_DB=payments_dev postgres:17-alpine
+  -e POSTGRES_DB=payments postgres:17-alpine
+
+DEMO_ENABLED=true RECONCILIATION_ENABLED=false mvn spring-boot:run   # port 8080
+cd frontend && npm ci && npm run dev                                  # http://127.0.0.1:5173
 ```
 
-After PostgreSQL is ready, start the backend in one terminal:
+Vite proxies `/api` to port 8080. To switch on Mastercard or Visa, see [Mastercard](mastercard.md) and [Visa](visa.md).
 
-```bash
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/payments_dev \
-DEMO_ENABLED=true RECONCILIATION_ENABLED=false mvn spring-boot:run
-```
+## Tests
 
-Start the frontend in another:
-
-```bash
-cd frontend
-npm ci
-npm run dev
-```
-
-Open http://127.0.0.1:5173. Vite proxies API requests to the Java service on port 8080. Icons are bundled locally.
-
-## Backend tests
-
-**Use a dedicated database: integration tests truncate payment tables.** With the disposable database container above:
+**Backend.** The tests truncate tables, so use a separate database:
 
 ```bash
 docker exec payments-dev-db createdb -U payments payments_test
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/payments_test mvn verify
 ```
 
-The suite uses real PostgreSQL transactions and constraints, including concurrent requests. It does not require Mastercard keys or external sandbox access.
+They use real PostgreSQL transactions, constraints and concurrent requests. They need no Mastercard or Visa credentials. `mvn verify` also checks formatting. Run `mvn spotless:apply` to fix it.
 
-## Frontend and browser tests
+**Frontend.**
 
 ```bash
 cd frontend
-npm ci
-npm test
+npm test                    # unit tests
+npm run format:check        # Prettier
 npm run build
+```
+
+**Browser tests** need a running backend with `DEMO_ENABLED=true`. Each test opens a workspace, so raise the admission limit with `DEMO_ADMISSIONS_PER_MINUTE=120`.
+
+```bash
 npx playwright install chromium
-npm run test:e2e
+npm run test:e2e                                       # starts Vite if needed
+E2E_BASE_URL=http://localhost:8080 npm run test:e2e    # the packaged app instead
 ```
 
-The browser tests need a running backend with `DEMO_ENABLED=true`, `RECONCILIATION_ENABLED=false` and a disposable database. Playwright starts Vite if necessary. To test the packaged Docker application instead:
+Steps are paced at about two seconds for viewers. Tests remove the pause by setting `localStorage["payment-simulator-pace"]` to `"0"`.
+
+Two further suites are opt-in:
 
 ```bash
-E2E_BASE_URL=http://localhost:8080 npm run test:e2e
+npm run test:matrix                                    # every scenario, sender, recipient and playback mode
+MASTERCARD_E2E=true VISA_E2E=true npm run test:e2e     # live sandbox payments
 ```
 
-The browser suite opens a new workspace for every test, which can exceed the default limit of 30 new workspaces per minute from one address. Start the app with `DEMO_ADMISSIONS_PER_MINUTE=120` before running it.
+The matrix opens one workspace per case, so it also needs the higher admission limit. Live runs are spaced out because the sandboxes answer 429 to bursts.
 
-The simulated network’s steps are paced (about two seconds each) so a viewer can follow them. The **Playback** switch, which only appears for the simulated network, changes this to Step by step, where each step waits for the viewer. The choice is stored in `localStorage["payment-simulator-playback"]`. Browser tests remove the pause by setting `localStorage["payment-simulator-pace"]` to `"0"`; one test sets it to `"500"` and checks that steps appear one at a time.
-
-The live Mastercard browser test is skipped by default. After configuring private sandbox credentials, explicitly opt in:
-
-```bash
-MASTERCARD_E2E=true npm run test:e2e -- --grep 'authenticated Mastercard'
-```
-
-This makes external sandbox requests. All ordinary tests remain deterministic and credential-free.
-
-## Packaged runtime smoke check
+## Smoke test
 
 ```bash
 docker compose up --build --detach
 python3 scripts/smoke-demo.py
 ```
 
-The script verifies frontend delivery, a private workspace, lost-response handling, reconciliation and duplicate protection against the running application. CI runs this and the browser suite against the final image, with the Java service running as an unprivileged user on a read-only filesystem.
+It checks the packaged UI, a workspace, a lost response, reconciliation and idempotency over HTTP. CI runs it, then the browser tests against the same container.
+
+## README media
+
+```bash
+node scripts/readme-media.mjs     # needs the app on :8080 and ffmpeg
+```
+
+Regenerates `docs/images/demo.gif`, `simulator.png` and `records.png`.

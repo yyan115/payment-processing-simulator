@@ -1,56 +1,72 @@
-# Payout API walkthrough
+# API
 
-Start the application with `docker compose up --build`. Demo mode requires a workspace. The browser sends its own workspace id in the `X-Workspace-Id` header, which `POST /workspace` returns as `id`. Without the header, the workspace cookie is used. For curl:
+All routes start with `/api/v1`. Errors are JSON with `status`, `error` and `message`.
+
+## Walkthrough
+
+Start the app with `docker compose up --build`. In demo mode each caller needs a workspace. The browser sends its workspace ID in `X-Workspace-Id`. Curl can keep the cookie instead.
 
 ```bash
-COOKIE_JAR=$(mktemp)
-curl -c "$COOKIE_JAR" -X POST http://localhost:8080/api/v1/workspace
-curl -b "$COOKIE_JAR" -i -X POST http://localhost:8080/api/v1/payouts \
+JAR=$(mktemp)
+curl -c "$JAR" -X POST http://localhost:8080/api/v1/workspace
+
+# Create a payout. Repeating this request returns the same payout.
+curl -b "$JAR" -X POST http://localhost:8080/api/v1/payouts \
   -H 'Content-Type: application/json' -H 'Idempotency-Key: first-payout' \
   -d '{"recipientReference":"seller-42","amount":"100.00","currency":"SGD","provider":"simulated"}'
 ```
 
-Copy the returned `id` into `PAYOUT_ID`, then lose the provider response:
+Set `ID` to the returned `id`. Make the network complete the payment but lose its reply, then send:
 
 ```bash
-PAYOUT_ID=replace-with-the-returned-uuid
-curl -b "$COOKIE_JAR" -X PUT "http://localhost:8080/api/v1/simulation/payouts/$PAYOUT_ID/next-outcome" \
+curl -b "$JAR" -X PUT "http://localhost:8080/api/v1/simulation/payouts/$ID/next-outcome" \
   -H 'Content-Type: application/json' -d '{"outcome":"TIMEOUT_AFTER_SUCCESS"}'
-curl -b "$COOKIE_JAR" -X POST "http://localhost:8080/api/v1/payouts/$PAYOUT_ID/process"
-curl -b "$COOKIE_JAR" "http://localhost:8080/api/v1/payouts/$PAYOUT_ID/snapshot"
+curl -b "$JAR" -X POST "http://localhost:8080/api/v1/payouts/$ID/process"
+curl -b "$JAR" "http://localhost:8080/api/v1/payouts/$ID/snapshot"
 ```
 
-The snapshot shows `payout.status=UNKNOWN`, `provider.status=SUCCEEDED` and `ledger=null`. Reconcile:
+The snapshot shows `payout.status` `UNKNOWN`, `provider.status` `SUCCEEDED` and `ledger` null: the network paid and the platform does not know yet. Reconcile:
 
 ```bash
-curl -b "$COOKIE_JAR" -X POST "http://localhost:8080/api/v1/payouts/$PAYOUT_ID/reconcile"
-curl -b "$COOKIE_JAR" "http://localhost:8080/api/v1/payouts/$PAYOUT_ID/ledger"
+curl -b "$JAR" -X POST "http://localhost:8080/api/v1/payouts/$ID/reconcile"
+curl -b "$JAR" "http://localhost:8080/api/v1/payouts/$ID/ledger"
 ```
 
-The ledger now contains one debit and one credit. Repeating the creation request with the original key returns HTTP 200 and the same payout. Changing its amount, currency, recipient or provider under that key returns HTTP 409.
+The payout is now `SUCCEEDED` with one journal of two entries. Creating it again with the same key returns 200 and the same payout. The same key with a different amount, currency, recipient or network returns 409.
 
 ## Routes
 
-All paths below start with `/api/v1`.
-
 | Method | Route | Purpose |
 | --- | --- | --- |
-| POST | `/workspace` | Open or reuse a temporary workspace; `?reset=true` starts another |
-| GET | `/config` | Provider availability and demo/reconciliation settings; no credentials |
-| POST | `/payouts` | Create a payout with `Idempotency-Key`; provider defaults to server configuration |
-| GET | `/payouts?page=0&size=20` | List this workspace’s payouts; maximum page size 100 |
-| GET | `/payouts/{id}` | Current payout |
-| POST | `/payouts/{id}/process` | Submit a `CREATED` payout |
-| POST | `/payouts/{id}/retry` | Safely repeat an `UNKNOWN` payout with its original reference |
-| POST | `/payouts/{id}/reconcile` | Look up an `UNKNOWN` or `PROCESSING` payout and apply the result |
-| GET | `/payouts/{id}/snapshot` | Consistent local payout, journal, events and reconciliation attempts |
-| GET | `/payouts/{id}/provider` | Explicit provider lookup; does not alter the local payout |
-| GET | `/payouts/{id}/events` | Audit trail |
-| GET | `/payouts/{id}/ledger` | Confirmed journal; 404 before confirmation |
-| GET | `/ledger/accounts` | Debit and credit totals per account and currency, for this workspace's payments |
-| PUT | `/simulation/payouts/{id}/next-outcome` | Configure the next simulated submission using `{ "outcome": "PENDING" }` |
-| PUT | `/simulation/payouts/{id}/provider-status` | Advance an uncertain simulated record using `{ "status": "SUCCEEDED" }` or `DECLINED` |
+| POST | `/workspace` | Open or reuse a workspace. `?reset=true` starts a new one. |
+| GET | `/config` | Which networks are configured, and demo settings. No credentials. |
+| POST | `/payouts` | Create a payout. Needs `Idempotency-Key`. Returns 201, or 200 for a repeat. |
+| GET | `/payouts?page=0&size=20` | The workspace's payouts, newest first. Page size is at most 100. |
+| GET | `/payouts/{id}` | One payout. |
+| POST | `/payouts/{id}/process` | Send a `CREATED` payout to its network. |
+| POST | `/payouts/{id}/retry` | Send an `UNKNOWN` payout again with the same reference. |
+| POST | `/payouts/{id}/reconcile` | Ask the network about an `UNKNOWN` or `PROCESSING` payout and apply the answer. |
+| GET | `/payouts/{id}/snapshot` | Payout, journal, events and reconciliation attempts from one consistent read. |
+| GET | `/payouts/{id}/provider` | Ask the network about the payout. Changes nothing. |
+| GET | `/payouts/{id}/events` | Audit trail. |
+| GET | `/payouts/{id}/ledger` | The journal. 404 until the payout succeeds. |
+| GET | `/ledger/accounts` | Debit and credit totals per account. |
+| GET | `/ledger/entries` | Every posting in order. |
+| PUT | `/simulation/payouts/{id}/next-outcome` | Set what the simulated network does next: `SUCCESS`, `DECLINED`, `TIMEOUT_AFTER_SUCCESS`, `TIMEOUT_BEFORE_PROCESSING`, `PENDING` or `UNKNOWN`. |
+| PUT | `/simulation/payouts/{id}/provider-status` | Resolve an unresolved simulated payment to `SUCCEEDED` or `DECLINED`. |
+| GET, POST | `/sandbox-verification` | Read or complete the Turnstile check, when enabled. |
 
-A Mastercard snapshot does not call the external API or invent provider evidence. Use the explicit provider lookup for that. Simulation controls reject Mastercard payouts.
+`provider` in a request is the payment network: `simulated`, `mastercard` or `visa`. The simulation routes reject Mastercard and Visa payouts, and the snapshot leaves out their network record. Use `/provider` to ask them.
 
-Expired workspace requests return `410`; records belonging to another workspace return `404`; quotas return `429`. `DEMO_ENABLED=false` enables the unscoped local lab API without cookies and keeps records permanently. That mode has no public-user authentication and should remain local.
+## Status codes
+
+| Code | When |
+| --- | --- |
+| 400 | Invalid input, or a network that is not configured |
+| 404 | Unknown payout, or one that belongs to another workspace |
+| 409 | Idempotency key reused for a different request, a state change that is not allowed, or a concurrent update |
+| 410 | The workspace expired |
+| 429 | A workspace, rate or sandbox limit |
+| 502, 503 | A network rejected the call, or did not answer. The payout keeps its state. |
+
+With `DEMO_ENABLED=false` there are no workspaces and records are kept. That mode has no authentication and is for local use only.

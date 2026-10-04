@@ -125,12 +125,7 @@ class DemoWorkspaceIntegrationTest {
                                 .statusCode())
                 .isEqualTo(404);
         assertThat(
-                        request(
-                                        "GET",
-                                        "/api/v1/simulation/payouts/" + id + "/snapshot",
-                                        b,
-                                        null,
-                                        null)
+                        request("GET", "/api/v1/payouts/" + id + "/snapshot", b, null, null)
                                 .statusCode())
                 .isEqualTo(404);
         // URI encoding must not evade authorization after MVC decodes the resource ID.

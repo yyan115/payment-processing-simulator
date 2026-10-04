@@ -252,8 +252,7 @@ class PayoutApiIntegrationTest {
                 .isEqualTo(200);
 
         var uncertain =
-                json.readTree(
-                        send("GET", "/api/v1/simulation/payouts/" + id + "/snapshot", "").body());
+                json.readTree(send("GET", "/api/v1/payouts/" + id + "/snapshot", "").body());
         assertThat(uncertain.path("payout").path("status").asText()).isEqualTo("UNKNOWN");
         assertThat(uncertain.path("provider").path("status").asText()).isEqualTo("SUCCEEDED");
         assertThat(uncertain.path("ledger").isNull()).isTrue();
@@ -261,9 +260,7 @@ class PayoutApiIntegrationTest {
 
         assertThat(send("POST", "/api/v1/payouts/" + id + "/reconcile", "").statusCode())
                 .isEqualTo(200);
-        var resolved =
-                json.readTree(
-                        send("GET", "/api/v1/simulation/payouts/" + id + "/snapshot", "").body());
+        var resolved = json.readTree(send("GET", "/api/v1/payouts/" + id + "/snapshot", "").body());
         assertThat(resolved.path("payout").path("status").asText()).isEqualTo("SUCCEEDED");
         assertThat(resolved.path("ledger").path("entries").size()).isEqualTo(2);
         assertThat(resolved.path("attempts").get(0).path("outcome").asText())
@@ -307,7 +304,7 @@ class PayoutApiIntegrationTest {
         assertThat(
                         send(
                                         "GET",
-                                        "/api/v1/simulation/payouts/00000000-0000-0000-0000-000000000000/snapshot",
+                                        "/api/v1/payouts/00000000-0000-0000-0000-000000000000/snapshot",
                                         "")
                                 .statusCode())
                 .isEqualTo(404);

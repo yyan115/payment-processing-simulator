@@ -1,45 +1,21 @@
 # Security
 
-This repository is a payment-systems learning project and must use synthetic or sandbox data only.
+This is a learning project. It uses synthetic and sandbox data only, and it must never handle real card numbers, customer identities or production financial data.
 
 ## Credentials
 
-Never commit:
+Never commit Mastercard or Visa credentials, PKCS#12 keys or PEM files, passwords, or database credentials other than the local development defaults. The application reads secrets from the environment. `.env` is ignored by Git and `.env.example` holds placeholders only.
 
-- Mastercard consumer keys
-- PKCS#12 signing keys or passwords
-- production card or bank-account data
-- database credentials outside local development defaults
-- any other private payment-provider secret
+If a credential is committed, treat it as compromised and rotate it. Deleting it from the latest commit does not remove it from history.
 
-The Mastercard adapter reads credentials from external configuration. The `.env` file is ignored by Git; `.env.example` contains placeholders only.
+## Reporting a vulnerability
 
-If a credential is accidentally committed, treat it as compromised and revoke or rotate it immediately. Removing it from the latest commit is not sufficient because Git history may still contain it.
+Open a [private security advisory](https://github.com/yyan115/payment-processing-simulator/security/advisories/new) on GitHub. Leave secrets and sensitive data out of public issues.
 
-## Data handling
+## What is in place
 
-Do not use real PANs, customer identities, or production financial data with this simulator. Logs are designed around internal payout IDs and provider references rather than recipient details.
-
-## Vulnerability reports
-
-Do not place secrets, credentials, or sensitive financial data in a public GitHub issue. Report reproducible security defects without sensitive material and rotate any credential that may have been exposed.
-
-## Runtime container
-
-The final application image runs as a dedicated unprivileged user and includes an application health check. Docker Compose runs the app with a read-only root filesystem, a temporary writable `/tmp`, all Linux capabilities dropped, and `no-new-privileges`.
-
-CI boots PostgreSQL and the built application container and waits for the Actuator health endpoint, so the runtime image and startup path are exercised rather than only syntax-checked.
-
-## Automated checks
-
-GitHub Actions runs the test suite on pushes and pull requests. CodeQL performs Java static security analysis using the security-extended query suite. Dependabot tracks Maven, npm, Docker, and GitHub Actions dependencies. CodeQL also analyzes the TypeScript interface.
-
-## Public demo boundary
-
-Keep `DEMO_ENABLED=true` for a public deployment. It scopes requests by a random HttpOnly, SameSite=Strict cookie, isolates payout ownership and idempotency keys, enforces quotas and expires temporary records. Only health is exposed through Actuator in this mode. The UI and API share an origin; cross-site browser API requests are rejected.
-
-The simulator accepts synthetic display references and amounts. It never asks visitors for real card or bank details. The optional Mastercard provider uses fixed official sandbox parties, server-side signing and persistent shared and per-session outbound-call budgets. Optional Turnstile verification is validated server-side, checks hostname and action, and is enforced on every external-provider call route. It requires real deployment keys; rate limits remain necessary because bot verification cannot eliminate abuse. The runtime accepts the signing key as a mounted private file or a secret base64 value decoded into `/tmp` with restrictive permissions. Neither belongs in an image or repository.
-
-`DEMO_ENABLED=false` is an unscoped development API with permanent records, intended for a trusted local lab. It is not an authenticated production payment service. Compose binds published ports to loopback by default.
-
-Only explicitly expired temporary workspaces can be purged. Journal and audit updates remain prohibited, and permanent payment records remain protected from deletion by database triggers. The demo cookie is a bearer capability; users sharing a browser profile share that workspace.
+- **Container:** runs as an unprivileged user with a health check. Docker Compose adds a read-only root filesystem, a temporary `/tmp`, all Linux capabilities dropped and `no-new-privileges`.
+- **Public demo:** each workspace is isolated by a random ID. Rate limits, per-workspace quotas and expiry bound resource use. Only `/actuator/health` is public. The UI and API share an origin, and responses carry `nosniff`, `X-Frame-Options: DENY` and `no-store` headers.
+- **Sandbox calls:** the adapters accept sandbox hosts only, calls are budgeted in PostgreSQL, and Cloudflare Turnstile can gate them. Credentials never reach the browser.
+- **Data:** logs name payouts by internal ID and network reference, not by recipient.
+- **Automation:** CI runs every test and boots the packaged container. CodeQL analyses Java and TypeScript with the security-extended queries. Dependabot tracks Maven, npm, Docker and GitHub Actions. The deploy pipeline signs in to Azure with OpenID Connect and stores no cloud credential.
