@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Regenerates the README media from a running app: docs/images/demo.gif, simulator.png and records.png.
+// Regenerates the README media from a running app: docs/images/demo.gif and records.png.
 // Needs the app on http://localhost:8080 (or pass another URL), plus ffmpeg and Playwright's Chromium.
 //   node scripts/readme-media.mjs [base-url]
 import { execFileSync } from "node:child_process";
@@ -46,7 +46,7 @@ const video = readdirSync(tmp).find((name) => name.endsWith(".webm"));
 execFileSync("ffmpeg", [
   "-y", "-i", join(tmp, video),
   "-vf",
-  "fps=8,scale=800:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
+  "fps=7,scale=760:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=48:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
   "-loop", "0", join(out, "demo.gif"),
 ], { stdio: "ignore" });
 rmSync(tmp, { recursive: true, force: true });
@@ -57,8 +57,6 @@ await still.addInitScript(() => localStorage.setItem("payment-simulator-pace", "
 {
   const page = await open(still);
   await choose(page, "Response lost");
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: join(out, "simulator.png") });
   await send(page);
   await page.locator(".timeline li.final").waitFor();
   await page.locator(".payment-summary").first().click();

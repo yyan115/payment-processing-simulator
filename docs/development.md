@@ -93,4 +93,4 @@ It checks the packaged UI, a workspace, a lost response, reconciliation and idem
 node scripts/readme-media.mjs     # needs the app on :8080 and ffmpeg
 ```
 
-Regenerates `docs/images/demo.gif`, `simulator.png` and `records.png`.
+Regenerates `docs/images/demo.gif` and `docs/images/records.png`.
