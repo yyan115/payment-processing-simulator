@@ -1,11 +1,5 @@
 package dev.yycodes.paymentsimulator.provider.visa;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.node.ObjectNode;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -15,10 +9,14 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
- * Builds the Visa Direct push funds request. Visa matches a payment by its identifiers, so they
- * are derived from the payout reference. A resend then carries the same identifiers and Visa can
+ * Builds the Visa Direct push funds request. Visa matches a payment by its identifiers, so they are
+ * derived from the payout reference. A resend then carries the same identifiers and Visa can
  * recognise it as the same payment.
  */
 @Component
@@ -65,8 +63,7 @@ public class VisaDirectPayloadFactory {
         return raw.charAt(0) + String.format("%03d", dayOfYear) + raw.substring(4);
     }
 
-    public String createPayload(
-            UUID reference, BigDecimal amount, String currency, Instant now) {
+    public String createPayload(UUID reference, BigDecimal amount, String currency, Instant now) {
         ObjectNode root = mapper.createObjectNode();
         root.put("amount", amount.setScale(2, RoundingMode.UNNECESSARY).toPlainString());
         root.put("senderAddress", "901 Metro Center Blvd");

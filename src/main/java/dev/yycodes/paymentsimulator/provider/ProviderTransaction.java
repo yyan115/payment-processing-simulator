@@ -1,7 +1,6 @@
 package dev.yycodes.paymentsimulator.provider;
 
 import jakarta.persistence.*;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -10,8 +9,7 @@ import java.util.UUID;
 @Table(name = "provider_transactions")
 public class ProviderTransaction {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "client_reference", nullable = false, unique = true, updatable = false)
     private UUID clientReference;
@@ -35,19 +33,14 @@ public class ProviderTransaction {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    protected ProviderTransaction() {
-    }
+    protected ProviderTransaction() {}
 
     public ProviderTransaction(
-            UUID clientReference,
-            BigDecimal amount,
-            String currency,
-            ProviderStatus status) {
+            UUID clientReference, BigDecimal amount, String currency, ProviderStatus status) {
         Instant now = Instant.now();
         this.id = UUID.randomUUID();
         this.clientReference = clientReference;
-        this.providerReference =
-                "sim_" + UUID.randomUUID().toString().replace("-", "");
+        this.providerReference = "sim_" + UUID.randomUUID().toString().replace("-", "");
         this.amount = amount;
         this.currency = currency;
         this.status = status;
@@ -55,7 +48,15 @@ public class ProviderTransaction {
         this.updatedAt = now;
     }
 
-    public String getProviderReference() { return providerReference; }
-    public ProviderStatus getStatus() { return status; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    public String getProviderReference() {
+        return providerReference;
+    }
+
+    public ProviderStatus getStatus() {
+        return status;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
 }

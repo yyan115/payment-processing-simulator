@@ -1,7 +1,6 @@
 package dev.yycodes.paymentsimulator.ledger;
 
 import jakarta.persistence.*;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;

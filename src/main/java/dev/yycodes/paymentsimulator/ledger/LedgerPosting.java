@@ -12,6 +12,4 @@ public record LedgerPosting(
         LedgerDirection direction,
         BigDecimal amount,
         String currency,
-        Instant createdAt
-) {
-}
+        Instant createdAt) {}

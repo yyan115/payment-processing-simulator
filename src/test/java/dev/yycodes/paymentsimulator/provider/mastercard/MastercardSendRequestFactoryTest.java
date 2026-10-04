@@ -2,11 +2,7 @@ package dev.yycodes.paymentsimulator.provider.mastercard;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import tools.jackson.databind.json.JsonMapper;
-
+import dev.yycodes.paymentsimulator.provider.ProviderRequestException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,6 +10,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import tools.jackson.databind.json.JsonMapper;
 
 class MastercardSendRequestFactoryTest {
 
@@ -146,7 +145,7 @@ class MastercardSendRequestFactoryTest {
                         () ->
                                 factory.createPayload(
                                         UUID.randomUUID(), new BigDecimal("10000000000.00"), "SGD"))
-                .isInstanceOf(dev.yycodes.paymentsimulator.provider.ProviderRequestException.class);
+                .isInstanceOf(ProviderRequestException.class);
     }
 
     @Test

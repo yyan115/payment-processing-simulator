@@ -5,16 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-
+import dev.yycodes.paymentsimulator.provider.ProviderRejectedException;
 import dev.yycodes.paymentsimulator.provider.ProviderStatus;
 import dev.yycodes.paymentsimulator.provider.SubmissionMode;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import tools.jackson.databind.json.JsonMapper;
-
 import java.math.BigDecimal;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -27,6 +20,10 @@ import java.time.ZoneId;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 class MastercardSendProviderContractTest {
 
@@ -143,8 +140,7 @@ class MastercardSendProviderContractTest {
                                                 new BigDecimal("100.00"),
                                                 "SGD",
                                                 SubmissionMode.ORIGINAL))
-                .isInstanceOf(
-                        dev.yycodes.paymentsimulator.provider.ProviderRejectedException.class);
+                .isInstanceOf(ProviderRejectedException.class);
     }
 
     @Test

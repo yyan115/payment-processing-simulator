@@ -5,7 +5,11 @@ import static org.assertj.core.api.Assertions.*;
 import dev.yycodes.paymentsimulator.demo.DemoWorkspace;
 import dev.yycodes.paymentsimulator.demo.SandboxRequestBudget;
 import dev.yycodes.paymentsimulator.provider.ProviderRejectedException;
-
+import java.net.URI;
+import java.net.http.*;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,13 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-
 import tools.jackson.databind.json.JsonMapper;
-
-import java.net.URI;
-import java.net.http.*;
-import java.util.*;
-import java.util.concurrent.*;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -166,10 +164,14 @@ class DemoWorkspaceIntegrationTest {
     @Test
     void eachTabHasItsOwnWorkspaceEvenWithTheSameCookie() throws Exception {
         String cookie = workspace();
-        String tabA = json.readTree(asTab("POST", "/api/v1/workspace", null, null, null).body())
-                .path("id").asText();
-        String tabB = json.readTree(asTab("POST", "/api/v1/workspace", null, null, null).body())
-                .path("id").asText();
+        String tabA =
+                json.readTree(asTab("POST", "/api/v1/workspace", null, null, null).body())
+                        .path("id")
+                        .asText();
+        String tabB =
+                json.readTree(asTab("POST", "/api/v1/workspace", null, null, null).body())
+                        .path("id")
+                        .asText();
         assertThat(tabA).isNotEmpty().isNotEqualTo(tabB);
         var created = asTab("POST", "/api/v1/payouts", tabA, INTENT, "tab-key");
         assertThat(created.statusCode()).isEqualTo(201);
@@ -200,7 +202,7 @@ class DemoWorkspaceIntegrationTest {
     void anEmptyWorkspaceIsKeptForLessTimeThanOneHoldingPayments() throws Exception {
         String cookie = workspace();
         UUID session = UUID.fromString(cookie.substring(cookie.indexOf('=') + 1));
-        java.util.function.Supplier<java.time.Duration> remaining =
+        Supplier<java.time.Duration> remaining =
                 () ->
                         java.time.Duration.between(
                                 java.time.Instant.now(),
@@ -213,14 +215,17 @@ class DemoWorkspaceIntegrationTest {
         jdbc.update(
                 "UPDATE demo_sessions SET expires_at=CURRENT_TIMESTAMP+INTERVAL '2 minutes' WHERE id=?",
                 session);
-        assertThat(request("GET", "/api/v1/payouts", cookie, null, null).statusCode()).isEqualTo(200);
-        assertThat(remaining.get()).isBetween(java.time.Duration.ofMinutes(25), java.time.Duration.ofMinutes(31));
+        assertThat(request("GET", "/api/v1/payouts", cookie, null, null).statusCode())
+                .isEqualTo(200);
+        assertThat(remaining.get())
+                .isBetween(java.time.Duration.ofMinutes(25), java.time.Duration.ofMinutes(31));
         // Once it holds a payment, ordinary use keeps it for the full six hours.
         create(cookie, "empty-vs-used");
         jdbc.update(
                 "UPDATE demo_sessions SET expires_at=CURRENT_TIMESTAMP+INTERVAL '2 minutes' WHERE id=?",
                 session);
-        assertThat(request("GET", "/api/v1/payouts", cookie, null, null).statusCode()).isEqualTo(200);
+        assertThat(request("GET", "/api/v1/payouts", cookie, null, null).statusCode())
+                .isEqualTo(200);
         assertThat(remaining.get()).isGreaterThan(java.time.Duration.ofHours(5));
     }
 
@@ -228,13 +233,13 @@ class DemoWorkspaceIntegrationTest {
     void ledgerAccountTotalsCountOnlyTheCallersWorkspace() throws Exception {
         String a = workspace(), b = workspace();
         String id = create(a, "totals-key");
-        assertThat(request("GET", "/api/v1/ledger/accounts", a, null, null).body())
-                .isEqualTo("[]");
+        assertThat(request("GET", "/api/v1/ledger/accounts", a, null, null).body()).isEqualTo("[]");
         process(a, id);
         var totals = json.readTree(request("GET", "/api/v1/ledger/accounts", a, null, null).body());
         assertThat(totals).hasSize(2);
         for (var account : totals) {
-            boolean payable = account.path("accountCode").asText().equals("SELLER_PAYABLE:seller-one");
+            boolean payable =
+                    account.path("accountCode").asText().equals("SELLER_PAYABLE:seller-one");
             assertThat(payable || account.path("accountCode").asText().equals("CASH_CLEARING"))
                     .isTrue();
             assertThat(account.path(payable ? "debits" : "credits").decimalValue())
@@ -243,17 +248,16 @@ class DemoWorkspaceIntegrationTest {
                     .isEqualByComparingTo("0");
             assertThat(account.path("entries").asInt()).isEqualTo(1);
         }
-        assertThat(request("GET", "/api/v1/ledger/accounts", b, null, null).body())
-                .isEqualTo("[]");
+        assertThat(request("GET", "/api/v1/ledger/accounts", b, null, null).body()).isEqualTo("[]");
         var lines = json.readTree(request("GET", "/api/v1/ledger/entries", a, null, null).body());
         assertThat(lines).hasSize(2);
         assertThat(lines.get(0).path("direction").asText()).isEqualTo("DEBIT");
-        assertThat(lines.get(0).path("accountCode").asText()).isEqualTo("SELLER_PAYABLE:seller-one");
+        assertThat(lines.get(0).path("accountCode").asText())
+                .isEqualTo("SELLER_PAYABLE:seller-one");
         assertThat(lines.get(1).path("direction").asText()).isEqualTo("CREDIT");
         assertThat(lines.get(1).path("accountCode").asText()).isEqualTo("CASH_CLEARING");
         assertThat(lines.get(0).path("payoutId").asText()).isEqualTo(id);
-        assertThat(request("GET", "/api/v1/ledger/entries", b, null, null).body())
-                .isEqualTo("[]");
+        assertThat(request("GET", "/api/v1/ledger/entries", b, null, null).body()).isEqualTo("[]");
     }
 
     @Test
@@ -284,21 +288,23 @@ class DemoWorkspaceIntegrationTest {
     void activityKeepsTheSessionAliveAndTheCookieEndsWithTheBrowser() throws Exception {
         var opened = request("POST", "/api/v1/workspace", null, null, null);
         String header = opened.headers().firstValue("set-cookie").orElseThrow();
-        assertThat(header).doesNotContainIgnoringCase("Max-Age").doesNotContainIgnoringCase("Expires");
+        assertThat(header)
+                .doesNotContainIgnoringCase("Max-Age")
+                .doesNotContainIgnoringCase("Expires");
         String cookie = header.split(";", 2)[0];
         UUID session = UUID.fromString(cookie.substring(cookie.indexOf('=') + 1));
         // A session close to its inactivity limit is extended by ordinary use.
         jdbc.update(
                 "UPDATE demo_sessions SET expires_at=CURRENT_TIMESTAMP+INTERVAL '2 minutes' WHERE"
-                    + " id=?",
+                        + " id=?",
                 session);
         assertThat(request("GET", "/api/v1/payouts", cookie, null, null).statusCode())
                 .isEqualTo(200);
         var expires =
                 jdbc.queryForObject(
-                        "SELECT expires_at FROM demo_sessions WHERE id=?",
-                        java.sql.Timestamp.class,
-                        session)
+                                "SELECT expires_at FROM demo_sessions WHERE id=?",
+                                java.sql.Timestamp.class,
+                                session)
                         .toInstant();
         assertThat(expires).isAfter(java.time.Instant.now().plus(java.time.Duration.ofMinutes(20)));
         // The session keeps one identity however often it is extended.
@@ -323,13 +329,13 @@ class DemoWorkspaceIntegrationTest {
                         () ->
                                 jdbc.update(
                                         "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT"
-                                            + " id FROM ledger_transactions WHERE payout_id=?)",
+                                                + " id FROM ledger_transactions WHERE payout_id=?)",
                                         UUID.fromString(id)))
                 .isInstanceOf(DataAccessException.class);
         UUID session = UUID.fromString(expired.substring(expired.indexOf('=') + 1));
         jdbc.update(
                 "UPDATE demo_sessions SET expires_at=CURRENT_TIMESTAMP-INTERVAL '2 minutes' WHERE"
-                    + " id=?",
+                        + " id=?",
                 session);
         assertThat(request("GET", "/api/v1/payouts", expired, null, null).statusCode())
                 .isEqualTo(410);
@@ -399,7 +405,7 @@ class DemoWorkspaceIntegrationTest {
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT requests FROM sandbox_call_budget WHERE window_key LIKE"
-                                    + " 'day:%'",
+                                        + " 'day:%'",
                                 Integer.class))
                 .isEqualTo(2);
         jdbc.update("DELETE FROM sandbox_call_budget WHERE window_key LIKE 'minute:%'");
@@ -408,7 +414,7 @@ class DemoWorkspaceIntegrationTest {
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT requests FROM sandbox_call_budget WHERE window_key LIKE"
-                                    + " 'day:%'",
+                                        + " 'day:%'",
                                 Integer.class))
                 .isEqualTo(3);
     }

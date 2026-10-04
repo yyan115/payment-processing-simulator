@@ -12,18 +12,14 @@ public class ReconciliationBackoffPolicy {
             throw new IllegalArgumentException("baseDelayMs must be positive");
         }
         if (maxDelayMs < baseDelayMs) {
-            throw new IllegalArgumentException(
-                    "maxDelayMs must be at least baseDelayMs");
+            throw new IllegalArgumentException("maxDelayMs must be at least baseDelayMs");
         }
 
         this.baseDelayMs = baseDelayMs;
         this.maxDelayMs = maxDelayMs;
     }
 
-    public boolean isDue(
-            long completedAttempts,
-            Instant lastAttemptAt,
-            Instant now) {
+    public boolean isDue(long completedAttempts, Instant lastAttemptAt, Instant now) {
 
         if (completedAttempts <= 0 || lastAttemptAt == null) {
             return true;

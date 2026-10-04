@@ -2,7 +2,6 @@ package dev.yycodes.paymentsimulator.reconciliation;
 
 import dev.yycodes.paymentsimulator.provider.ProviderStatus;
 import jakarta.persistence.*;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -10,8 +9,7 @@ import java.util.UUID;
 @Table(name = "reconciliation_attempts")
 public class ReconciliationAttempt {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "payout_id", nullable = false, updatable = false)
     private UUID payoutId;
@@ -30,8 +28,7 @@ public class ReconciliationAttempt {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected ReconciliationAttempt() {
-    }
+    protected ReconciliationAttempt() {}
 
     public ReconciliationAttempt(
             UUID payoutId,
@@ -46,10 +43,27 @@ public class ReconciliationAttempt {
         this.createdAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UUID getPayoutId() { return payoutId; }
-    public boolean isProviderRecordFound() { return providerRecordFound; }
-    public ProviderStatus getProviderStatus() { return providerStatus; }
-    public ReconciliationOutcome getOutcome() { return outcome; }
-    public Instant getCreatedAt() { return createdAt; }
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getPayoutId() {
+        return payoutId;
+    }
+
+    public boolean isProviderRecordFound() {
+        return providerRecordFound;
+    }
+
+    public ProviderStatus getProviderStatus() {
+        return providerStatus;
+    }
+
+    public ReconciliationOutcome getOutcome() {
+        return outcome;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }

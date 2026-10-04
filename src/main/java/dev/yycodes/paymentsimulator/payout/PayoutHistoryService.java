@@ -2,11 +2,11 @@ package dev.yycodes.paymentsimulator.payout;
 
 import dev.yycodes.paymentsimulator.audit.PayoutEventRepository;
 import dev.yycodes.paymentsimulator.audit.PayoutEventResponse;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import dev.yycodes.paymentsimulator.shared.NotFoundException;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PayoutHistoryService {
@@ -22,8 +22,7 @@ public class PayoutHistoryService {
     @Transactional(readOnly = true)
     public List<PayoutEventResponse> events(UUID id) {
         if (!payouts.existsById(id)) {
-            throw new dev.yycodes.paymentsimulator.shared.NotFoundException(
-                    "Payout " + id + " was not found");
+            throw new NotFoundException("Payout " + id + " was not found");
         }
 
         return events.findByPayoutIdOrderByCreatedAtAsc(id).stream()

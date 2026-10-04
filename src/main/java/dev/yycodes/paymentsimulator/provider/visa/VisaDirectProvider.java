@@ -1,15 +1,7 @@
 package dev.yycodes.paymentsimulator.provider.visa;
 
+import dev.yycodes.paymentsimulator.demo.SandboxRequestBudget;
 import dev.yycodes.paymentsimulator.provider.*;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.stereotype.Service;
-
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URI;
@@ -23,6 +15,12 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.stereotype.Service;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Visa Direct payouts through the push funds API (an Original Credit Transaction). Requests use
@@ -45,7 +43,7 @@ public class VisaDirectProvider implements PaymentProvider {
     private final Clock clock;
 
     @Autowired(required = false)
-    private dev.yycodes.paymentsimulator.demo.SandboxRequestBudget demoBudget;
+    private SandboxRequestBudget demoBudget;
 
     @Autowired
     public VisaDirectProvider(
@@ -131,7 +129,8 @@ public class VisaDirectProvider implements PaymentProvider {
     public ProviderResult submit(
             UUID clientReference, BigDecimal amount, String currency, SubmissionMode mode) {
         try {
-            String payload = payloads.createPayload(clientReference, amount, currency, clock.instant());
+            String payload =
+                    payloads.createPayload(clientReference, amount, currency, clock.instant());
             String body = "{\"encData\":\"" + encryption.encrypt(payload) + "\"}";
             HttpRequest request =
                     request("/visadirect/fundstransfer/v1/pushfundstransactions")

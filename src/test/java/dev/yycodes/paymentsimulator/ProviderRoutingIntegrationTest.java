@@ -9,16 +9,14 @@ import dev.yycodes.paymentsimulator.provider.*;
 import dev.yycodes.paymentsimulator.provider.mastercard.MastercardSendDisbursementsProvider;
 import dev.yycodes.paymentsimulator.shared.BadRequestException;
 import dev.yycodes.paymentsimulator.shared.ConflictException;
-
+import java.math.BigDecimal;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
-import java.math.BigDecimal;
-import java.util.Optional;
 
 @SpringBootTest(properties = "payments.reconciliation.enabled=false")
 class ProviderRoutingIntegrationTest {

@@ -4,15 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mockStatic;
 
 import com.mastercard.developer.utils.AuthenticationUtils;
-
 import dev.yycodes.paymentsimulator.provider.PaymentProvider;
-
+import java.security.KeyPairGenerator;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-
 import tools.jackson.databind.json.JsonMapper;
-
-import java.security.KeyPairGenerator;
 
 class MastercardProviderContextTest {
     @Test

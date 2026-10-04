@@ -11,7 +11,6 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Base64;
-
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 
@@ -62,8 +61,21 @@ final class VisaKeys {
     static byte[] pkcs1ToPkcs8(byte[] pkcs1) {
         byte[] version = {0x02, 0x01, 0x00};
         byte[] rsaEncryption = {
-            0x30, 0x0d, 0x06, 0x09, 0x2a, (byte) 0x86, 0x48, (byte) 0x86, (byte) 0xf7, 0x0d, 0x01,
-            0x01, 0x01, 0x05, 0x00
+            0x30,
+            0x0d,
+            0x06,
+            0x09,
+            0x2a,
+            (byte) 0x86,
+            0x48,
+            (byte) 0x86,
+            (byte) 0xf7,
+            0x0d,
+            0x01,
+            0x01,
+            0x01,
+            0x05,
+            0x00
         };
         byte[] octets = der(0x04, pkcs1);
         ByteArrayOutputStream inner = new ByteArrayOutputStream();

@@ -12,6 +12,4 @@ public record LedgerTransactionResponse(
         BigDecimal amount,
         String currency,
         Instant createdAt,
-        List<LedgerEntryResponse> entries
-) {
-}
+        List<LedgerEntryResponse> entries) {}

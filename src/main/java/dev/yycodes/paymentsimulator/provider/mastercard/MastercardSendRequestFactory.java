@@ -1,15 +1,7 @@
 package dev.yycodes.paymentsimulator.provider.mastercard;
 
+import dev.yycodes.paymentsimulator.provider.ProviderRequestException;
 import dev.yycodes.paymentsimulator.shared.MoneyAmounts;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.stereotype.Component;
-
-import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.node.ObjectNode;
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -20,6 +12,12 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 @Component
 @ConditionalOnExpression(
@@ -110,8 +108,7 @@ public class MastercardSendRequestFactory {
         try {
             minorUnits = MoneyAmounts.toMinorUnits(amount, currency);
         } catch (IllegalArgumentException invalidAmount) {
-            throw new dev.yycodes.paymentsimulator.provider.ProviderRequestException(
-                    invalidAmount.getMessage());
+            throw new ProviderRequestException(invalidAmount.getMessage());
         }
 
         payment.put("amount", minorUnits);

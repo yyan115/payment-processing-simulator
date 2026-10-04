@@ -2,15 +2,12 @@ package dev.yycodes.paymentsimulator.provider.visa;
 
 import dev.yycodes.paymentsimulator.provider.ProviderResult;
 import dev.yycodes.paymentsimulator.provider.ProviderStatus;
-
-import org.springframework.stereotype.Component;
-
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
+import org.springframework.stereotype.Component;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class VisaDirectResponseParser {

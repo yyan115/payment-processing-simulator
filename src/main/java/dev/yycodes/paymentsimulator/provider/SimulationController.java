@@ -1,13 +1,11 @@
 package dev.yycodes.paymentsimulator.provider;
 
 import dev.yycodes.paymentsimulator.payout.PayoutService;
-
+import dev.yycodes.paymentsimulator.shared.BadRequestException;
 import jakarta.validation.Valid;
-
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/simulation/payouts")
@@ -31,7 +29,7 @@ public class SimulationController {
 
     private void requireSimulated(UUID id) {
         if (!catalog.resolve(payouts.get(id).getProvider()).equals("simulated"))
-            throw new dev.yycodes.paymentsimulator.shared.BadRequestException(
+            throw new BadRequestException(
                     "Failure controls are only available for simulated payouts");
     }
 

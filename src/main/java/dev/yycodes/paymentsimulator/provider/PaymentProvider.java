@@ -6,11 +6,7 @@ import java.util.UUID;
 
 public interface PaymentProvider {
     ProviderResult submit(
-            UUID clientReference,
-            BigDecimal amount,
-            String currency,
-            SubmissionMode mode
-    );
+            UUID clientReference, BigDecimal amount, String currency, SubmissionMode mode);
 
     Optional<ProviderResult> findByClientReference(UUID clientReference);
 }

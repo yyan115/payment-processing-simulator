@@ -1,8 +1,9 @@
 package dev.yycodes.paymentsimulator.shared;
 
+import dev.yycodes.paymentsimulator.demo.DemoException;
 import dev.yycodes.paymentsimulator.provider.ProviderRejectedException;
 import dev.yycodes.paymentsimulator.provider.ProviderTimeoutException;
-
+import java.time.Instant;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,13 +11,11 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.Instant;
-
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(dev.yycodes.paymentsimulator.demo.DemoException.class)
-    ResponseEntity<ApiError> demo(dev.yycodes.paymentsimulator.demo.DemoException e) {
+    @ExceptionHandler(DemoException.class)
+    ResponseEntity<ApiError> demo(DemoException e) {
         return error(HttpStatus.valueOf(e.status()), e.getMessage());
     }
 

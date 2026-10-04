@@ -3,11 +3,10 @@ package dev.yycodes.paymentsimulator.provider.visa;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import org.junit.jupiter.api.Test;
-
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPairGenerator;
 import java.util.Base64;
+import org.junit.jupiter.api.Test;
 
 class VisaMessageEncryptionTest {
     private static VisaMessageEncryption encryption() throws Exception {

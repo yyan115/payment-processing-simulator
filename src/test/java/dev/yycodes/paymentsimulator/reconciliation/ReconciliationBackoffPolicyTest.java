@@ -1,10 +1,9 @@
 package dev.yycodes.paymentsimulator.reconciliation;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 class ReconciliationBackoffPolicyTest {
 
@@ -13,11 +12,7 @@ class ReconciliationBackoffPolicyTest {
 
     @Test
     void firstReconciliationIsImmediatelyDue() {
-        assertThat(policy.isDue(
-                0,
-                null,
-                Instant.parse("2026-09-27T05:00:00Z")
-        )).isTrue();
+        assertThat(policy.isDue(0, null, Instant.parse("2026-09-27T05:00:00Z"))).isTrue();
     }
 
     @Test
@@ -33,16 +28,8 @@ class ReconciliationBackoffPolicyTest {
     void unresolvedPayoutIsDeferredUntilItsBackoffExpires() {
         Instant lastAttempt = Instant.parse("2026-09-27T05:00:00Z");
 
-        assertThat(policy.isDue(
-                3,
-                lastAttempt,
-                Instant.parse("2026-09-27T05:01:59Z")
-        )).isFalse();
+        assertThat(policy.isDue(3, lastAttempt, Instant.parse("2026-09-27T05:01:59Z"))).isFalse();
 
-        assertThat(policy.isDue(
-                3,
-                lastAttempt,
-                Instant.parse("2026-09-27T05:02:00Z")
-        )).isTrue();
+        assertThat(policy.isDue(3, lastAttempt, Instant.parse("2026-09-27T05:02:00Z"))).isTrue();
     }
 }

@@ -1,10 +1,10 @@
 package dev.yycodes.paymentsimulator.provider.mastercard;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import dev.yycodes.paymentsimulator.provider.ProviderStatus;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class MastercardSendResponseParserTest {
 
@@ -13,7 +13,8 @@ class MastercardSendResponseParserTest {
 
     @Test
     void parsesApprovedCreateResponse() throws Exception {
-        String body = """
+        String body =
+                """
                 {
                   "disbursement": {
                     "id": "dsb_example",
@@ -30,7 +31,8 @@ class MastercardSendResponseParserTest {
 
     @Test
     void mapsUnknownAndPendingWithoutCallingThemFailures() throws Exception {
-        String unknown = """
+        String unknown =
+                """
                 {
                   "disbursement": {
                     "id": "dsb_unknown",
@@ -38,7 +40,8 @@ class MastercardSendResponseParserTest {
                   }
                 }
                 """;
-        String pending = """
+        String pending =
+                """
                 {
                   "disbursement": {
                     "id": "dsb_pending",
@@ -47,15 +50,14 @@ class MastercardSendResponseParserTest {
                 }
                 """;
 
-        assertThat(parser.parseCreate(unknown).status())
-                .isEqualTo(ProviderStatus.UNKNOWN);
-        assertThat(parser.parseCreate(pending).status())
-                .isEqualTo(ProviderStatus.PENDING);
+        assertThat(parser.parseCreate(unknown).status()).isEqualTo(ProviderStatus.UNKNOWN);
+        assertThat(parser.parseCreate(pending).status()).isEqualTo(ProviderStatus.PENDING);
     }
 
     @Test
     void mapsCancelledAsTerminalFailure() throws Exception {
-        String body = """
+        String body =
+                """
                 {
                   "disbursement": {
                     "id": "dsb_cancelled",
@@ -64,13 +66,13 @@ class MastercardSendResponseParserTest {
                 }
                 """;
 
-        assertThat(parser.parseCreate(body).status())
-                .isEqualTo(ProviderStatus.DECLINED);
+        assertThat(parser.parseCreate(body).status()).isEqualTo(ProviderStatus.DECLINED);
     }
 
     @Test
     void parsesLookupByClientReference() throws Exception {
-        String body = """
+        String body =
+                """
                 {
                   "disbursements": {
                     "resource_type": "list",
@@ -90,13 +92,13 @@ class MastercardSendResponseParserTest {
         var result = parser.parseLookup(body);
 
         assertThat(result).isPresent();
-        assertThat(result.orElseThrow().providerReference())
-                .isEqualTo("dsb_lookup");
+        assertThat(result.orElseThrow().providerReference()).isEqualTo("dsb_lookup");
     }
 
     @Test
     void recognizesDocumentedLegacy402DeclineError() throws Exception {
-        String body = """
+        String body =
+                """
                 {
                   "Errors": {
                     "Error": [
@@ -117,7 +119,8 @@ class MastercardSendResponseParserTest {
 
     @Test
     void doesNotTreatOtherGatewayErrorsAsBusinessDeclines() throws Exception {
-        String body = """
+        String body =
+                """
                 {
                   "Errors": {
                     "Error": [
@@ -135,7 +138,8 @@ class MastercardSendResponseParserTest {
 
     @Test
     void emptyLookupReturnsNoProviderRecord() throws Exception {
-        String body = """
+        String body =
+                """
                 {
                   "disbursements": {
                     "resource_type": "list",

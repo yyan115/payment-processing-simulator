@@ -1,5 +1,7 @@
 package dev.yycodes.paymentsimulator;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import dev.yycodes.paymentsimulator.audit.PayoutEventRepository;
 import dev.yycodes.paymentsimulator.ledger.LedgerEntryRepository;
 import dev.yycodes.paymentsimulator.ledger.LedgerTransactionRepository;
@@ -9,19 +11,16 @@ import dev.yycodes.paymentsimulator.payout.PayoutRepository;
 import dev.yycodes.paymentsimulator.payout.PayoutService;
 import dev.yycodes.paymentsimulator.provider.ProviderTransactionRepository;
 import dev.yycodes.paymentsimulator.reconciliation.ReconciliationAttemptRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
-
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @SpringBootTest(properties = "payments.reconciliation.enabled=false")
 class ConcurrentIdempotencyIntegrationTest {
@@ -42,18 +41,17 @@ class ConcurrentIdempotencyIntegrationTest {
 
     @Test
     void concurrentRequestsWithSameIdempotencyKeyCreateOnePayout() throws Exception {
-        CreatePayoutRequest request = new CreatePayoutRequest(
-                "seller-42", new BigDecimal("100.00"), "SGD"
-        );
+        CreatePayoutRequest request =
+                new CreatePayoutRequest("seller-42", new BigDecimal("100.00"), "SGD");
 
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
 
         try (var executor = Executors.newFixedThreadPool(2)) {
-            List<Future<PayoutCreationResult>> futures = List.of(
-                    executor.submit(() -> createTogether(ready, start, request)),
-                    executor.submit(() -> createTogether(ready, start, request))
-            );
+            List<Future<PayoutCreationResult>> futures =
+                    List.of(
+                            executor.submit(() -> createTogether(ready, start, request)),
+                            executor.submit(() -> createTogether(ready, start, request)));
 
             ready.await();
             start.countDown();
@@ -69,9 +67,8 @@ class ConcurrentIdempotencyIntegrationTest {
     }
 
     private PayoutCreationResult createTogether(
-            CountDownLatch ready,
-            CountDownLatch start,
-            CreatePayoutRequest request) throws InterruptedException {
+            CountDownLatch ready, CountDownLatch start, CreatePayoutRequest request)
+            throws InterruptedException {
         ready.countDown();
         start.await();
         return payouts.create("concurrent-key", request);

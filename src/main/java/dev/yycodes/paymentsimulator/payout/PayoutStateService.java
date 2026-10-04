@@ -9,10 +9,9 @@ import dev.yycodes.paymentsimulator.provider.ProviderStatus;
 import dev.yycodes.paymentsimulator.reconciliation.*;
 import dev.yycodes.paymentsimulator.shared.ConflictException;
 import dev.yycodes.paymentsimulator.shared.NotFoundException;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.UUID;
 
 @Service
 public class PayoutStateService {
@@ -39,7 +38,8 @@ public class PayoutStateService {
         PayoutStatus from = payout.getStatus();
         payout.startProcessing();
         payouts.saveAndFlush(payout);
-        events.save(new PayoutEvent(id, PayoutEventType.PROCESSING_STARTED, from, payout.getStatus()));
+        events.save(
+                new PayoutEvent(id, PayoutEventType.PROCESSING_STARTED, from, payout.getStatus()));
         return payout;
     }
 
@@ -60,9 +60,7 @@ public class PayoutStateService {
 
     @Transactional
     public Payout markProviderUncertain(
-            UUID id,
-            String providerReference,
-            PayoutEventType eventType) {
+            UUID id, String providerReference, PayoutEventType eventType) {
         Payout payout = require(id);
         PayoutStatus from = payout.getStatus();
         payout.markUnknown(providerReference);
@@ -87,10 +85,7 @@ public class PayoutStateService {
     }
 
     @Transactional
-    public Payout markRetryUncertain(
-            UUID id,
-            String providerReference,
-            PayoutEventType eventType) {
+    public Payout markRetryUncertain(UUID id, String providerReference, PayoutEventType eventType) {
         Payout payout = requireUnknown(id);
         payout.markUnknown(providerReference);
         payouts.saveAndFlush(payout);
@@ -106,46 +101,38 @@ public class PayoutStateService {
     @Transactional
     public Payout recordRetryRejected(UUID id) {
         Payout payout = requireUnknown(id);
-        events.save(new PayoutEvent(
-                id,
-                PayoutEventType.PROVIDER_RETRY_REJECTED,
-                PayoutStatus.UNKNOWN,
-                PayoutStatus.UNKNOWN
-        ));
+        events.save(
+                new PayoutEvent(
+                        id,
+                        PayoutEventType.PROVIDER_RETRY_REJECTED,
+                        PayoutStatus.UNKNOWN,
+                        PayoutStatus.UNKNOWN));
         return payout;
     }
 
     @Transactional
     public ReconciliationResolution recordUnresolvedReconciliation(
-            UUID id,
-            ProviderResult providerResult) {
+            UUID id, ProviderResult providerResult) {
         Payout payout = requireUnknownOrProcessing(id);
         PayoutStatus from = payout.getStatus();
 
-        payout.markUnknown(
-                providerResult == null ? null : providerResult.providerReference()
-        );
+        payout.markUnknown(providerResult == null ? null : providerResult.providerReference());
         payouts.saveAndFlush(payout);
 
         if (from == PayoutStatus.PROCESSING) {
-            events.save(new PayoutEvent(
-                    id,
-                    PayoutEventType.RECONCILIATION_UNRESOLVED,
-                    from,
-                    PayoutStatus.UNKNOWN
-            ));
+            events.save(
+                    new PayoutEvent(
+                            id,
+                            PayoutEventType.RECONCILIATION_UNRESOLVED,
+                            from,
+                            PayoutStatus.UNKNOWN));
         }
 
-        ProviderStatus providerStatus =
-                providerResult == null ? null : providerResult.status();
+        ProviderStatus providerStatus = providerResult == null ? null : providerResult.status();
 
         ReconciliationOutcome outcome = ReconciliationOutcome.STILL_UNKNOWN;
-        reconciliationAttempts.save(new ReconciliationAttempt(
-                id,
-                providerResult != null,
-                providerStatus,
-                outcome
-        ));
+        reconciliationAttempts.save(
+                new ReconciliationAttempt(id, providerResult != null, providerStatus, outcome));
         return new ReconciliationResolution(payout, outcome);
     }
 
@@ -175,12 +162,8 @@ public class PayoutStateService {
 
         payouts.saveAndFlush(payout);
         events.save(new PayoutEvent(id, eventType, from, payout.getStatus()));
-        reconciliationAttempts.save(new ReconciliationAttempt(
-                id,
-                true,
-                providerResult.status(),
-                outcome
-        ));
+        reconciliationAttempts.save(
+                new ReconciliationAttempt(id, true, providerResult.status(), outcome));
 
         return new ReconciliationResolution(payout, outcome);
     }
@@ -190,7 +173,8 @@ public class PayoutStateService {
         return require(id);
     }
 
-    private Payout transitionSucceeded(UUID id, String providerReference, PayoutEventType eventType) {
+    private Payout transitionSucceeded(
+            UUID id, String providerReference, PayoutEventType eventType) {
         Payout payout = requireUnknownOrProcessing(id);
         PayoutStatus from = payout.getStatus();
         payout.markSucceeded(providerReference);
@@ -214,7 +198,10 @@ public class PayoutStateService {
         if (payout.getStatus() != PayoutStatus.UNKNOWN
                 && payout.getStatus() != PayoutStatus.PROCESSING) {
             throw new ConflictException(
-                    "Payout " + id + " must be PROCESSING or UNKNOWN, but was " + payout.getStatus());
+                    "Payout "
+                            + id
+                            + " must be PROCESSING or UNKNOWN, but was "
+                            + payout.getStatus());
         }
         return payout;
     }

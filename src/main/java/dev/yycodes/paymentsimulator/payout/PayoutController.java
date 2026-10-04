@@ -1,22 +1,20 @@
 package dev.yycodes.paymentsimulator.payout;
 
 import dev.yycodes.paymentsimulator.audit.PayoutEventResponse;
+import dev.yycodes.paymentsimulator.demo.SandboxVerification;
 import dev.yycodes.paymentsimulator.reconciliation.ReconciliationResponse;
-
 import jakarta.validation.Valid;
-
+import java.util.List;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/payouts")
 public class PayoutController {
 
-    private final dev.yycodes.paymentsimulator.demo.SandboxVerification verification;
+    private final SandboxVerification verification;
     private final PayoutService payouts;
     private final PayoutProcessor processor;
     private final PayoutHistoryService history;
@@ -25,7 +23,7 @@ public class PayoutController {
             PayoutService payouts,
             PayoutProcessor processor,
             PayoutHistoryService history,
-            dev.yycodes.paymentsimulator.demo.SandboxVerification verification) {
+            SandboxVerification verification) {
         this.verification = verification;
         this.payouts = payouts;
         this.processor = processor;

@@ -2,12 +2,11 @@ package dev.yycodes.paymentsimulator.provider.mastercard;
 
 import dev.yycodes.paymentsimulator.provider.ProviderResult;
 import dev.yycodes.paymentsimulator.provider.ProviderStatus;
+import java.io.IOException;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
-
-import java.io.IOException;
-import java.util.Optional;
 
 @Component
 public class MastercardSendResponseParser {
@@ -24,10 +23,8 @@ public class MastercardSendResponseParser {
     }
 
     public Optional<ProviderResult> parseLookup(String body) throws IOException {
-        JsonNode list = mapper.readTree(body)
-                .path("disbursements")
-                .path("data")
-                .path("disbursement");
+        JsonNode list =
+                mapper.readTree(body).path("disbursements").path("data").path("disbursement");
 
         if (!list.isArray() || list.size() == 0) {
             return Optional.empty();
@@ -37,17 +34,14 @@ public class MastercardSendResponseParser {
     }
 
     public boolean isLegacyDeclineError(String body) throws IOException {
-        JsonNode errors = mapper.readTree(body)
-                .path("Errors")
-                .path("Error");
+        JsonNode errors = mapper.readTree(body).path("Errors").path("Error");
 
         if (!errors.isArray()) {
             return false;
         }
 
         for (JsonNode error : errors) {
-            if ("DECLINE".equalsIgnoreCase(
-                    error.path("ReasonCode").asText())) {
+            if ("DECLINE".equalsIgnoreCase(error.path("ReasonCode").asText())) {
                 return true;
             }
         }
@@ -68,16 +62,16 @@ public class MastercardSendResponseParser {
             case "DECLINED", "REVERSED", "CANCELLED" -> ProviderStatus.DECLINED;
             case "PENDING" -> ProviderStatus.PENDING;
             case "UNKNOWN", "ERROR" -> ProviderStatus.UNKNOWN;
-            default -> throw new IllegalArgumentException(
-                    "Unsupported Mastercard Send status: " + status);
+            default ->
+                    throw new IllegalArgumentException(
+                            "Unsupported Mastercard Send status: " + status);
         };
     }
 
     private static String requiredText(JsonNode node, String field) {
         JsonNode value = node.path(field);
         if (!value.isTextual() || value.asText().isBlank()) {
-            throw new IllegalArgumentException(
-                    "Mastercard Send response is missing " + field);
+            throw new IllegalArgumentException("Mastercard Send response is missing " + field);
         }
         return value.asText();
     }

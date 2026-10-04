@@ -1,9 +1,7 @@
 package dev.yycodes.paymentsimulator.payout;
 
 import dev.yycodes.paymentsimulator.shared.ConflictException;
-
 import jakarta.persistence.*;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;

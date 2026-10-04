@@ -2,11 +2,10 @@ package dev.yycodes.paymentsimulator.provider.visa;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.junit.jupiter.api.Test;
-
 import java.security.KeyPairGenerator;
 import java.util.Arrays;
 import java.util.Base64;
+import org.junit.jupiter.api.Test;
 
 class VisaKeysTest {
     @Test

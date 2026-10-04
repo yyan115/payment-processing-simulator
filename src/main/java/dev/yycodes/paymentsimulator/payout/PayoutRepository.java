@@ -1,15 +1,15 @@
 package dev.yycodes.paymentsimulator.payout;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PayoutRepository extends JpaRepository<Payout, UUID> {
-    org.springframework.data.domain.Page<Payout> findByDemoSessionId(
-            UUID session, org.springframework.data.domain.Pageable page);
+    Page<Payout> findByDemoSessionId(UUID session, Pageable page);
 
     long countByDemoSessionId(UUID session);
 

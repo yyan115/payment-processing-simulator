@@ -1,22 +1,19 @@
 package dev.yycodes.paymentsimulator.demo;
 
 import dev.yycodes.paymentsimulator.shared.ApiError;
-
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import tools.jackson.databind.json.JsonMapper;
-
 import java.io.IOException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+import tools.jackson.databind.json.JsonMapper;
 
 @Component
 @Order(10)
@@ -30,9 +27,7 @@ public class DemoAccessFilter extends OncePerRequestFilter {
     public DemoAccessFilter(
             DemoWorkspace workspace,
             JsonMapper mapper,
-            @org.springframework.beans.factory.annotation.Value(
-                            "${payments.demo.admissions-per-minute:30}")
-                    int admissions) {
+            @Value("${payments.demo.admissions-per-minute:30}") int admissions) {
         this.workspace = workspace;
         this.mapper = mapper;
         this.admissions = admissions;

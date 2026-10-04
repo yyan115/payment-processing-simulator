@@ -2,13 +2,11 @@ package dev.yycodes.paymentsimulator.provider;
 
 import dev.yycodes.paymentsimulator.payout.PayoutRepository;
 import dev.yycodes.paymentsimulator.shared.NotFoundException;
-
-import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Service;
 
 @Service
 @Primary

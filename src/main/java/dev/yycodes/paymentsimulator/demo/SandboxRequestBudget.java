@@ -1,16 +1,14 @@
 package dev.yycodes.paymentsimulator.demo;
 
 import dev.yycodes.paymentsimulator.provider.ProviderRejectedException;
-
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.sql.Timestamp;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 
 @Service
 @ConditionalOnProperty(name = "payments.demo.enabled", havingValue = "true")
@@ -40,8 +38,8 @@ public class SandboxRequestBudget {
         int changed =
                 jdbc.update(
                         "UPDATE demo_sessions SET sandbox_calls=sandbox_calls+1 WHERE id=(SELECT"
-                            + " demo_session_id FROM payouts WHERE id=?) AND"
-                            + " expires_at>CURRENT_TIMESTAMP AND sandbox_calls<?",
+                                + " demo_session_id FROM payouts WHERE id=?) AND"
+                                + " expires_at>CURRENT_TIMESTAMP AND sandbox_calls<?",
                         payment,
                         sessionLimit);
         if (changed == 0)
@@ -73,7 +71,6 @@ public class SandboxRequestBudget {
                         Timestamp.from(expires),
                         limit);
         if (changed == 0)
-            throw new ProviderRejectedException(
-                    429, "External sandbox demo request limit reached");
+            throw new ProviderRejectedException(429, "External sandbox demo request limit reached");
     }
 }

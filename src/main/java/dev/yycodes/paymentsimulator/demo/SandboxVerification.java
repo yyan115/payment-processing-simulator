@@ -1,17 +1,15 @@
 package dev.yycodes.paymentsimulator.demo;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Service;
-
-import tools.jackson.databind.json.JsonMapper;
-
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.*;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class SandboxVerification {
@@ -57,7 +55,7 @@ public class SandboxVerification {
         return Boolean.TRUE.equals(
                 jdbc.queryForObject(
                         "SELECT sandbox_verified_until>CURRENT_TIMESTAMP AND"
-                            + " expires_at>CURRENT_TIMESTAMP FROM demo_sessions WHERE id=?",
+                                + " expires_at>CURRENT_TIMESTAMP FROM demo_sessions WHERE id=?",
                         Boolean.class,
                         session));
     }
@@ -86,7 +84,7 @@ public class SandboxVerification {
                 throw new DemoException(403, "Verification failed. Please try again.");
             jdbc.update(
                     "UPDATE demo_sessions SET sandbox_verified_until=expires_at WHERE id=? AND"
-                        + " expires_at>CURRENT_TIMESTAMP",
+                            + " expires_at>CURRENT_TIMESTAMP",
                     session);
         } catch (DemoException e) {
             throw e;
@@ -118,6 +116,7 @@ public class SandboxVerification {
                         (rs, n) -> rs.getObject(1, UUID.class),
                         payment);
         if (sessions.size() != 1 || sessions.getFirst() == null || !verified(sessions.getFirst()))
-            throw new DemoException(403, "Verify this demo session before using an external sandbox.");
+            throw new DemoException(
+                    403, "Verify this demo session before using an external sandbox.");
     }
 }

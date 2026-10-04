@@ -1,23 +1,22 @@
 package dev.yycodes.paymentsimulator.reconciliation;
 
+import dev.yycodes.paymentsimulator.demo.DemoWorkspace;
 import dev.yycodes.paymentsimulator.payout.Payout;
 import dev.yycodes.paymentsimulator.payout.PayoutProcessor;
 import dev.yycodes.paymentsimulator.payout.PayoutRepository;
 import dev.yycodes.paymentsimulator.payout.PayoutStatus;
 import dev.yycodes.paymentsimulator.shared.ConflictException;
-
+import java.time.Instant;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
-import java.time.Instant;
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Component
 @ConditionalOnProperty(
@@ -30,7 +29,7 @@ public class ReconciliationWorker {
     private static final Logger log = LoggerFactory.getLogger(ReconciliationWorker.class);
 
     private final PayoutRepository payouts;
-    private final dev.yycodes.paymentsimulator.demo.DemoWorkspace workspace;
+    private final DemoWorkspace workspace;
     private final PayoutProcessor processor;
     private final ReconciliationAttemptRepository attempts;
     private final long processingStaleMs;
@@ -38,7 +37,7 @@ public class ReconciliationWorker {
 
     public ReconciliationWorker(
             PayoutRepository payouts,
-            dev.yycodes.paymentsimulator.demo.DemoWorkspace workspace,
+            DemoWorkspace workspace,
             PayoutProcessor processor,
             ReconciliationAttemptRepository attempts,
             @Value("${payments.reconciliation.processing-stale-ms:60000}") long processingStaleMs,

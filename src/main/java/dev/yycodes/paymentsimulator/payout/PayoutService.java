@@ -1,30 +1,31 @@
 package dev.yycodes.paymentsimulator.payout;
 
+import dev.yycodes.paymentsimulator.demo.DemoException;
+import dev.yycodes.paymentsimulator.demo.DemoWorkspace;
+import dev.yycodes.paymentsimulator.provider.ProviderCatalog;
 import dev.yycodes.paymentsimulator.shared.BadRequestException;
 import dev.yycodes.paymentsimulator.shared.ConflictException;
 import dev.yycodes.paymentsimulator.shared.MoneyAmounts;
 import dev.yycodes.paymentsimulator.shared.NotFoundException;
-
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
 
 @Service
 public class PayoutService {
     private final PayoutRepository repository;
-    private final dev.yycodes.paymentsimulator.provider.ProviderCatalog providers;
-    private final dev.yycodes.paymentsimulator.demo.DemoWorkspace workspace;
+    private final ProviderCatalog providers;
+    private final DemoWorkspace workspace;
 
     public PayoutService(
-            PayoutRepository repository,
-            dev.yycodes.paymentsimulator.provider.ProviderCatalog providers,
-            dev.yycodes.paymentsimulator.demo.DemoWorkspace workspace) {
+            PayoutRepository repository, ProviderCatalog providers, DemoWorkspace workspace) {
         this.repository = repository;
         this.providers = providers;
         this.workspace = workspace;
@@ -68,10 +69,10 @@ public class PayoutService {
         } catch (DataIntegrityViolationException race) {
             var found = repository.findByIdempotencyKey(key);
             if (found.isEmpty() && session != null)
-                throw new dev.yycodes.paymentsimulator.demo.DemoException(
+                throw new DemoException(
                         429,
                         "This workspace has reached its payout limit or expired. Start a new"
-                            + " workspace.");
+                                + " workspace.");
             Payout winner = found.orElseThrow(() -> race);
             assertSameRequest(winner, fingerprint, provider);
             return new PayoutCreationResult(winner, false);
@@ -83,14 +84,7 @@ public class PayoutService {
             throw new BadRequestException(
                     "page must be non-negative and size must be between 1 and 100");
         }
-        var pageable =
-                org.springframework.data.domain.PageRequest.of(
-                        page,
-                        size,
-                        org.springframework.data.domain.Sort.by(
-                                org.springframework.data.domain.Sort.Direction.DESC,
-                                "createdAt",
-                                "id"));
+        var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt", "id"));
         UUID session = workspace.currentId();
         var result =
                 session == null

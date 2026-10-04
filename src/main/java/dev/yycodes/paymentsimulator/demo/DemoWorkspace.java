@@ -3,10 +3,11 @@ package dev.yycodes.paymentsimulator.demo;
 import dev.yycodes.paymentsimulator.payout.Payout;
 import dev.yycodes.paymentsimulator.provider.SimulationScenarioRegistry;
 import dev.yycodes.paymentsimulator.shared.NotFoundException;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -15,10 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-
-import java.sql.Timestamp;
-import java.time.Instant;
-import java.util.UUID;
 
 @Service
 public class DemoWorkspace {
@@ -151,7 +148,7 @@ public class DemoWorkspace {
         if (reset && expires != null) {
             jdbc.update(
                     "UPDATE demo_sessions SET expires_at=LEAST(expires_at,CURRENT_TIMESTAMP) WHERE"
-                        + " id=?",
+                            + " id=?",
                     id);
             expires = null;
         }
@@ -170,7 +167,7 @@ public class DemoWorkspace {
             expires = now.plusSeconds(emptySeconds);
             jdbc.update(
                     "INSERT INTO demo_sessions(id,created_at,expires_at,max_payouts)"
-                        + " VALUES(?,?,?,?)",
+                            + " VALUES(?,?,?,?)",
                     id,
                     Timestamp.from(now),
                     Timestamp.from(expires),
@@ -196,7 +193,7 @@ public class DemoWorkspace {
         var expired =
                 jdbc.query(
                         "SELECT id FROM demo_sessions WHERE expires_at<? ORDER BY expires_at LIMIT"
-                            + " 100 FOR UPDATE SKIP LOCKED",
+                                + " 100 FOR UPDATE SKIP LOCKED",
                         (rs, n) -> rs.getObject(1, UUID.class),
                         Timestamp.from(Instant.now().minusSeconds(60)));
         for (UUID session : expired) {
@@ -207,24 +204,24 @@ public class DemoWorkspace {
                             session);
             jdbc.update(
                     "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT l.id FROM"
-                        + " ledger_transactions l JOIN payouts p ON p.id=l.payout_id WHERE"
-                        + " p.demo_session_id=?)",
+                            + " ledger_transactions l JOIN payouts p ON p.id=l.payout_id WHERE"
+                            + " p.demo_session_id=?)",
                     session);
             jdbc.update(
                     "DELETE FROM ledger_transactions WHERE payout_id IN (SELECT id FROM payouts"
-                        + " WHERE demo_session_id=?)",
+                            + " WHERE demo_session_id=?)",
                     session);
             jdbc.update(
                     "DELETE FROM payout_events WHERE payout_id IN (SELECT id FROM payouts WHERE"
-                        + " demo_session_id=?)",
+                            + " demo_session_id=?)",
                     session);
             jdbc.update(
                     "DELETE FROM reconciliation_attempts WHERE payout_id IN (SELECT id FROM payouts"
-                        + " WHERE demo_session_id=?)",
+                            + " WHERE demo_session_id=?)",
                     session);
             jdbc.update(
                     "DELETE FROM provider_transactions WHERE client_reference IN (SELECT id FROM"
-                        + " payouts WHERE demo_session_id=?)",
+                            + " payouts WHERE demo_session_id=?)",
                     session);
             jdbc.update("DELETE FROM payouts WHERE demo_session_id=?", session);
             jdbc.update("DELETE FROM demo_sessions WHERE id=?", session);

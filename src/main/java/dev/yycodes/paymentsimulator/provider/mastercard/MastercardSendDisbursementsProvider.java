@@ -2,14 +2,8 @@ package dev.yycodes.paymentsimulator.provider.mastercard;
 
 import com.mastercard.developer.oauth.OAuth;
 import com.mastercard.developer.utils.AuthenticationUtils;
-
+import dev.yycodes.paymentsimulator.demo.SandboxRequestBudget;
 import dev.yycodes.paymentsimulator.provider.*;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.stereotype.Service;
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URI;
@@ -22,6 +16,10 @@ import java.security.PrivateKey;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.stereotype.Service;
 
 @Service
 @ConditionalOnExpression(
@@ -37,7 +35,7 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
     private final PrivateKey signingKey;
 
     @Autowired(required = false)
-    private dev.yycodes.paymentsimulator.demo.SandboxRequestBudget demoBudget;
+    private SandboxRequestBudget demoBudget;
 
     @Autowired
     public MastercardSendDisbursementsProvider(

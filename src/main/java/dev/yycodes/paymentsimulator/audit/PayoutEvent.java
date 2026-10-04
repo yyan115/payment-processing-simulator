@@ -2,7 +2,6 @@ package dev.yycodes.paymentsimulator.audit;
 
 import dev.yycodes.paymentsimulator.payout.PayoutStatus;
 import jakarta.persistence.*;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -10,8 +9,7 @@ import java.util.UUID;
 @Table(name = "payout_events")
 public class PayoutEvent {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "payout_id", nullable = false, updatable = false)
     private UUID payoutId;
@@ -31,10 +29,13 @@ public class PayoutEvent {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected PayoutEvent() {
-    }
+    protected PayoutEvent() {}
 
-    public PayoutEvent(UUID payoutId, PayoutEventType eventType, PayoutStatus fromStatus, PayoutStatus toStatus) {
+    public PayoutEvent(
+            UUID payoutId,
+            PayoutEventType eventType,
+            PayoutStatus fromStatus,
+            PayoutStatus toStatus) {
         this.id = UUID.randomUUID();
         this.payoutId = payoutId;
         this.eventType = eventType;
@@ -43,10 +44,27 @@ public class PayoutEvent {
         this.createdAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UUID getPayoutId() { return payoutId; }
-    public PayoutEventType getEventType() { return eventType; }
-    public PayoutStatus getFromStatus() { return fromStatus; }
-    public PayoutStatus getToStatus() { return toStatus; }
-    public Instant getCreatedAt() { return createdAt; }
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getPayoutId() {
+        return payoutId;
+    }
+
+    public PayoutEventType getEventType() {
+        return eventType;
+    }
+
+    public PayoutStatus getFromStatus() {
+        return fromStatus;
+    }
+
+    public PayoutStatus getToStatus() {
+        return toStatus;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }

@@ -7,12 +7,9 @@ import java.util.Locale;
 
 public final class MoneyAmounts {
 
-    private MoneyAmounts() {
-    }
+    private MoneyAmounts() {}
 
-    public static BigDecimal normalizeMajorUnits(
-            BigDecimal amount,
-            String currencyCode) {
+    public static BigDecimal normalizeMajorUnits(BigDecimal amount, String currencyCode) {
 
         int fractionDigits = fractionDigits(currencyCode);
         BigDecimal normalized = amount.stripTrailingZeros();
@@ -20,25 +17,19 @@ public final class MoneyAmounts {
 
         if (actualFractionDigits > fractionDigits) {
             throw new IllegalArgumentException(
-                    currencyCode + " supports at most "
-                            + fractionDigits
-                            + " fractional digits"
-            );
+                    currencyCode + " supports at most " + fractionDigits + " fractional digits");
         }
 
         return normalized;
     }
 
-    public static String toMinorUnits(
-            BigDecimal majorUnits,
-            String currencyCode) {
+    public static String toMinorUnits(BigDecimal majorUnits, String currencyCode) {
 
         int fractionDigits = fractionDigits(currencyCode);
 
         try {
-            BigDecimal minorUnits = majorUnits
-                    .movePointRight(fractionDigits)
-                    .setScale(0, RoundingMode.UNNECESSARY);
+            BigDecimal minorUnits =
+                    majorUnits.movePointRight(fractionDigits).setScale(0, RoundingMode.UNNECESSARY);
 
             if (minorUnits.compareTo(new BigDecimal("999999999999")) > 0) {
                 throw new IllegalArgumentException(
@@ -48,9 +39,7 @@ public final class MoneyAmounts {
             return minorUnits.toPlainString();
         } catch (ArithmeticException invalidPrecision) {
             throw new IllegalArgumentException(
-                    "Amount precision is invalid for " + currencyCode,
-                    invalidPrecision
-            );
+                    "Amount precision is invalid for " + currencyCode, invalidPrecision);
         }
     }
 
@@ -66,15 +55,12 @@ public final class MoneyAmounts {
             currency = Currency.getInstance(currencyCode);
         } catch (IllegalArgumentException invalidCurrency) {
             throw new IllegalArgumentException(
-                    "Unsupported ISO 4217 currency: " + currencyCode,
-                    invalidCurrency
-            );
+                    "Unsupported ISO 4217 currency: " + currencyCode, invalidCurrency);
         }
 
         int digits = currency.getDefaultFractionDigits();
         if (digits < 0 || digits > 4) {
-            throw new IllegalArgumentException(
-                    "Unsupported currency exponent for " + currencyCode);
+            throw new IllegalArgumentException("Unsupported currency exponent for " + currencyCode);
         }
 
         return digits;

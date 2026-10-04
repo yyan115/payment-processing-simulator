@@ -1,18 +1,17 @@
 package dev.yycodes.paymentsimulator.ledger;
 
-import org.springframework.web.bind.annotation.*;
-
+import dev.yycodes.paymentsimulator.payout.PayoutService;
 import java.util.UUID;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/payouts")
 public class LedgerController {
 
     private final LedgerQueryService ledger;
-    private final dev.yycodes.paymentsimulator.payout.PayoutService payouts;
+    private final PayoutService payouts;
 
-    public LedgerController(
-            LedgerQueryService ledger, dev.yycodes.paymentsimulator.payout.PayoutService payouts) {
+    public LedgerController(LedgerQueryService ledger, PayoutService payouts) {
         this.payouts = payouts;
         this.ledger = ledger;
     }

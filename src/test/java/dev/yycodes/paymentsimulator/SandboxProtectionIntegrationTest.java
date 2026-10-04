@@ -3,17 +3,15 @@ package dev.yycodes.paymentsimulator;
 import static org.assertj.core.api.Assertions.*;
 
 import dev.yycodes.paymentsimulator.demo.*;
-
+import dev.yycodes.paymentsimulator.provider.ProviderRejectedException;
+import java.net.*;
+import java.net.http.*;
+import java.util.UUID;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.*;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-
 import tools.jackson.databind.json.JsonMapper;
-
-import java.net.*;
-import java.net.http.*;
-import java.util.UUID;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -116,12 +114,10 @@ class SandboxProtectionIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT sandbox_calls FROM demo_sessions", Integer.class))
                 .isEqualTo(1);
         jdbc.update("UPDATE demo_sessions SET sandbox_calls=10");
-        assertThatThrownBy(() -> budget.consume(id))
-                .isInstanceOf(
-                        dev.yycodes.paymentsimulator.provider.ProviderRejectedException.class);
+        assertThatThrownBy(() -> budget.consume(id)).isInstanceOf(ProviderRejectedException.class);
         jdbc.update(
                 "UPDATE demo_sessions SET sandbox_verified_until=CURRENT_TIMESTAMP-INTERVAL '1"
-                    + " second'");
+                        + " second'");
         assertThatThrownBy(() -> verification.authorize(id)).isInstanceOf(DemoException.class);
     }
 }

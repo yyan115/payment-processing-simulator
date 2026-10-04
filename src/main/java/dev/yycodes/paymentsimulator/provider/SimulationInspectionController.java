@@ -1,23 +1,22 @@
 package dev.yycodes.paymentsimulator.provider;
 
 import dev.yycodes.paymentsimulator.audit.*;
+import dev.yycodes.paymentsimulator.demo.SandboxVerification;
 import dev.yycodes.paymentsimulator.ledger.*;
 import dev.yycodes.paymentsimulator.payout.*;
 import dev.yycodes.paymentsimulator.reconciliation.*;
-
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
-
 /** Consistent local evidence; simulated provider truth is only included for simulated payouts. */
 @RestController
 public class SimulationInspectionController {
-    private final dev.yycodes.paymentsimulator.demo.SandboxVerification verification;
+    private final SandboxVerification verification;
     private final PayoutService payouts;
     private final ProviderCatalog catalog;
     private final SimulatedProviderStore provider;
@@ -29,7 +28,7 @@ public class SimulationInspectionController {
 
     public SimulationInspectionController(
             PayoutService payouts,
-            dev.yycodes.paymentsimulator.demo.SandboxVerification verification,
+            SandboxVerification verification,
             ProviderCatalog catalog,
             SimulatedProviderStore provider,
             PayoutHistoryService history,

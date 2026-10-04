@@ -7,7 +7,6 @@ import java.security.SecureRandom;
 import java.security.spec.MGF1ParameterSpec;
 import java.util.Arrays;
 import java.util.Base64;
-
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.OAEPParameterSpec;
@@ -51,7 +50,10 @@ final class VisaMessageEncryption {
         random.nextBytes(iv);
 
         Cipher content = Cipher.getInstance("AES/GCM/NoPadding");
-        content.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(contentKey, "AES"), new GCMParameterSpec(128, iv));
+        content.init(
+                Cipher.ENCRYPT_MODE,
+                new SecretKeySpec(contentKey, "AES"),
+                new GCMParameterSpec(128, iv));
         content.updateAAD(header.getBytes(StandardCharsets.US_ASCII));
         byte[] sealed = content.doFinal(json.getBytes(StandardCharsets.UTF_8));
         byte[] cipherText = Arrays.copyOfRange(sealed, 0, sealed.length - 16);

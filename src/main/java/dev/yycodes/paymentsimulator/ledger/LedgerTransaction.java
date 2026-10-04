@@ -1,7 +1,6 @@
 package dev.yycodes.paymentsimulator.ledger;
 
 import jakarta.persistence.*;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -10,8 +9,7 @@ import java.util.UUID;
 @Table(name = "ledger_transactions")
 public class LedgerTransaction {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "payout_id", nullable = false, unique = true, updatable = false)
     private UUID payoutId;
@@ -29,8 +27,7 @@ public class LedgerTransaction {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected LedgerTransaction() {
-    }
+    protected LedgerTransaction() {}
 
     public LedgerTransaction(UUID payoutId, BigDecimal amount, String currency) {
         this.id = UUID.randomUUID();
@@ -41,10 +38,27 @@ public class LedgerTransaction {
         this.createdAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UUID getPayoutId() { return payoutId; }
-    public LedgerTransactionType getTransactionType() { return transactionType; }
-    public BigDecimal getAmount() { return amount; }
-    public String getCurrency() { return currency; }
-    public Instant getCreatedAt() { return createdAt; }
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getPayoutId() {
+        return payoutId;
+    }
+
+    public LedgerTransactionType getTransactionType() {
+        return transactionType;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }

@@ -5,11 +5,10 @@ import dev.yycodes.paymentsimulator.observability.PaymentMetrics;
 import dev.yycodes.paymentsimulator.provider.*;
 import dev.yycodes.paymentsimulator.reconciliation.ReconciliationResolution;
 import dev.yycodes.paymentsimulator.shared.ConflictException;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-
-import java.util.UUID;
 
 @Service
 public class PayoutProcessor {
@@ -20,7 +19,8 @@ public class PayoutProcessor {
     private final PaymentProvider provider;
     private final PaymentMetrics metrics;
 
-    public PayoutProcessor(PayoutStateService states, PaymentProvider provider, PaymentMetrics metrics) {
+    public PayoutProcessor(
+            PayoutStateService states, PaymentProvider provider, PaymentMetrics metrics) {
         this.states = states;
         this.provider = provider;
         this.metrics = metrics;
@@ -31,12 +31,12 @@ public class PayoutProcessor {
         log.info("payout_processing_started payoutId={}", id);
 
         try {
-            ProviderResult result = provider.submit(
-                    payout.getId(),
-                    payout.getAmount(),
-                    payout.getCurrency(),
-                    SubmissionMode.ORIGINAL
-            );
+            ProviderResult result =
+                    provider.submit(
+                            payout.getId(),
+                            payout.getAmount(),
+                            payout.getCurrency(),
+                            SubmissionMode.ORIGINAL);
 
             metrics.providerResult(result.status());
             return finishOriginal(id, result);
@@ -49,16 +49,13 @@ public class PayoutProcessor {
             log.warn(
                     "payout_provider_http_rejected payoutId={} statusCode={} outcome=unknown",
                     id,
-                    rejected.getStatusCode()
-            );
-            return states.markProviderUncertain(
-                    id,
-                    null,
-                    PayoutEventType.PROVIDER_REJECTED
-            );
+                    rejected.getStatusCode());
+            return states.markProviderUncertain(id, null, PayoutEventType.PROVIDER_REJECTED);
         } catch (ProviderRequestException invalidRequest) {
-            log.warn("payout_provider_request_invalid payoutId={} reason={}",
-                    id, invalidRequest.getMessage());
+            log.warn(
+                    "payout_provider_request_invalid payoutId={} reason={}",
+                    id,
+                    invalidRequest.getMessage());
             return states.markProviderRejected(id);
         }
     }
@@ -72,12 +69,12 @@ public class PayoutProcessor {
         log.info("payout_retry_started payoutId={}", id);
 
         try {
-            ProviderResult result = provider.submit(
-                    payout.getId(),
-                    payout.getAmount(),
-                    payout.getCurrency(),
-                    SubmissionMode.RETRY
-            );
+            ProviderResult result =
+                    provider.submit(
+                            payout.getId(),
+                            payout.getAmount(),
+                            payout.getCurrency(),
+                            SubmissionMode.RETRY);
 
             metrics.providerResult(result.status());
             return finishRetry(id, result);
@@ -86,15 +83,16 @@ public class PayoutProcessor {
             log.warn("payout_retry_timeout payoutId={} outcome=unknown", id);
             return states.recordRetryTimeout(id);
         } catch (ProviderRejectedException rejected) {
-            log.warn("payout_retry_rejected payoutId={} statusCode={} outcome=still_unknown",
-                    id, rejected.getStatusCode());
+            log.warn(
+                    "payout_retry_rejected payoutId={} statusCode={} outcome=still_unknown",
+                    id,
+                    rejected.getStatusCode());
             return states.recordRetryRejected(id);
         } catch (ProviderRequestException invalidRequest) {
             log.warn(
                     "payout_retry_request_invalid payoutId={} outcome=still_unknown reason={}",
                     id,
-                    invalidRequest.getMessage()
-            );
+                    invalidRequest.getMessage());
             return states.recordRetryRejected(id);
         }
     }
@@ -107,9 +105,10 @@ public class PayoutProcessor {
                     "Only UNKNOWN or PROCESSING payouts require reconciliation");
         }
 
-        ReconciliationResolution resolution = provider.findByClientReference(id)
-                .map(result -> states.resolveReconciliation(id, result))
-                .orElseGet(() -> states.recordUnresolvedReconciliation(id, null));
+        ReconciliationResolution resolution =
+                provider.findByClientReference(id)
+                        .map(result -> states.resolveReconciliation(id, result))
+                        .orElseGet(() -> states.recordUnresolvedReconciliation(id, null));
 
         metrics.reconciliation(resolution.outcome());
         log.info("payout_reconciled payoutId={} outcome={}", id, resolution.outcome());
@@ -119,13 +118,17 @@ public class PayoutProcessor {
     private Payout finishOriginal(UUID id, ProviderResult result) {
         return switch (result.status()) {
             case SUCCEEDED -> {
-                log.info("payout_provider_succeeded payoutId={} providerReference={}",
-                        id, result.providerReference());
+                log.info(
+                        "payout_provider_succeeded payoutId={} providerReference={}",
+                        id,
+                        result.providerReference());
                 yield states.markProviderSucceeded(id, result.providerReference());
             }
             case DECLINED -> {
-                log.info("payout_provider_declined payoutId={} providerReference={}",
-                        id, result.providerReference());
+                log.info(
+                        "payout_provider_declined payoutId={} providerReference={}",
+                        id,
+                        result.providerReference());
                 yield states.markProviderFailed(id, result.providerReference());
             }
             case UNKNOWN -> {
@@ -149,8 +152,9 @@ public class PayoutProcessor {
                 yield states.markRetryUncertain(
                         id, result.providerReference(), PayoutEventType.PROVIDER_RETRY_UNKNOWN);
             }
-            case PENDING -> states.markRetryUncertain(
-                    id, result.providerReference(), PayoutEventType.PROVIDER_RETRY_PENDING);
+            case PENDING ->
+                    states.markRetryUncertain(
+                            id, result.providerReference(), PayoutEventType.PROVIDER_RETRY_PENDING);
         };
     }
 }

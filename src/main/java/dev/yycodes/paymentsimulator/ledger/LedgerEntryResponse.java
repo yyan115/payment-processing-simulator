@@ -10,8 +10,7 @@ public record LedgerEntryResponse(
         LedgerDirection direction,
         BigDecimal amount,
         String currency,
-        Instant createdAt
-) {
+        Instant createdAt) {
     public static LedgerEntryResponse from(LedgerEntry entry) {
         return new LedgerEntryResponse(
                 entry.getId(),
@@ -19,7 +18,6 @@ public record LedgerEntryResponse(
                 entry.getDirection(),
                 entry.getAmount(),
                 entry.getCurrency(),
-                entry.getCreatedAt()
-        );
+                entry.getCreatedAt());
     }
 }
