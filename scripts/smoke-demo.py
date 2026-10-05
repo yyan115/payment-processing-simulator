@@ -70,7 +70,7 @@ assert call(f"/api/v1/payouts/{payout_id}/process", "POST")[1]["status"] == "UNK
 evidence = snapshot(payout_id)
 assert evidence["provider"]["status"] == "SUCCEEDED" and evidence["ledger"] is None
 
-# Reconciliation finds the payment and posts one journal of two entries.
+# Reconciliation finds the payment and posts one journal entry with a debit and a credit.
 assert call(f"/api/v1/payouts/{payout_id}/reconcile", "POST")[0] == 200
 evidence = snapshot(payout_id)
 assert evidence["payout"]["status"] == "SUCCEEDED"

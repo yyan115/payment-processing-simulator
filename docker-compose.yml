@@ -36,6 +36,7 @@ services:
       - no-new-privileges:true
     stop_grace_period: 30s
 
+  # Prometheus can scrape the app only when DEMO_ENABLED=false, because demo mode hides the metrics.
   prometheus:
     profiles: [observability]
     image: prom/prometheus:v3.14.0

@@ -1,8 +1,11 @@
 name: CI
+# Pushes to main run these checks through the image workflow, so a failing commit is not published.
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -34,7 +37,7 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Check formatting, then run the backend tests against PostgreSQL
+      - name: Run the backend tests against PostgreSQL and check formatting
         run: mvn --batch-mode verify
       - name: Check, test and build the frontend
         run: |
