@@ -22,6 +22,10 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 @Order(10)
 public class DemoAccessFilter extends OncePerRequestFilter {
+    private static final int REQUESTS_PER_MINUTE = 120;
+    private static final long WINDOW_MS = 60_000;
+    private static final int MAX_TRACKED_KEYS = 2048;
+
     private final DemoWorkspace workspace;
     private final JsonMapper mapper;
     private final HashMap<String, Window> rates = new HashMap<>();
@@ -65,7 +69,7 @@ public class DemoAccessFilter extends OncePerRequestFilter {
             if (path.equals("/api/v1/workspace")) {
                 try {
                     UUID session = workspace.requireActive(request);
-                    limit(session.toString(), 120);
+                    limit(session.toString(), REQUESTS_PER_MINUTE);
                     if ("true".equals(request.getParameter("reset")))
                         limit("admission:" + request.getRemoteAddr(), admissions);
                 } catch (DemoException error) {
@@ -74,7 +78,7 @@ public class DemoAccessFilter extends OncePerRequestFilter {
                 }
             } else if (!path.equals("/api/v1/config")) {
                 UUID session = workspace.requireActive(request);
-                limit(session.toString(), 120);
+                limit(session.toString(), REQUESTS_PER_MINUTE);
             }
             chain.doFilter(request, response);
         } catch (DemoException error) {
@@ -84,8 +88,8 @@ public class DemoAccessFilter extends OncePerRequestFilter {
 
     private synchronized void limit(String key, int maximum) {
         long now = System.currentTimeMillis();
-        rates.entrySet().removeIf(e -> now - e.getValue().started >= 60000);
-        if (!rates.containsKey(key) && rates.size() >= 2048)
+        rates.entrySet().removeIf(e -> now - e.getValue().started >= WINDOW_MS);
+        if (!rates.containsKey(key) && rates.size() >= MAX_TRACKED_KEYS)
             throw new DemoException(429, "The demo is busy. Try again shortly.");
         Window window = rates.computeIfAbsent(key, k -> new Window(now));
         if (++window.requests > maximum)

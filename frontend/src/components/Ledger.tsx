@@ -32,7 +32,7 @@ export function JournalEntry({ snapshot }: { snapshot: Snapshot | null }) {
     </>
   );
 }
-// Amounts are whole units of 0.0001, the precision the backend stores, so sums stay exact.
+// Amounts are whole units of 0.0001, the precision the backend stores, so sums do not drift.
 const SCALE = 10_000n;
 function units(amount: string | number): bigint {
   const [whole, fraction = ""] = String(amount).split(".");

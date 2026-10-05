@@ -37,7 +37,7 @@ public final class MoneyAmounts {
 
             if (minorUnits.compareTo(new BigDecimal("999999999999")) > 0) {
                 throw new IllegalArgumentException(
-                        "Amount exceeds Mastercard Send's maximum minor-unit value");
+                        "Amount exceeds the maximum of 999999999999 minor units");
             }
 
             return minorUnits.toPlainString();

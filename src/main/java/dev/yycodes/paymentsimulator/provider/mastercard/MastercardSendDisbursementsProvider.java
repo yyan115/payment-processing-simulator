@@ -120,7 +120,7 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
             return parser.parseCreate(response.body());
         } catch (IOException | IllegalArgumentException invalidResponse) {
             throw new ProviderTimeoutException(
-                    "Mastercard Send returned an unreadable transaction response");
+                    "Mastercard Send returned an unreadable transaction response", invalidResponse);
         }
     }
 
@@ -150,7 +150,8 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
             return parser.parseLookup(response.body());
         } catch (IOException | IllegalArgumentException invalidResponse) {
             throw new ProviderTimeoutException(
-                    "Mastercard Send returned an unreadable reconciliation response");
+                    "Mastercard Send returned an unreadable reconciliation response",
+                    invalidResponse);
         }
     }
 
@@ -182,10 +183,11 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
 
             return new ProviderHttpResponse(response.statusCode(), response.body());
         } catch (IOException ioFailure) {
-            throw new ProviderTimeoutException("Mastercard Send network request failed");
+            throw new ProviderTimeoutException("Mastercard Send network request failed", ioFailure);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            throw new ProviderTimeoutException("Mastercard Send request was interrupted");
+            throw new ProviderTimeoutException(
+                    "Mastercard Send request was interrupted", interrupted);
         }
     }
 

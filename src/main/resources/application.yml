@@ -29,6 +29,7 @@ payments:
     empty-session-seconds: ${DEMO_EMPTY_SESSION_SECONDS:1800}
     max-sessions: ${DEMO_MAX_SESSIONS:3000}
     max-payouts: ${DEMO_MAX_PAYOUTS:40}
+    cleanup-ms: ${DEMO_CLEANUP_MS:60000}
     admissions-per-minute: ${DEMO_ADMISSIONS_PER_MINUTE:30}
     turnstile-required: ${TURNSTILE_REQUIRED:false}
     turnstile-site-key: ${TURNSTILE_SITE_KEY:}

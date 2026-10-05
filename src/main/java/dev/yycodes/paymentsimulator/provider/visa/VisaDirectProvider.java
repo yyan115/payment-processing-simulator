@@ -147,14 +147,15 @@ public class VisaDirectProvider implements PaymentProvider {
                 return parser.parsePush(readable(response.body()));
             } catch (IOException | IllegalArgumentException invalidResponse) {
                 throw new ProviderTimeoutException(
-                        "Visa Direct returned an unreadable transaction response");
+                        "Visa Direct returned an unreadable transaction response", invalidResponse);
             }
         } catch (ProviderRejectedException
                 | ProviderTimeoutException
                 | ProviderRequestException known) {
             throw known;
         } catch (Exception failure) {
-            throw new ProviderTimeoutException("Visa Direct request could not be completed");
+            throw new ProviderTimeoutException(
+                    "Visa Direct request could not be completed", failure);
         }
     }
 
@@ -176,7 +177,7 @@ public class VisaDirectProvider implements PaymentProvider {
             return parser.parseQuery(readable(response.body()), identifier);
         } catch (Exception invalidResponse) {
             throw new ProviderTimeoutException(
-                    "Visa Direct returned an unreadable reconciliation response");
+                    "Visa Direct returned an unreadable reconciliation response", invalidResponse);
         }
     }
 
@@ -199,10 +200,10 @@ public class VisaDirectProvider implements PaymentProvider {
                         "Visa Direct request had an ambiguous server/transport result");
             return new Response(response.statusCode(), response.body());
         } catch (IOException ioFailure) {
-            throw new ProviderTimeoutException("Visa Direct network request failed");
+            throw new ProviderTimeoutException("Visa Direct network request failed", ioFailure);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            throw new ProviderTimeoutException("Visa Direct request was interrupted");
+            throw new ProviderTimeoutException("Visa Direct request was interrupted", interrupted);
         }
     }
 

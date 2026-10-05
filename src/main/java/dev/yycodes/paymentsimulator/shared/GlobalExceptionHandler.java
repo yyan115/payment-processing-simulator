@@ -53,7 +53,7 @@ public class GlobalExceptionHandler {
     ResponseEntity<ApiError> providerIntegrationRejected(ProviderRejectedException e) {
         return error(
                 HttpStatus.BAD_GATEWAY,
-                "Payment provider rejected the integration request with HTTP " + e.getStatusCode());
+                "The payment network rejected the request with HTTP " + e.getStatusCode());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

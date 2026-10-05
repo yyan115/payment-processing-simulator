@@ -10,7 +10,7 @@ It also has Mastercard Send API and Visa Direct API sandbox integrations.
 
 ## Scenarios
 
-The demo runs six scenarios. They are the situations a payment platform handles when it sends a payment to a payment network. Choose one, send a payment, and the demo shows each step. A payment is marked UNKNOWN when the platform cannot tell what the network did with it.
+The demo runs six scenarios. They are the situations a payment platform handles when it sends a payment to a payment network. Choose one, send a payment, and the demo shows each step as the page triggers it through the platform's API. A payment is marked UNKNOWN when the platform cannot tell what the network did with it.
 
 - **Approved payment:** The network approves the payment and the platform records it as successful.
 - **Declined payment:** The network declines the payment, for example because of insufficient funds, and the platform records it as failed.
@@ -39,7 +39,7 @@ The platform uses these techniques to handle the scenarios. Real payment systems
 
 ## Project structure
 
-The React demo calls the platform's REST API. The platform stores payments, ledger entries and audit events in PostgreSQL, and it sends each payment to a payment network through an adapter. GitHub Actions runs the tests on every push, builds a container image and deploys it to Azure Container Apps, where the live demo runs.
+The React demo calls the platform's REST API. The platform stores payments, ledger entries and audit events in PostgreSQL, and it sends each payment to a payment network through an adapter. On every push to main, GitHub Actions runs the tests, builds a container image and deploys it to Azure Container Apps, where the live demo runs.
 
 ```
 src/main/java/.../payout/            Payments (called payouts in the API): creation, sending and status changes

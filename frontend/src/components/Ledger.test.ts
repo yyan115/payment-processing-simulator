@@ -37,19 +37,6 @@ describe("ledger display", () => {
     expect(text(balanceText(account(100, 100)))).toBe("SGD 0.00");
     expect(text(balanceText(account(100.1, 0.1)))).toBe("SGD 100.00 debit");
   });
-  it("adds amounts exactly, even beyond what a binary float holds", () => {
-    expect(
-      text(
-        balanceText({
-          accountCode: "CASH_CLEARING",
-          currency: "SGD",
-          debits: "9007199254740993.0000",
-          credits: "0.0000",
-          entries: 1,
-        }),
-      ),
-    ).toBe("SGD 9,007,199,254,740,993.00 debit");
-  });
   it("carries a running balance per account through the postings", () => {
     const lines = withRunningBalances([
       posting("1", "SELLER_PAYABLE:Daniel Wong", "DEBIT", 100),

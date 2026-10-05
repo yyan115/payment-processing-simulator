@@ -30,6 +30,8 @@ public class PayoutController {
         this.history = history;
     }
 
+    // Loading the payout checks that it belongs to the caller's workspace. The sandbox networks
+    // also need the workspace to be verified.
     private void guard(UUID id) {
         if (!"simulated".equals(payouts.get(id).getProvider())) verification.authorize(id);
     }
@@ -63,21 +65,18 @@ public class PayoutController {
 
     @PostMapping("/{id}/process")
     public PayoutResponse process(@PathVariable UUID id) {
-        payouts.get(id); // Authorize the decoded resource ID before reading or changing it.
         guard(id);
         return PayoutResponse.from(processor.process(id));
     }
 
     @PostMapping("/{id}/retry")
     public PayoutResponse retry(@PathVariable UUID id) {
-        payouts.get(id); // Authorize the decoded resource ID before reading or changing it.
         guard(id);
         return PayoutResponse.from(processor.retry(id));
     }
 
     @PostMapping("/{id}/reconcile")
     public ReconciliationResponse reconcile(@PathVariable UUID id) {
-        payouts.get(id); // Authorize the decoded resource ID before reading or changing it.
         guard(id);
         return ReconciliationResponse.from(processor.reconcile(id));
     }

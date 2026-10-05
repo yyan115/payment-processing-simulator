@@ -35,19 +35,6 @@ public class ProviderTransaction {
 
     protected ProviderTransaction() {}
 
-    public ProviderTransaction(
-            UUID clientReference, BigDecimal amount, String currency, ProviderStatus status) {
-        Instant now = Instant.now();
-        this.id = UUID.randomUUID();
-        this.clientReference = clientReference;
-        this.providerReference = "sim_" + UUID.randomUUID().toString().replace("-", "");
-        this.amount = amount;
-        this.currency = currency;
-        this.status = status;
-        this.createdAt = now;
-        this.updatedAt = now;
-    }
-
     public String getProviderReference() {
         return providerReference;
     }
