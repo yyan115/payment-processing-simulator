@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Regenerates the README media from a running app: docs/images/demo.gif and records.png.
-// Needs the app on http://localhost:8080 (or pass another URL), plus ffmpeg and Playwright's Chromium.
-//   node scripts/readme-media.mjs [base-url]
+// Records the README GIF from a running app and writes docs/images/demo.gif.
+// It needs the app on http://localhost:8080 (or another URL as the first argument), ffmpeg and
+// the Playwright Chromium browser.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -17,58 +17,35 @@ const size = { width: 1280, height: 800 };
 mkdirSync(tmp, { recursive: true });
 
 const browser = await chromium.launch();
-
-async function open(context) {
-  const page = await context.newPage();
-  await page.goto(base);
-  await page.locator(".connection").getByText("Connected").waitFor();
-  return page;
-}
-const choose = (page, name) => page.getByRole("radio", { name, exact: true }).check();
-const send = (page) => page.getByRole("button", { name: "Send payment", exact: true }).click();
-
-// The GIF: one scenario at the normal pace.
-const recording = await browser.newContext({
+const context = await browser.newContext({
   viewport: size,
   recordVideo: { dir: tmp, size },
 });
-{
-  const page = await open(recording);
-  await choose(page, "Response lost");
-  await page.waitForTimeout(2500);
-  await send(page);
-  await page.locator(".timeline li.final").waitFor({ timeout: 60000 });
-  await page.waitForTimeout(3500);
-  await page.close();
-  await recording.close();
-}
-const video = readdirSync(tmp).find((name) => name.endsWith(".webm"));
-execFileSync("ffmpeg", [
-  "-y", "-i", join(tmp, video),
-  "-vf",
-  "fps=7,scale=760:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=48:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
-  "-loop", "0", join(out, "demo.gif"),
-], { stdio: "ignore" });
-rmSync(tmp, { recursive: true, force: true });
-
-// The screenshots: instant pace, so the run finishes straight away.
-const still = await browser.newContext({ viewport: size, deviceScaleFactor: 1 });
-await still.addInitScript(() => localStorage.setItem("payment-simulator-pace", "0"));
-{
-  const page = await open(still);
-  await choose(page, "Response lost");
-  await send(page);
-  await page.locator(".timeline li.final").waitFor();
-  await page.locator(".payment-summary").first().click();
-  await page.locator(".payment-details").first().waitFor();
-  await page.evaluate(() => window.scrollTo(0, 0));
-  // The trace, History and Ledger, without the footer.
-  const below = await page.locator(".below").boundingBox();
-  const books = await page.locator(".books").boundingBox();
-  await page.screenshot({
-    path: join(out, "records.png"),
-    fullPage: true,
-    clip: { ...below, height: books.y + books.height - below.y + 8 },
-  });
-}
+const page = await context.newPage();
+await page.goto(base);
+await page.locator(".connection").getByText("Connected").waitFor();
+await page.getByRole("radio", { name: "Response lost", exact: true }).check();
+await page.waitForTimeout(2500);
+await page.getByRole("button", { name: "Send payment", exact: true }).click();
+await page.locator(".timeline li.final").waitFor({ timeout: 60000 });
+await page.waitForTimeout(3500);
+await page.close();
+await context.close();
 await browser.close();
+
+const video = readdirSync(tmp).find((name) => name.endsWith(".webm"));
+execFileSync(
+  "ffmpeg",
+  [
+    "-y",
+    "-i",
+    join(tmp, video),
+    "-vf",
+    "fps=7,scale=760:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=48:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
+    "-loop",
+    "0",
+    join(out, "demo.gif"),
+  ],
+  { stdio: "ignore" },
+);
+rmSync(tmp, { recursive: true, force: true });
