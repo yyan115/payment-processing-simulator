@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 const remote = Boolean(process.env.E2E_BASE_URL);
 export default defineConfig({
   testDir: "./e2e",
-  // The exhaustive matrix is slow, so it only runs on request: npm run test:matrix.
+  // The exhaustive matrix is slow, so it runs only on request with npm run test:matrix.
   testIgnore: process.env.MATRIX ? [] : "**/matrix.spec.ts",
   fullyParallel: false,
   workers: 1,

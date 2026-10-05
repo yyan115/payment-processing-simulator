@@ -18,8 +18,8 @@ const TRACES_KEY = "payment-requests";
 const MAX_TRACES_PER_PAYMENT = 30;
 const MAX_ATTEMPTS = 3;
 
-// Sending a payment and following it: the visible steps, playback, and what the browser knows
-// about each payment (its run, its snapshot and the API requests it made).
+// Sending a payment and following it. This covers the visible steps, playback, and what the browser
+// knows about each payment (its run, its snapshot and the API requests it made).
 export function usePayment(api: PaymentApi, workspace: Workspace) {
   const { connect, refresh, refreshLedger, setExpired, mounted } = workspace;
   const [snapshots, setSnapshots] = useState<Record<string, Snapshot>>({});
@@ -88,7 +88,7 @@ export function usePayment(api: PaymentApi, workspace: Workspace) {
     [],
   );
 
-  // Shows one step, then waits: for Next step, or for the pause that makes the run easy to follow.
+  // Shows one step, then waits for Next step or for the pause that makes the run easy to follow.
   const progress = async (snapshot: Snapshot | null, step: Step) => {
     if (!mounted.current) return;
     setSteps((previous) => [...previous, step]);
@@ -130,7 +130,7 @@ export function usePayment(api: PaymentApi, workspace: Workspace) {
       mode: run.intent.provider,
     });
     try {
-      // A lost reply is retried automatically with the same idempotency key, so it can never
+      // A lost reply is retried automatically with the same idempotency key, so it cannot
       // create a second payment.
       for (let attempt = 1; ; attempt++) {
         try {
@@ -156,7 +156,7 @@ export function usePayment(api: PaymentApi, workspace: Workspace) {
         if (failure instanceof ApiError && failure.status >= 500)
           await connect();
       }
-      // Never create a fresh payment automatically after an ambiguous network result.
+      // After an ambiguous result the page reloads the saved payment and does not create a new one.
       if (run.id) {
         try {
           const saved = await api.snapshot(run.id);

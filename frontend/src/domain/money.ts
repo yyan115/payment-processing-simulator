@@ -8,7 +8,7 @@ const currencies: Record<string, number> = {
   KWD: 3,
 };
 
-// Convert from decimal text, never by multiplying a binary floating-point amount.
+// Convert from decimal text, because binary floating-point amounts lose precision.
 export function minorUnits(amount: string, currency: string): bigint {
   const digits = currencies[currency];
   if (digits === undefined)

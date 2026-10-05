@@ -82,7 +82,7 @@ async function open(page: Page) {
   ).toBeEnabled();
 }
 
-// Everything visible must fit: no sideways scroll, no clipped text, no unfilled placeholders.
+// Everything visible must fit, with no sideways scroll, no clipped text and no unfilled placeholders.
 async function layoutProblems(page: Page, where: string) {
   const found = await page.evaluate(() => {
     const out: string[] = [];
@@ -304,7 +304,7 @@ for (const viewport of [
   });
 }
 
-// The real animation speed: steps must arrive one at a time, not all at once and not too slowly.
+// The real animation speed. Steps must arrive one at a time, not all at once and not too slowly.
 for (const viewport of [
   { label: "desktop", size: { width: 1440, height: 1000 } },
   { label: "phone", size: { width: 390, height: 844 } },

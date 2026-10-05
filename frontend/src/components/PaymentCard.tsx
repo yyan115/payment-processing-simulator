@@ -11,7 +11,7 @@ const playbackLabels: Record<Playback, string> = {
   step: "Step by step",
 };
 
-// The payment form: amount, who pays whom, which network, and how the run is played back.
+// The payment form with the amount, the sender and recipient, the network and the playback mode.
 export function PaymentCard({
   form,
   config,

@@ -7,7 +7,7 @@ import { scenarios } from "../domain/scenarios";
 import type { Run } from "../domain/workflow";
 import { JournalEntry } from "./Ledger";
 
-// Everything the browser knows about one payment: its identifiers, events, journal and API calls.
+// Everything the browser knows about one payment, including its identifiers, events, journal and API calls.
 export function PaymentDetails({
   payment,
   snapshot,

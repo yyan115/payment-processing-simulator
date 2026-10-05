@@ -127,7 +127,7 @@ class DemoWorkspaceIntegrationTest {
                         request("GET", "/api/v1/payouts/" + id + "/snapshot", b, null, null)
                                 .statusCode())
                 .isEqualTo(404);
-        // URI encoding must not evade authorization after MVC decodes the resource ID.
+        // An encoded URI is still checked for ownership, because MVC decodes the resource ID first.
         String encoded = "%" + Integer.toHexString(id.charAt(0)) + id.substring(1);
         assertThat(
                         request("POST", "/api/v1/payouts/" + encoded + "/process", b, null, null)
@@ -185,7 +185,7 @@ class DemoWorkspaceIntegrationTest {
         assertThat(asTab("GET", "/api/v1/payouts", fresh, null, null).body()).doesNotContain(id);
         assertThat(asTab("GET", "/api/v1/payouts", tabB, null, null).statusCode()).isEqualTo(200);
         assertThat(cookie).startsWith("payout_workspace=");
-        // A new tab sends "new", so starting it never touches the workspace the cookie names.
+        // A new tab sends "new", so starting it leaves the workspace named by the cookie unchanged.
         var cookieWorkspace = request("GET", "/api/v1/payouts", cookie, null, null);
         assertThat(cookieWorkspace.statusCode()).isEqualTo(200);
         var opened = asTab("POST", "/api/v1/workspace?reset=true", "new", null, null);
@@ -207,7 +207,7 @@ class DemoWorkspaceIntegrationTest {
                                                 java.sql.Timestamp.class,
                                                 session)
                                         .toInstant());
-        // Nothing sent yet: the 30 minute allowance for an empty workspace.
+        // Nothing is sent yet, so the 30 minute allowance for an empty workspace applies.
         jdbc.update(
                 "UPDATE demo_sessions SET expires_at=CURRENT_TIMESTAMP+INTERVAL '2 minutes' WHERE id=?",
                 session);

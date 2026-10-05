@@ -14,8 +14,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Prometheus metrics for the payment flow: network results, reconciliation outcomes, and payouts
- * stuck in UNKNOWN or PROCESSING.
+ * Prometheus metrics for the payment flow, covering network results, reconciliation outcomes and
+ * payouts stuck in UNKNOWN or PROCESSING.
  */
 @Component
 public class PaymentMetrics {

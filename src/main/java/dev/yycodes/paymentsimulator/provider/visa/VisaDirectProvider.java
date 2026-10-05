@@ -204,7 +204,7 @@ public class VisaDirectProvider implements PaymentProvider {
         }
     }
 
-    // A reply is either plain JSON or {"encData": "<JWE>"}.
+    // A reply is either plain JSON or an object with an "encData" field that holds a JWE.
     private String readable(String body) throws Exception {
         JsonNode node = mapper.readTree(body);
         JsonNode sealed = node.path("encData");

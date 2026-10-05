@@ -36,8 +36,8 @@ function Status({
     </div>
   );
 }
-// Two parties with the latest message travelling between them. The motion is decorative;
-// every state is also written out as text.
+// Two parties with the latest message travelling between them. The motion is decorative
+// and every state is also written as text.
 export function Flow({
   view,
   network,

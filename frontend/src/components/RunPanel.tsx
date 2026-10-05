@@ -4,7 +4,7 @@ import { networkNames } from "../domain/networks";
 import type { Step } from "../domain/workflow";
 import { Flow, viewOf } from "./Flow";
 
-// The live trace of one payment: both parties, then each step as it happens.
+// The live trace of one payment, with both parties and then each step as it happens.
 export function RunPanel({
   title,
   mode,

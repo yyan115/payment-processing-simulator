@@ -20,7 +20,7 @@ test("the ledger is a book of postings with balances, apart from History", async
     cards.filter({ hasText: "Payable to Daniel Wong" }),
   ).toContainText("SGD 100.00 debit");
   await expect(ledger).not.toContainText("Debits equal credits");
-  // Newest posting first: the credit follows the debit, so it is listed above it.
+  // The newest posting is listed first, so the credit sits above the debit.
   await expect(lines).toHaveCount(2);
   await expect(lines.first()).toContainText("Cash clearing");
   await expect(lines.first()).toContainText("Sarah Lim → Daniel Wong");

@@ -30,7 +30,7 @@ public class DemoWorkspace {
     private final JdbcTemplate jdbc;
     private final SimulationScenarioRegistry scenarios;
     private final boolean enabled;
-    // Inactivity allowance: every request extends it, so an active visitor never expires.
+    // Inactivity allowance. Every request extends it, so an active visitor does not expire.
     private final int seconds;
     // A workspace with no payments has nothing to keep, so it is removed sooner.
     private final int emptySeconds;

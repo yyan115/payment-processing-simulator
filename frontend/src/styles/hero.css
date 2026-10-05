@@ -1,4 +1,4 @@
-/* Hero: scenarios on the left, the payment on the right. */
+/* Hero with the scenarios on the left and the payment on the right. */
 .hero {
   background: var(--band);
   border-bottom: 1px solid var(--line);

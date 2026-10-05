@@ -23,8 +23,8 @@ type Arrow = {
   label: string;
   lost?: boolean;
 };
-// One step of the visible trace. The chips are the new state of each party after the step;
-// a missing chip leaves that party unchanged.
+// One step of the visible trace. The chips are the new state of each party after the step,
+// and a missing chip leaves that party unchanged.
 export type Step = {
   title: string;
   detail: string;

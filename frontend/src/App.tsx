@@ -24,8 +24,8 @@ export default function App() {
   const [verified, setVerified] = useState(false);
   const onVerified = useCallback((ready: boolean) => setVerified(ready), []);
 
-  // The two hooks depend on each other: a new workspace clears the payment state, and a
-  // reconnect waits for a payment in flight. They reach each other through this ref.
+  // The two hooks depend on each other. A new workspace clears the payment state, and a
+  // reconnect waits for a payment in progress. They reach each other through this ref.
   const payment = useRef<ReturnType<typeof usePayment> | null>(null);
   const workspace = useWorkspace(api, {
     onReset: () => payment.current?.reset() ?? false,

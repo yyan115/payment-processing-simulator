@@ -39,7 +39,10 @@ jobs:
 
   deploy:
     needs: image
-    # Runs only once the Azure sign-in variables exist, so a deployment is recorded only when one happens.
+    # This job is specific to the current host, so replace it to deploy somewhere else.
+    # It runs only when the Azure sign-in variables exist, so a deployment is recorded only when one happens.
+    # The identity behind them needs a federated credential for the production environment
+    # and the Contributor role on the resource group.
     if: ${{ vars.AZURE_CLIENT_ID != '' }}
     runs-on: ubuntu-latest
     permissions:

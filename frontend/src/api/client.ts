@@ -15,7 +15,7 @@ import type {
   Workspace,
 } from "./types";
 
-// Each tab keeps its own workspace id, so two tabs never share a workspace.
+// Each tab keeps its own workspace ID, so every tab has a separate workspace.
 const idKey = "payment-simulator-workspace";
 function savedId(): string | null {
   try {
@@ -54,8 +54,8 @@ async function request<T>(
       method,
       headers: {
         ...(body === undefined ? {} : { "Content-Type": "application/json" }),
-        // A tab with no workspace yet sends "new", so the server never falls back to the
-        // browser cookie, which belongs to whichever tab opened a workspace last.
+        // A tab with no workspace yet sends "new". Then the server does not fall back to the
+        // browser cookie, which belongs to the tab that opened a workspace last.
         "X-Workspace-Id": workspaceId ?? "new",
         ...headers,
       },

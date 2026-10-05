@@ -18,7 +18,7 @@ type Hooks = {
   isBusy: () => boolean;
 };
 
-// The browser's tab-sized workspace: connection state, the payment list and the ledger.
+// The browser's tab-sized workspace, with the connection state, the payment list and the ledger.
 export function useWorkspace(api: PaymentApi, hooks: Hooks) {
   const [config, setConfig] = useState<Configuration | null>(null);
   const [connection, setConnection] = useState<Connection>("connecting");

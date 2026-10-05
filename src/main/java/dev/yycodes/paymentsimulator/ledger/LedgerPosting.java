@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-// One line of the ledger: a single debit or credit, with the payment that caused it.
+// One line of the ledger, a single debit or credit with the payment that caused it.
 public record LedgerPosting(
         UUID id,
         UUID payoutId,

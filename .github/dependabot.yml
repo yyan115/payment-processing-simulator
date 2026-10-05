@@ -2,7 +2,7 @@ version: 2
 
 # Weekly, with minor and patch updates grouped into one pull request per ecosystem.
 # Major versions of Maven and npm dependencies are skipped and upgraded by hand.
-# Docker base images are not tracked: the weekly image rebuild pulls the latest patch of each tag.
+# Docker base images are not tracked. The weekly image rebuild pulls the latest patch of each tag.
 updates:
   - package-ecosystem: maven
     directory: /

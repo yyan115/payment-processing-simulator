@@ -54,7 +54,7 @@ export function withRunningBalances(postings: LedgerPosting[]): Line[] {
     return { ...posting, balance: signed(next, posting.currency) };
   });
 }
-// The accounting book: each account's balance, then every posting, newest first.
+// The accounting book, with each account's balance and then every posting, newest first.
 export function Ledger({
   accounts,
   postings,

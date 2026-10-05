@@ -10,7 +10,7 @@ test("authenticated Mastercard payout and lookup", async ({ page }) => {
   await page
     .getByLabel("Payment network", { exact: true })
     .selectOption("mastercard");
-  // Stepping is for the simulated network only, so it is not offered here and never waits.
+  // Stepping is for the simulated network only, so it is not offered here and the run does not wait.
   await expect(page.getByRole("group", { name: "Playback" })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Send payment", exact: true }),

@@ -14,7 +14,7 @@ import javax.crypto.spec.PSource;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Visa Message Level Encryption: a JWE with RSA-OAEP-256 key wrapping and A128GCM content
+ * Visa Message Level Encryption, which is a JWE with RSA-OAEP-256 key wrapping and A128GCM content
  * encryption. Requests are encrypted to Visa's server key, and responses arrive encrypted to ours.
  */
 final class VisaMessageEncryption {

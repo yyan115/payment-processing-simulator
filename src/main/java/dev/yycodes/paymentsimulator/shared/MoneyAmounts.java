@@ -6,8 +6,8 @@ import java.util.Currency;
 import java.util.Locale;
 
 /**
- * Money rules shared by the API and the network adapters: amounts stay exact decimals, and
- * conversion to minor units never rounds.
+ * Money rules shared by the API and the network adapters. Amounts stay exact decimals, and
+ * conversion to minor units does not round.
  */
 public final class MoneyAmounts {
 

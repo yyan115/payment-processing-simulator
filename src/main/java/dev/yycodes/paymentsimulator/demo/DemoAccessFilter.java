@@ -16,7 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Admits visitors to the public demo: opens a workspace, limits how fast new ones open, and adds
+ * Admits visitors to the public demo. It opens a workspace, limits how fast new ones open, and adds
  * security headers to every response.
  */
 @Component

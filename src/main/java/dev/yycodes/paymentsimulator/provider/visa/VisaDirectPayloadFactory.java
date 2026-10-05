@@ -55,8 +55,8 @@ public class VisaDirectPayloadFactory {
     }
 
     /**
-     * The 12 digit retrieval reference number. Visa checks its shape: a year digit, then a day of
-     * the year from 001 to 366, then eight more digits. Anything else is rejected as invalid.
+     * The 12 digit retrieval reference number. Visa checks its shape, which is a year digit, then a
+     * day of the year from 001 to 366, then eight more digits. Visa rejects any other value.
      */
     public static String retrievalReferenceNumber(UUID reference) {
         String raw = digits(reference, "retrievalReferenceNumber", 12);

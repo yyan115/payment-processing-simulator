@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Deploys the published image to Azure Container Apps with a managed PostgreSQL
 # Flexible Server. Run `az login` first. Safe to run again.
+# It tries each allowed region until the database can be created and saves the generated
+# database password to the credentials file below.
 set -euo pipefail
 RG=${RG:-payment-simulator}
 LOCATIONS=${LOCATIONS:-"eastasia japaneast malaysiawest indonesiacentral uaenorth"}
