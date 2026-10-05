@@ -3,11 +3,16 @@ package dev.yycodes.paymentsimulator.provider.mastercard;
 import dev.yycodes.paymentsimulator.provider.ProviderResult;
 import dev.yycodes.paymentsimulator.provider.ProviderStatus;
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+/**
+ * Turns a Mastercard Send reply into a result for the platform. A reply that is not clear leaves
+ * the payout UNKNOWN.
+ */
 @Component
 public class MastercardSendResponseParser {
 
@@ -57,7 +62,7 @@ public class MastercardSendResponseParser {
     }
 
     static ProviderStatus mapStatus(String status) {
-        return switch (status.toUpperCase()) {
+        return switch (status.toUpperCase(Locale.ROOT)) {
             case "APPROVED" -> ProviderStatus.SUCCEEDED;
             case "DECLINED", "REVERSED", "CANCELLED" -> ProviderStatus.DECLINED;
             case "PENDING" -> ProviderStatus.PENDING;

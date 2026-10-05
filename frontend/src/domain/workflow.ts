@@ -117,7 +117,7 @@ function response(snapshot: Snapshot, simulated: boolean): Step {
         ? {
             title: "Request rejected",
             detail:
-              "The network rejected the request as invalid. The platform records the payment as FAILED.",
+              "The request was rejected as invalid. The platform records the payment as FAILED.",
             arrow: { dir: "to-platform", label: "Rejected" },
             platform,
             network,
@@ -314,7 +314,7 @@ export async function runPayment(
   ) {
     const waits = simulated && run.scenario === "PENDING";
     await progress(snapshot, reconcileAsk(waits));
-    // This is a controlled simulator transition, not a claim about an external provider.
+    // This is a controlled simulator transition.
     if (waits) await api.advance(run.id, "SUCCEEDED");
     await api.reconcile(run.id);
     snapshot = await api.snapshot(run.id);

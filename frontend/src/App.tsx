@@ -51,7 +51,7 @@ export default function App() {
               <div>
                 <strong>Connecting to the payment server</strong>
                 <p>
-                  Free hosting may need time to start. We’re checking
+                  The server may need a moment to start. We are checking
                   automatically.
                 </p>
               </div>

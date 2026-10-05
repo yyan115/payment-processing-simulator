@@ -3,6 +3,7 @@ package dev.yycodes.paymentsimulator.provider.visa;
 import dev.yycodes.paymentsimulator.provider.ProviderResult;
 import dev.yycodes.paymentsimulator.provider.ProviderStatus;
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Component;
@@ -35,7 +36,8 @@ public class VisaDirectResponseParser {
         JsonNode node = mapper.readTree(body);
         if (!node.isArray()) {
             String message = node.path("errorMessage").asText("");
-            if (message.toLowerCase().contains("no transactions found")) return Optional.empty();
+            if (message.toLowerCase(Locale.ROOT).contains("no transactions found"))
+                return Optional.empty();
             throw new IllegalArgumentException("Unexpected query response");
         }
         ProviderResult found = null;

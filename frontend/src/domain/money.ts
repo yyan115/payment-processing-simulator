@@ -45,10 +45,14 @@ export function normalizeIntent(intent: Intent): Intent {
     amount: digits ? `${text.slice(0, -digits)}.${text.slice(-digits)}` : text,
   };
 }
+// Formats a decimal string without converting it to a binary float. Text that is not a
+// number, such as an amount that is still being typed, is shown as it is.
 export function money(amount: string | number, currency: string) {
+  const text = String(amount).trim();
+  if (!/^\d+(\.\d+)?$/.test(text)) return `${currency} ${text || "0"}`;
   return new Intl.NumberFormat("en-SG", {
     style: "currency",
     currency,
     currencyDisplay: "code",
-  }).format(Number(amount));
+  }).format(text as `${number}`);
 }

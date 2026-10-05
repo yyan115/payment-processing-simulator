@@ -75,7 +75,7 @@ async function request<T>(
         idempotencyKey: headers?.["Idempotency-Key"],
       });
     throw new ApiError(
-      "No server response. The request may have completed; check the payout before retrying.",
+      "No server response. The request may have completed. Check the payment before retrying.",
       503,
       true,
     );

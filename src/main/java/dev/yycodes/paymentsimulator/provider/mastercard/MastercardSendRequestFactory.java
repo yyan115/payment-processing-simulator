@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+/** Builds the Mastercard Send payment request from a payout and the configured sandbox accounts. */
 @Component
 @ConditionalOnExpression(
         "${payments.mastercard.enabled:false} or '${payments.provider:simulated}' == 'mastercard'")
@@ -184,7 +185,7 @@ public class MastercardSendRequestFactory {
     private static void requireConfigured(String property, String value) {
         if (value == null || value.isBlank()) {
             throw new IllegalStateException(
-                    property + " must be configured when PAYMENTS_PROVIDER=mastercard");
+                    property + " must be configured when the Mastercard network is enabled");
         }
     }
 }

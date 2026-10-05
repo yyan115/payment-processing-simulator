@@ -5,7 +5,7 @@ export const eventText: Record<string, string> = {
   PROVIDER_TIMEOUT: "No response from the network",
   PROVIDER_PENDING: "The network is still processing the payment",
   PROVIDER_UNKNOWN: "The network could not give a result",
-  PROVIDER_REJECTED: "The network rejected the request",
+  PROVIDER_REJECTED: "The request was rejected",
   PROVIDER_RETRY_SUCCEEDED: "Payment sent again, and the network approved it",
   PROVIDER_RETRY_DECLINED: "Payment sent again, and the network declined it",
   PROVIDER_RETRY_TIMEOUT: "Payment sent again, with no response",

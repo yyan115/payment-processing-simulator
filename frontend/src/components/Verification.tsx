@@ -66,7 +66,7 @@ export default function Verification({
       if (window.turnstile && node.current) {
         id = window.turnstile.render(node.current, {
           sitekey: status.siteKey,
-          action: "mastercard",
+          action: "sandbox",
           callback: (token: string) => {
             state(token)
               .then((s) => {

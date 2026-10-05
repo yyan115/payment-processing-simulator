@@ -1,7 +1,9 @@
 package dev.yycodes.paymentsimulator.provider.visa;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import dev.yycodes.paymentsimulator.provider.ProviderRequestException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -83,5 +85,17 @@ class VisaDirectPayloadFactoryTest {
         assertThat(node.path("acquiringBin").asText()).isEqualTo("408999");
         assertThat(node.path("businessApplicationId").asText()).isEqualTo("MD");
         assertThat(node.path("localTransactionDateTime").asText()).isEqualTo("2026-10-02T17:45:00");
+    }
+
+    @Test
+    void anAmountWithMoreThanTwoDecimalPlacesIsAnInvalidRequest() {
+        assertThatThrownBy(
+                        () ->
+                                factory.createPayload(
+                                        UUID.randomUUID(),
+                                        new BigDecimal("1.001"),
+                                        "KWD",
+                                        Instant.parse("2026-10-02T10:00:00Z")))
+                .isInstanceOf(ProviderRequestException.class);
     }
 }

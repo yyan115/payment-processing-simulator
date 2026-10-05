@@ -9,13 +9,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 class SandboxVerificationTest {
     @Test
     void rejectsWrongActionHostnameFailureAndMalformedResponses() {
-        String valid = "{\"success\":true,\"hostname\":\"demo.example\",\"action\":\"mastercard\"}";
+        String valid = "{\"success\":true,\"hostname\":\"demo.example\",\"action\":\"sandbox\"}";
         assertThat(SandboxVerification.validResult(200, valid, "demo.example")).isTrue();
         assertThat(SandboxVerification.validResult(500, valid, "demo.example")).isFalse();
         assertThat(SandboxVerification.validResult(200, valid, "other.example")).isFalse();
         assertThat(
                         SandboxVerification.validResult(
-                                200, valid.replace("mastercard", "login"), "demo.example"))
+                                200, valid.replace("sandbox", "login"), "demo.example"))
                 .isFalse();
         assertThat(
                         SandboxVerification.validResult(

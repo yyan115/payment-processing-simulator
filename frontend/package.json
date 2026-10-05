@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Demo UI for the payment processing simulator",
-  "license": "MIT",
+  "license": "ISC",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

@@ -11,8 +11,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface PayoutRepository extends JpaRepository<Payout, UUID> {
     Page<Payout> findByDemoSessionId(UUID session, Pageable page);
 
-    long countByDemoSessionId(UUID session);
-
     Optional<Payout> findByIdempotencyKey(String idempotencyKey);
 
     List<Payout> findAllByStatus(PayoutStatus status);

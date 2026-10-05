@@ -27,9 +27,9 @@ public class SandboxRequestBudget {
     public SandboxRequestBudget(
             JdbcTemplate jdbc,
             SandboxVerification verification,
-            @Value("${payments.demo.mastercard-calls-per-session:10}") int sessionLimit,
-            @Value("${payments.demo.mastercard-calls-per-minute:12}") int minuteLimit,
-            @Value("${payments.demo.mastercard-calls-per-day:100}") int dayLimit) {
+            @Value("${payments.demo.sandbox-calls-per-session:10}") int sessionLimit,
+            @Value("${payments.demo.sandbox-calls-per-minute:12}") int minuteLimit,
+            @Value("${payments.demo.sandbox-calls-per-day:100}") int dayLimit) {
         this.jdbc = jdbc;
         this.verification = verification;
         this.sessionLimit = sessionLimit;

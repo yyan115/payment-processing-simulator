@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
+/** Opens a demo workspace and reports which payment networks are configured. */
 @RestController
 @RequestMapping("/api/v1")
 public class DemoController {

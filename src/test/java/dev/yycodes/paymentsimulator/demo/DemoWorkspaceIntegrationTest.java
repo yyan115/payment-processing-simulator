@@ -25,8 +25,7 @@ import tools.jackson.databind.json.JsonMapper;
         properties = {
             "payments.reconciliation.enabled=false", "payments.demo.enabled=true",
             "payments.demo.max-payouts=2", "payments.demo.cleanup-ms=3600000",
-            "payments.demo.mastercard-calls-per-minute=2",
-                    "payments.demo.mastercard-calls-per-day=3"
+            "payments.demo.sandbox-calls-per-minute=2", "payments.demo.sandbox-calls-per-day=3"
         })
 class DemoWorkspaceIntegrationTest {
     @Value("${local.server.port}")

@@ -106,7 +106,7 @@ public class SandboxVerification {
             return status == 200
                     && result.path("success").asBoolean()
                     && hostname.equals(result.path("hostname").asText())
-                    && "mastercard".equals(result.path("action").asText());
+                    && "sandbox".equals(result.path("action").asText());
         } catch (Exception e) {
             return false;
         }

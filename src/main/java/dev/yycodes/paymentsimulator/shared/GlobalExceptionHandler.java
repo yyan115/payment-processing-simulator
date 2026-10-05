@@ -37,14 +37,16 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(OptimisticLockingFailureException.class)
     ResponseEntity<ApiError> optimisticConflict(OptimisticLockingFailureException ignored) {
-        return error(HttpStatus.CONFLICT, "Payout state changed concurrently; reload and retry");
+        return error(
+                HttpStatus.CONFLICT,
+                "The payout changed at the same time. Reload it and try again");
     }
 
     @ExceptionHandler(ProviderTimeoutException.class)
     ResponseEntity<ApiError> providerUnavailable(ProviderTimeoutException ignored) {
         return error(
                 HttpStatus.SERVICE_UNAVAILABLE,
-                "Payment provider is temporarily unavailable; payout state was preserved");
+                "The payment network is temporarily unavailable. The payout keeps its state");
     }
 
     @ExceptionHandler(ProviderRejectedException.class)

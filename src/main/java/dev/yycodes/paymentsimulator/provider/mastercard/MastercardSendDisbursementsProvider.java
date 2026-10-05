@@ -21,6 +21,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Service;
 
+/**
+ * Mastercard Send payouts through the disbursements API. Each request is signed with OAuth 1.0a,
+ * and a resend uses the same reference with the repeat flag.
+ */
 @Service
 @ConditionalOnExpression(
         "${payments.mastercard.enabled:false} or '${payments.provider:simulated}' == 'mastercard'")
@@ -206,8 +210,7 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
                         || "sandbox.api.mastercard.com".equalsIgnoreCase(host);
 
         if (!"https".equalsIgnoreCase(baseUrl.getScheme()) || !allowed) {
-            throw new IllegalStateException(
-                    "This project intentionally supports Mastercard sandbox endpoints only");
+            throw new IllegalStateException("Only Mastercard sandbox endpoints are supported");
         }
     }
 
@@ -218,7 +221,7 @@ public class MastercardSendDisbursementsProvider implements PaymentProvider {
     private static void requireConfigured(String property, String value) {
         if (value == null || value.isBlank()) {
             throw new IllegalStateException(
-                    property + " must be configured when PAYMENTS_PROVIDER=mastercard");
+                    property + " must be configured when the Mastercard network is enabled");
         }
     }
 

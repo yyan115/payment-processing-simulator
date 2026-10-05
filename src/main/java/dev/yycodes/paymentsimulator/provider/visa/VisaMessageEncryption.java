@@ -7,11 +7,14 @@ import java.security.SecureRandom;
 import java.security.spec.MGF1ParameterSpec;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.OAEPParameterSpec;
 import javax.crypto.spec.PSource;
 import javax.crypto.spec.SecretKeySpec;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Visa Message Level Encryption, which is a JWE with RSA-OAEP-256 key wrapping and A128GCM content
@@ -27,6 +30,8 @@ final class VisaMessageEncryption {
     private final PublicKey visaKey;
     private final PrivateKey ourKey;
     private final String keyId;
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+
     private final SecureRandom random = new SecureRandom();
 
     VisaMessageEncryption(PublicKey visaKey, PrivateKey ourKey, String keyId) {
@@ -36,14 +41,14 @@ final class VisaMessageEncryption {
     }
 
     String encrypt(String json) throws Exception {
+        Map<String, Object> headerFields = new LinkedHashMap<>();
+        headerFields.put("alg", "RSA-OAEP-256");
+        headerFields.put("enc", "A128GCM");
+        headerFields.put("kid", keyId);
+        headerFields.put("iat", System.currentTimeMillis());
         String header =
                 ENCODER.encodeToString(
-                        ("{\"alg\":\"RSA-OAEP-256\",\"enc\":\"A128GCM\",\"kid\":\""
-                                        + keyId
-                                        + "\",\"iat\":"
-                                        + System.currentTimeMillis()
-                                        + "}")
-                                .getBytes(StandardCharsets.UTF_8));
+                        JSON.writeValueAsString(headerFields).getBytes(StandardCharsets.UTF_8));
         byte[] contentKey = new byte[16];
         byte[] iv = new byte[12];
         random.nextBytes(contentKey);

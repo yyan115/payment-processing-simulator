@@ -9,6 +9,7 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.EnumMap;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -37,7 +38,7 @@ public class PaymentMetrics {
             providerResults.put(
                     status,
                     Counter.builder("payments.payout.provider.results")
-                            .tag("result", status.name().toLowerCase())
+                            .tag("result", status.name().toLowerCase(Locale.ROOT))
                             .register(registry));
         }
 
@@ -45,7 +46,7 @@ public class PaymentMetrics {
             reconciliationResults.put(
                     outcome,
                     Counter.builder("payments.payout.reconciliation")
-                            .tag("outcome", outcome.name().toLowerCase())
+                            .tag("outcome", outcome.name().toLowerCase(Locale.ROOT))
                             .register(registry));
         }
 

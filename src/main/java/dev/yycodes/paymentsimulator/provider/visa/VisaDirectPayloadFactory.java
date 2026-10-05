@@ -1,5 +1,6 @@
 package dev.yycodes.paymentsimulator.provider.visa;
 
+import dev.yycodes.paymentsimulator.provider.ProviderRequestException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -64,9 +65,18 @@ public class VisaDirectPayloadFactory {
         return raw.charAt(0) + String.format("%03d", dayOfYear) + raw.substring(4);
     }
 
+    // Visa Direct takes amounts with two decimal places, so any other precision is invalid.
+    private static String wholeCents(BigDecimal amount) {
+        try {
+            return amount.setScale(2, RoundingMode.UNNECESSARY).toPlainString();
+        } catch (ArithmeticException tooPrecise) {
+            throw new ProviderRequestException("Visa Direct amounts use two decimal places");
+        }
+    }
+
     public String createPayload(UUID reference, BigDecimal amount, String currency, Instant now) {
         ObjectNode root = mapper.createObjectNode();
-        root.put("amount", amount.setScale(2, RoundingMode.UNNECESSARY).toPlainString());
+        root.put("amount", wholeCents(amount));
         root.put("senderAddress", "901 Metro Center Blvd");
         root.put("localTransactionDateTime", LOCAL_TIME.format(now));
         ObjectNode pos = root.putObject("pointOfServiceData");

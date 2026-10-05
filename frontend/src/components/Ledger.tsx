@@ -32,24 +32,30 @@ export function JournalEntry({ snapshot }: { snapshot: Snapshot | null }) {
     </>
   );
 }
-// Round to four decimal places, the precision the backend stores.
-const round = (value: number) => Math.round(value * 1e4) / 1e4;
-function signed(net: number, currency: string) {
-  const value = round(net);
-  if (value === 0) return money(0, currency);
-  return `${money(Math.abs(value), currency)} ${value > 0 ? "debit" : "credit"}`;
+// Amounts are whole units of 0.0001, the precision the backend stores, so sums stay exact.
+const SCALE = 10_000n;
+function units(amount: string | number): bigint {
+  const [whole, fraction = ""] = String(amount).split(".");
+  return BigInt(whole) * SCALE + BigInt(fraction.padEnd(4, "0").slice(0, 4));
+}
+function signed(net: bigint, currency: string) {
+  if (net === 0n) return money(0, currency);
+  const size = net < 0n ? -net : net;
+  const text = `${size / SCALE}.${String(size % SCALE).padStart(4, "0")}`;
+  return `${money(text, currency)} ${net > 0n ? "debit" : "credit"}`;
 }
 export const balanceText = (account: LedgerAccount) =>
-  signed(Number(account.debits) - Number(account.credits), account.currency);
+  signed(units(account.debits) - units(account.credits), account.currency);
 type Line = LedgerPosting & { balance: string };
 // Oldest first, each line carrying its account's balance after that posting.
 export function withRunningBalances(postings: LedgerPosting[]): Line[] {
-  const totals = new Map<string, number>();
+  const totals = new Map<string, bigint>();
   return postings.map((posting) => {
     const key = `${posting.accountCode}|${posting.currency}`;
+    const amount = units(posting.amount);
     const next =
-      (totals.get(key) ?? 0) +
-      (posting.direction === "DEBIT" ? 1 : -1) * Number(posting.amount);
+      (totals.get(key) ?? 0n) +
+      (posting.direction === "DEBIT" ? amount : -amount);
     totals.set(key, next);
     return { ...posting, balance: signed(next, posting.currency) };
   });

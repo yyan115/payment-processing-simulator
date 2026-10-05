@@ -149,7 +149,9 @@ public class VisaDirectProvider implements PaymentProvider {
                 throw new ProviderTimeoutException(
                         "Visa Direct returned an unreadable transaction response");
             }
-        } catch (ProviderRejectedException | ProviderTimeoutException known) {
+        } catch (ProviderRejectedException
+                | ProviderTimeoutException
+                | ProviderRequestException known) {
             throw known;
         } catch (Exception failure) {
             throw new ProviderTimeoutException("Visa Direct request could not be completed");
@@ -225,8 +227,7 @@ public class VisaDirectProvider implements PaymentProvider {
     static void requireSandboxBaseUrl(URI baseUrl) {
         boolean allowed = "sandbox.api.visa.com".equalsIgnoreCase(baseUrl.getHost());
         if (!"https".equalsIgnoreCase(baseUrl.getScheme()) || !allowed)
-            throw new IllegalStateException(
-                    "This project intentionally supports the Visa sandbox endpoint only");
+            throw new IllegalStateException("Only the Visa sandbox endpoint is supported");
     }
 
     private static String requireConfigured(String property, String value) {
